@@ -1,6 +1,15 @@
 #!/bin/bash
 
 #
+# MODIFIED TO :
+#   - RUN ON A LOCAL DIRECTORY
+#   - SUPPORT OTHER DEFAULT MIRRORS / SUITE
+#   - Add some core packages to initial debootstrap
+#
+
+
+
+#
 # lxc: linux Container library
 
 # Authors:
@@ -20,8 +29,15 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
-SUITE=${SUITE:-squeeze}
+cd $(dirname $0)
+W=$PWD
+SUITE=${SUITE:-wheezy}
 MIRROR=${MIRROR:-http://cdn.debian.net/debian}
+BASE_PACKAGES="$BASE_PACKAGES ssh vim ntp snmpd screen"
+BASE_PACKAGES="$BASE_PACKAGES vim logrotate sudo"
+BASE_PACKAGES="$BASE_PACKAGES locales"
+cache="$W/cache"
+export DEBIAN_FRONTEND=noninteractive
 
 configure_debian()
 {
@@ -162,9 +178,8 @@ copy_debian()
 
 install_debian()
 {
-    cache="/var/cache/lxc/debian"
     rootfs=$1
-    mkdir -p /var/lock/subsys/
+    mkdir -p $cache/lock/subsys/
     (
         flock -x 200
         if [ $? -ne 0 ]; then
@@ -182,8 +197,26 @@ install_debian()
                 return 1
             fi
         fi
+        d="$cache/rootfs-$SUITE-$arch"
+        if [ ! -e "$d/tmp/.postinstall" ]; then
+            cat >/etc/resolv.conf << EOF
+nameserver 8.8.8.8
+nameserver 4.4.4.4
+EOF
+            mount -t proc none $d/proc
+            mount -t sysfs none $d/sys
+            chroot "$d" apt-get -y --force-yes install $BASE_PACKAGES
+            if [[ $? != 0 ]];then
+                [[ -f /proc/meminfo ]] && umount $d/proc
+                [[ -f /sys/fs ]] && umount $d/sys
+            else
+                echo "Failed to install base packages"
+                return 1                      
+            fi
+        fi
 
         copy_debian $cache $arch $rootfs
+        rm -f $rootfs/tmp/.postinstall
         if [ $? -ne 0 ]; then
             echo "Failed to copy rootfs"
             return 1
@@ -191,7 +224,7 @@ install_debian()
 
         return 0
 
-        ) 200>/var/lock/subsys/lxc-debian
+        ) 200>$cache/lock/subsys/lxc-debian
 
     return $?
 }
@@ -243,8 +276,6 @@ EOF
 
 clean()
 {
-    cache="/var/cache/lxc/debian"
-
     if [ ! -e $cache ]; then
         exit 0
     fi
@@ -261,7 +292,7 @@ clean()
         rm --preserve-root --one-file-system -rf $cache && echo "Done." || exit 1
         exit 0
 
-    ) 200>/var/lock/subsys/lxc-debian
+    ) 200>$cache/lock/subsys/lxc-debian
 }
 
 usage()
@@ -286,6 +317,8 @@ do
         -p|--path)      path=$2; shift 2;;
         -n|--name)      name=$2; shift 2;;
         -c|--clean)     clean=$2; shift 2;;
+        -s|--debian-suite)     SUITE=$2; shift 2;;
+        -m|--debian-mirror)     MIRROR=$2; shift 2;;
         --)             shift 1; break ;;
         *)              break ;;
     esac
@@ -312,13 +345,14 @@ if [ "$(id -u)" != "0" ]; then
     exit 1
 fi
 
-# detect rootfs
-config="$path/config"
-if grep -q '^lxc.rootfs' $config 2>/dev/null ; then
-    rootfs=`grep 'lxc.rootfs =' $config | awk -F= '{ print $2 }'`
-else
-    rootfs=$path/rootfs
-fi
+## # detect rootfs
+## config="$path/config"
+## if grep -q '^lxc.rootfs' $config 2>/dev/null ; then
+##     rootfs=`grep 'lxc.rootfs =' $config | awk -F= '{ print $2 }'`
+## else
+##     rootfs=$path/rootfs
+     rootfs=$path
+## fi
 
 
 install_debian $rootfs
@@ -333,11 +367,11 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-copy_configuration $path $rootfs $name
-if [ $? -ne 0 ]; then
-    echo "failed write configuration file"
-    exit 1
-fi
+## copy_configuration $path $rootfs $name
+## if [ $? -ne 0 ]; then
+##     echo "failed write configuration file"
+##     exit 1
+## fi
 
 if [ ! -z $clean ]; then
     clean || exit 1
