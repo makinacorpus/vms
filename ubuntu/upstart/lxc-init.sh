@@ -2,6 +2,7 @@
 
 
 path=/
+rootfs=/
 hostname=$(hostname)
 name=$(hostname)
 
@@ -185,8 +186,8 @@ download_ubuntu()
     arch=$2
     release=$3
 
-    #XXX MAKINA XXX: modified
-    packages=vim,ssh,cron,logrotate,snmpd
+    #XXX MAKINA XXX: modified -> done in base
+    packages=vim,ssh
 
     # Try to guess a list of langpacks to install
     langpacks="language-pack-en"
@@ -253,147 +254,147 @@ EOF
     return 0
 }
 
-copy_ubuntu()
-{
-    cache=$1
-    arch=$2
-    rootfs=$3
+## copy_ubuntu()
+## {
+##     cache=$1
+##     arch=$2
+##     rootfs=$3
+##
+##     # make a local copy of the miniubuntu
+##     echo "Copying rootfs to $rootfs ..."
+##     mkdir -p $rootfs
+##     rsync -Ha $cache/rootfs-$arch/ $rootfs/ || return 1
+##     return 0
+## }
 
-    # make a local copy of the miniubuntu
-    echo "Copying rootfs to $rootfs ..."
-    mkdir -p $rootfs
-    rsync -Ha $cache/rootfs-$arch/ $rootfs/ || return 1
-    return 0
-}
+## install_ubuntu()
+## {
+##     rootfs=$1
+##     release=$2
+##     flushcache=$3
+##     cache="/var/cache/lxc/$release"
+##     mkdir -p /var/lock/subsys/
+##
+##     (
+##         flock -x 200
+##         if [ $? -ne 0 ]; then
+##             echo "Cache repository is busy."
+##             return 1
+##         fi
+##
+##
+##         if [ $flushcache -eq 1 ]; then
+##             echo "Flushing cache..."
+##             rm -rf "$cache/partial-$arch"
+##             rm -rf "$cache/rootfs-$arch"
+##         fi
+##
+##         echo "Checking cache download in $cache/rootfs-$arch ... "
+##         if [ ! -e "$cache/rootfs-$arch" ]; then
+##             download_ubuntu $cache $arch $release
+##             if [ $? -ne 0 ]; then
+##                 echo "Failed to download 'ubuntu $release base'"
+##                 return 1
+##             fi
+##         fi
+##
+##         echo "Copy $cache/rootfs-$arch to $rootfs ... "
+##         copy_ubuntu $cache $arch $rootfs
+##         if [ $? -ne 0 ]; then
+##             echo "Failed to copy rootfs"
+##             return 1
+##         fi
+##
+##         return 0
+##
+##     ) 200>/var/lock/subsys/lxc-ubuntu
+##
+##     return $?
+## }
 
-install_ubuntu()
-{
-    rootfs=$1
-    release=$2
-    flushcache=$3
-    cache="/var/cache/lxc/$release"
-    mkdir -p /var/lock/subsys/
-
-    (
-        flock -x 200
-        if [ $? -ne 0 ]; then
-            echo "Cache repository is busy."
-            return 1
-        fi
-
-
-        if [ $flushcache -eq 1 ]; then
-            echo "Flushing cache..."
-            rm -rf "$cache/partial-$arch"
-            rm -rf "$cache/rootfs-$arch"
-        fi
-
-        echo "Checking cache download in $cache/rootfs-$arch ... "
-        if [ ! -e "$cache/rootfs-$arch" ]; then
-            download_ubuntu $cache $arch $release
-            if [ $? -ne 0 ]; then
-                echo "Failed to download 'ubuntu $release base'"
-                return 1
-            fi
-        fi
-
-        echo "Copy $cache/rootfs-$arch to $rootfs ... "
-        copy_ubuntu $cache $arch $rootfs
-        if [ $? -ne 0 ]; then
-            echo "Failed to copy rootfs"
-            return 1
-        fi
-
-        return 0
-
-    ) 200>/var/lock/subsys/lxc-ubuntu
-
-    return $?
-}
-
-copy_configuration()
-{
-    path=$1
-    rootfs=$2
-    name=$3
-    arch=$4
-    release=$5
-
-    if [ $arch = "i386" ]; then
-        arch="i686"
-    fi
-
-    ttydir=""
-    if [ -f $rootfs/etc/init/container-detect.conf ]; then
-        ttydir=" lxc"
-    fi
-
-    # if there is exactly one veth network entry, make sure it has an
-    # associated hwaddr.
-    nics=`grep -e '^lxc\.network\.type[ \t]*=[ \t]*veth' $path/config | wc -l`
-    if [ $nics -eq 1 ]; then
-        grep -q "^lxc.network.hwaddr" $path/config || sed -i -e "/^lxc\.network\.type[ \t]*=[ \t]*veth/a lxc.network.hwaddr = 00:16:3e:$(openssl rand -hex 3| sed 's/\(..\)/\1:/g; s/.$//')" $path/config
-    fi
-
-    grep -q "^lxc.rootfs" $path/config 2>/dev/null || echo "lxc.rootfs = $rootfs" >> $path/config
-    cat <<EOF >> $path/config
-lxc.mount = $path/fstab
-lxc.pivotdir = lxc_putold
-
-lxc.devttydir =$ttydir
-lxc.tty = 4
-lxc.pts = 1024
-
-lxc.utsname = $name
-lxc.arch = $arch
-lxc.cap.drop = sys_module mac_admin mac_override
-
-# When using LXC with apparmor, uncomment the next line to run unconfined:
-#lxc.aa_profile = unconfined
-
-lxc.cgroup.devices.deny = a
-# Allow any mknod (but not using the node)
-lxc.cgroup.devices.allow = c *:* m
-lxc.cgroup.devices.allow = b *:* m
-# /dev/null and zero
-lxc.cgroup.devices.allow = c 1:3 rwm
-lxc.cgroup.devices.allow = c 1:5 rwm
-# consoles
-lxc.cgroup.devices.allow = c 5:1 rwm
-lxc.cgroup.devices.allow = c 5:0 rwm
-#lxc.cgroup.devices.allow = c 4:0 rwm
-#lxc.cgroup.devices.allow = c 4:1 rwm
-# /dev/{,u}random
-lxc.cgroup.devices.allow = c 1:9 rwm
-lxc.cgroup.devices.allow = c 1:8 rwm
-lxc.cgroup.devices.allow = c 136:* rwm
-lxc.cgroup.devices.allow = c 5:2 rwm
-# rtc
-lxc.cgroup.devices.allow = c 254:0 rwm
-#fuse
-lxc.cgroup.devices.allow = c 10:229 rwm
-#tun
-lxc.cgroup.devices.allow = c 10:200 rwm
-#full
-lxc.cgroup.devices.allow = c 1:7 rwm
-#hpet
-lxc.cgroup.devices.allow = c 10:228 rwm
-#kvm
-lxc.cgroup.devices.allow = c 10:232 rwm
-EOF
-
-    cat <<EOF > $path/fstab
-proc            proc         proc    nodev,noexec,nosuid 0 0
-sysfs           sys          sysfs defaults  0 0
-EOF
-
-    if [ $? -ne 0 ]; then
-        echo "Failed to add configuration"
-        return 1
-    fi
-
-    return 0
-}
+## copy_configuration()
+## {
+##     path=$1
+##     rootfs=$2
+##     name=$3
+##     arch=$4
+##     release=$5
+##
+##     if [ $arch = "i386" ]; then
+##         arch="i686"
+##     fi
+##
+##     ttydir=""
+##     if [ -f $rootfs/etc/init/container-detect.conf ]; then
+##         ttydir=" lxc"
+##     fi
+##
+##     # if there is exactly one veth network entry, make sure it has an
+##     # associated hwaddr.
+##     nics=`grep -e '^lxc\.network\.type[ \t]*=[ \t]*veth' $path/config | wc -l`
+##     if [ $nics -eq 1 ]; then
+##         grep -q "^lxc.network.hwaddr" $path/config || sed -i -e "/^lxc\.network\.type[ \t]*=[ \t]*veth/a lxc.network.hwaddr = 00:16:3e:$(openssl rand -hex 3| sed 's/\(..\)/\1:/g; s/.$//')" $path/config
+##     fi
+##
+##     grep -q "^lxc.rootfs" $path/config 2>/dev/null || echo "lxc.rootfs = $rootfs" >> $path/config
+##     cat <<EOF >> $path/config
+## lxc.mount = $path/fstab
+## lxc.pivotdir = lxc_putold
+##
+## lxc.devttydir =$ttydir
+## lxc.tty = 4
+## lxc.pts = 1024
+##
+## lxc.utsname = $name
+## lxc.arch = $arch
+## lxc.cap.drop = sys_module mac_admin mac_override
+##
+## # When using LXC with apparmor, uncomment the next line to run unconfined:
+## #lxc.aa_profile = unconfined
+##
+## lxc.cgroup.devices.deny = a
+## # Allow any mknod (but not using the node)
+## lxc.cgroup.devices.allow = c *:* m
+## lxc.cgroup.devices.allow = b *:* m
+## # /dev/null and zero
+## lxc.cgroup.devices.allow = c 1:3 rwm
+## lxc.cgroup.devices.allow = c 1:5 rwm
+## # consoles
+## lxc.cgroup.devices.allow = c 5:1 rwm
+## lxc.cgroup.devices.allow = c 5:0 rwm
+## #lxc.cgroup.devices.allow = c 4:0 rwm
+## #lxc.cgroup.devices.allow = c 4:1 rwm
+## # /dev/{,u}random
+## lxc.cgroup.devices.allow = c 1:9 rwm
+## lxc.cgroup.devices.allow = c 1:8 rwm
+## lxc.cgroup.devices.allow = c 136:* rwm
+## lxc.cgroup.devices.allow = c 5:2 rwm
+## # rtc
+## lxc.cgroup.devices.allow = c 254:0 rwm
+## #fuse
+## lxc.cgroup.devices.allow = c 10:229 rwm
+## #tun
+## lxc.cgroup.devices.allow = c 10:200 rwm
+## #full
+## lxc.cgroup.devices.allow = c 1:7 rwm
+## #hpet
+## lxc.cgroup.devices.allow = c 10:228 rwm
+## #kvm
+## lxc.cgroup.devices.allow = c 10:232 rwm
+## EOF
+##
+##     cat <<EOF > $path/fstab
+## proc            proc         proc    nodev,noexec,nosuid 0 0
+## sysfs           sys          sysfs defaults  0 0
+## EOF
+##
+##     if [ $? -ne 0 ]; then
+##         echo "Failed to add configuration"
+##         return 1
+##     fi
+##
+##     return 0
+## }
 
 trim()
 {
@@ -546,43 +547,43 @@ post_process()
     fi
 }
 
-do_bindhome()
-{
-    rootfs=$1
-    user=$2
-
-    # copy /etc/passwd, /etc/shadow, and /etc/group entries into container
-    pwd=`getent passwd $user` || { echo "Failed to copy password entry for $user"; false; }
-    echo $pwd >> $rootfs/etc/passwd
-
-    # make sure user's shell exists in the container
-    shell=`echo $pwd | cut -d: -f 7`
-    if [ ! -x $rootfs/$shell ]; then
-        echo "shell $shell for user $user was not found in the container."
-        pkg=`dpkg -S $(readlink -m $shell) | cut -d ':' -f1`
-        echo "Installing $pkg"
-        chroot $rootfs apt-get --force-yes -y install $pkg
-    fi
-
-    shad=`getent shadow $user`
-    echo "$shad" >> $rootfs/etc/shadow
-
-    # bind-mount the user's path into the container's /home
-    h=`getent passwd $user | cut -d: -f 6`
-    mkdir -p $rootfs/$h
-
-    # use relative path in container
-    h2=${h#/}
-    while [ ${h2:0:1} = "/" ]; do
-        h2=${h2#/}
-    done
-    echo "$h $h2 none bind 0 0" >> $path/fstab
-
-    # Make sure the group exists in container
-    grp=`echo $pwd | cut -d: -f 4`  # group number for $user
-    grpe=`getent group $grp` || return 0  # if host doesn't define grp, ignore in container
-    chroot $rootfs getent group "$grpe" || echo "$grpe" >> $rootfs/etc/group
-}
+## do_bindhome()
+## {
+##     rootfs=$1
+##     user=$2
+##
+##     # copy /etc/passwd, /etc/shadow, and /etc/group entries into container
+##     pwd=`getent passwd $user` || { echo "Failed to copy password entry for $user"; false; }
+##     echo $pwd >> $rootfs/etc/passwd
+##
+##     # make sure user's shell exists in the container
+##     shell=`echo $pwd | cut -d: -f 7`
+##     if [ ! -x $rootfs/$shell ]; then
+##         echo "shell $shell for user $user was not found in the container."
+##         pkg=`dpkg -S $(readlink -m $shell) | cut -d ':' -f1`
+##         echo "Installing $pkg"
+##         chroot $rootfs apt-get --force-yes -y install $pkg
+##     fi
+##
+##     shad=`getent shadow $user`
+##     echo "$shad" >> $rootfs/etc/shadow
+##
+##     # bind-mount the user's path into the container's /home
+##     h=`getent passwd $user | cut -d: -f 6`
+##     mkdir -p $rootfs/$h
+##
+##     # use relative path in container
+##     h2=${h#/}
+##     while [ ${h2:0:1} = "/" ]; do
+##         h2=${h2#/}
+##     done
+##     echo "$h $h2 none bind 0 0" >> $path/fstab
+##
+##     # Make sure the group exists in container
+##     grp=`echo $pwd | cut -d: -f 4`  # group number for $user
+##     grpe=`getent group $grp` || return 0  # if host doesn't define grp, ignore in container
+##     chroot $rootfs getent group "$grpe" || echo "$grpe" >> $rootfs/etc/group
+## }
 
 usage()
 {
@@ -728,7 +729,20 @@ fi
 ##     exit 1
 ## fi
 
+###XXX: forced to trim
+
+trim_container=1
 post_process $rootfs $release $trim_container
+### XXX: modidied for docker
+cat <<EOF > $rootfs/etc/init/hostname.conf
+# hostname - set system hostname
+# modified to run in docker
+description     "set system hostname"
+start on startup
+task
+exec /bin/true
+EOF
+
 
 ## if [ -n "$bindhome" ]; then
 ##     do_bindhome $rootfs $bindhome

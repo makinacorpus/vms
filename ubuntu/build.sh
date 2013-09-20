@@ -8,16 +8,17 @@ for d in $dockers;do
         *base*)
             do_dockers="$do_dockers base"
             ;;
-    esac 
+    esac
 done
 maybe_build() {
     if [[ $do_dockers == *$1* ]];then
         echo build $1
         docker build -t makinacorpus/$1 $1
+        ret=$?
+        if [[ $ret != 0 ]];then echo "failed $1";exit -1;fi
     else
         echo "$1 not selected to be built ($dockers)"
     fi
-    if [[ $? != 0 ]];then echo "failed $1";exit -1;fi
 }
 maybe_build base
 maybe_build upstart
