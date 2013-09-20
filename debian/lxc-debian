@@ -34,8 +34,7 @@ W=$PWD
 SUITE=${SUITE:-wheezy}
 MIRROR=${MIRROR:-http://cdn.debian.net/debian}
 BASE_PACKAGES="$BASE_PACKAGES ssh vim ntp snmpd screen"
-BASE_PACKAGES="$BASE_PACKAGES vim logrotate sudo"
-BASE_PACKAGES="$BASE_PACKAGES locales"
+BASE_PACKAGES="$BASE_PACKAGES vim logrotate sudo syslog-ng"
 cache="$W/cache"
 export DEBIAN_FRONTEND=noninteractive
 
@@ -78,13 +77,17 @@ EOF
     mkdir -p $rootfs/selinux
     echo 0 > $rootfs/selinux/enforce
 
+    # remove useless getty
+    sed -ie "/getty/d" $rootfs/etc/inittab
+
     # configure the network using the dhcp
     cat <<EOF > $rootfs/etc/network/interfaces
 auto lo
 iface lo inet loopback
 
-auto eth0
-iface eth0 inet dhcp
+# done automaticly via docker
+# auto eth0
+# iface eth0 inet dhcp
 EOF
 
     # set the hostname
@@ -173,6 +176,7 @@ copy_debian()
     echo -n "Copying rootfs to $rootfs..."
     mkdir -p $rootfs
     rsync -Ha "$cache/rootfs-$SUITE-$arch"/ $rootfs/ || return 1
+    rm -f $rootfs/var/cache/apt/archives/*deb
     return 0
 }
 
@@ -198,25 +202,56 @@ install_debian()
             fi
         fi
         d="$cache/rootfs-$SUITE-$arch"
-        if [ ! -e "$d/tmp/.postinstall" ]; then
+        if [ ! -e "$d/tmp/.postinstall_$PACKAGES" ]; then
+            cat >$d/etc/locale.gen << EOF
+fr_FR.UTF-8 UTF-8
+fr_FR ISO-8859-1
+fr_FR@euro ISO-8859-15
+de_DE.UTF-8 UTF-8
+de_DE ISO-8859-1
+de_DE@euro ISO-8859-15
+en_US.UTF-8 UTF-8
+en_US ISO-8859-1
+EOF
+            echo "export LANG=\${LANG:-fr_FR.UTF-8}">>$d/etc/profile.d/0_lang.sh
+            chmod +x $d/etc/profile.d/0_lang.sh
             cat >/etc/resolv.conf << EOF
 nameserver 8.8.8.8
 nameserver 4.4.4.4
 EOF
-            mount -t proc none $d/proc
-            mount -t sysfs none $d/sys
+            [[ ! -e $d/proc/meminfo ]] && mount -t proc none $d/proc
+            [[ ! -e $d/sys/fs ]] && mount -t sysfs none $d/sys
+            chroot "$d" /usr/sbin/locale-gen --purge
+            chroot "$d" echo $LANG
+            chroot "$d" locale
             chroot "$d" apt-get -y --force-yes install $BASE_PACKAGES
-            if [[ $? != 0 ]];then
-                [[ -f /proc/meminfo ]] && umount $d/proc
-                [[ -f /sys/fs ]] && umount $d/sys
+            for i in ssh syslog-ng snmpd cron exim4;do
+                chroot "$d" service $i stop
+            done
+            if [[ $? == 0 ]];then
+                [[ -e $d/proc/meminfo ]] && umount $d/proc
+                [[ -e $d/sys/fs ]] && umount $d/sys
+                touch "$d/tmp/.postinstall"
             else
                 echo "Failed to install base packages"
-                return 1                      
+                return 1
             fi
         fi
-
         copy_debian $cache $arch $rootfs
-        rm -f $rootfs/tmp/.postinstall
+        #[[ ! -e $rootfs/proc/meminfo ]] && mount -t proc none $roofs/proc
+        #[[ ! -e $rootfs/sys/fs ]] && mount -t sysfs none $roofs/sys
+        #rm $rootfs/etc/ssh/ssh_host_*
+        #chown -R o-rwx $rootfs/run
+        #chroot "$rootfs" dpkg-reconfigure openssh-server
+        ##chmod 0711 $rootfs/etc/ssh/ssh_host_*
+        #if [[ $? == 0 ]];then
+        #    [[ -e $rootfs/proc/meminfo ]] && umount $rootfs/proc
+        #    [[ -e $rootfs/sys/fs ]] && umount $rootfs/sys
+        #    touch "$roofs/tmp/.postcopy"
+        #else
+        #    echo "Failed to do post copy stuff"
+        #    return 1
+        #fi
         if [ $? -ne 0 ]; then
             echo "Failed to copy rootfs"
             return 1
@@ -354,6 +389,18 @@ fi
      rootfs=$path
 ## fi
 
+
+
+# remove any acls
+for i in $cache $rootfs;do
+    [[ ! -d $i ]] && mkdir -pv $i
+    if [[ -f $(which getfacl) ]];then
+        if [[ $(getfacl $i|egrep "^default|(user|group):.+:"|wc -l) != "0" ]];then
+            echo "Removing acls in $i"
+            setfacl -R -b $i
+        fi
+    fi
+done
 
 install_debian $rootfs
 if [ $? -ne 0 ]; then

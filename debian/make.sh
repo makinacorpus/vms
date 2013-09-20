@@ -2,10 +2,11 @@
 cd $(dirname $0)
 W=$PWD
 MARKERS=$W/.done
+tar=$W/debian-base.tar.gz
 cook() {
     func=$1
     mk="$MARKERS/.cook_${PWD//\//_}_${@//\//_}"
-    if [[ ! -f $mk ]];then
+    if [[ ! -f $mk ]] || [[ -n $COOK_FORCE ]] ;then
         "$@"
         if [[ $? == 0 ]];then
             if [[ ! -d $MARKERS ]];then mkdir $MARKERS;fi
@@ -20,10 +21,16 @@ cook() {
     fi
 }
 tar_() {
-    pushd deboostrap &&\
-    tar cjvf ../debian-base.tgz .&&\
-    popd
+    echo Tarballing
+    cd deboostrap &&\
+    tar cjf $tar .&&\
+    cd $W
+}
+import_() {
+    cat $tar | docker import - makinacorpus/debian base
 }
 cook ./lxc-debian -p $W/deboostrap
-#cook tar_
+cook tar_
+cook import_
+cook docker build -t="makinacorpus/debian:latest" .
 # vim:set et sts=4 ts=4 tw=80:

@@ -28,7 +28,7 @@ Did not managed to get upstart running as docker has its own init script spawnni
 
 Debian
 --------
-- **INPROGRESS**
+- **Working**
 - Working on adapting the base lxc-debian lxc template script to
 make a suitable base for docker use
 

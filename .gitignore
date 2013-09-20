@@ -1,3 +1,6 @@
 debian/cache/
+.done/
+debian/debian-base.tar.gz
+debian/deboostrap/
 debian/debian-base.tgz
 
