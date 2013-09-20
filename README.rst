@@ -1,7 +1,9 @@
 
 Docker VMs
 ==========
-Contruct base environments to work with docker.
+- Contruct base environments to work with docker.
+- Whereas the single process, we want to use the system providen by the
+  underlying distribution to manage a bunch of things.
 
 Goal is to have in working state:
 
