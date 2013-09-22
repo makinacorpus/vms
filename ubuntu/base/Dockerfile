@@ -1,12 +1,10 @@
 # add package to base ubuntu image
-FROM ubuntu:raring
+FROM ubuntu:latest
 ENV DEBIAN_FRONTEND noninteractive
 RUN sed -re \
     "s/ main$/ main restricted universe multiverse/g" \
     -e "s:/archive\.:/fr.archive\.:g" \
-    -i /etc/apt/sources.list
-RUN apt-get -q update
-RUN apt-get upgrade -y
+    -i /etc/apt/sources.list && apt-get -q update && apt-get upgrade -y
 # mitifate half configured packages by installing them separatly
 RUN apt-get upgrade -y
 RUN apt-get install -y cron

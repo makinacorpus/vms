@@ -3,7 +3,7 @@
 # - Re configure some packages
 # - Disable some services at boot
 # - Configure locales
-FROM makinacorpus/ubuntu/base
+FROM ubuntu:latest
 ENV DEBIAN_FRONTEND noninteractive
 RUN sed -re \
     "s/ main$/ main restricted universe multiverse/g" \
@@ -55,8 +55,9 @@ RUN cd /;\
     ;do \
         echo manual>$(basename $i .conf).override;\
         mv -f $f $f.orig;\
-    done
-RUN echo>/etc/locale.gen;\
+    done;\
+    echo "ubuntu:ubuntu" | chpasswd;\
+    echo>/etc/locale.gen;\
     echo "en_US.UTF-8 UTF-8">>/etc/locale.gen;\
     echo "en_US ISO-8859-1">>/etc/locale.gen;\
     echo "de_DE.UTF-8 UTF-8">>/etc/locale.gen;\
@@ -69,7 +70,6 @@ RUN echo>/etc/locale.gen;\
     echo "export LANG=\${LANG:-fr_FR.UTF-8}">>$d/etc/profile.d/0_lang.sh;\
     /usr/sbin/locale-gen;\
     update-locale LANG=fr_FR.utf8;
-RUN echo "ubuntu:ubuntu" | chpasswd
 ADD console.conf /etc/init/console.conf
 ADD udev-fake.conf /etc/init/udev-fake.conf
 CMD ["/sbin/init"]
