@@ -27,7 +27,7 @@ tar_() {
     cd $W
 }
 import_() {
-    cat $tar | docker import - makinacorpus/debian base
+    cat $tar | docker import - makinacorpus/debian/base
 }
 cook ./lxc-debian -p $W/deboostrap
 cook tar_
