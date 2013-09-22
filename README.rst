@@ -14,7 +14,6 @@ Goal is to have in working state:
     - sudo
     - syslog
     - ntp
-    - snmpd
     - screen
 
 Ubuntu

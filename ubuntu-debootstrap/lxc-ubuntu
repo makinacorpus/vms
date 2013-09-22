@@ -1,6 +1,12 @@
 #!/bin/bash
 
 #
+# MODIFIED TO :
+#   - RUN ON A LOCAL DIRECTORY
+#   - SUPPORT OTHER DEFAULT MIRRORS / SUITE
+#   - Add some core packages to initial debootstrap
+#
+
 # template script for generating ubuntu container for LXC
 #
 # This script consolidates and extends the existing lxc ubuntu scripts
@@ -24,6 +30,70 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+
+cd $(dirname $0)
+W=$PWD
+release=${release:-raring}
+MIRROR=${MIRROR:-http://fr.archive.ubuntu.com/ubuntu}
+cache="$W/cache"
+export DEBIAN_FRONTEND=noninteractive
+PACKAGES="
+cron
+tmux
+dialog
+git-core
+language-pack-en
+language-pack-fr
+locales
+logrotate
+man-db
+manpages
+manpages-fr
+manpages-de
+net-tools
+openssh-server
+python-software-properties
+rsyslog
+screen
+ssh
+sudo
+tree
+tzdata
+ubuntu-minimal
+ubuntu-standard
+vim
+"
+
+rmchroot() {
+    if [[ -e "$1/proc/meminfo" ]] ;then
+        umount "$1/proc"
+    fi
+    if [[ -e "$1/sys/fs" ]] ;then
+        umount "$1/sys"
+    fi
+    if [[ -e "$1/dev/pts/1" ]] ;then
+        umount "$1/dev/pts"
+    fi
+    if [[ -e "$1/dev/ram0" ]] ;then
+        umount "$1/dev"
+    fi
+}
+
+mkchroot() {
+    if [[ ! -e "$1/proc/meminfo" ]] ;then
+        mount -t proc none "$1/proc"
+    fi
+    if [[ ! -e "$1/sys/fs" ]] ;then
+        mount -t sysfs none "$1/sys"
+    fi
+    if [[ ! -e "$1/ram0" ]] ;then
+        mount -o bind /dev "$1/dev"
+    fi
+    if [[ ! -e "$1/dev/pts/1" ]] ;then
+        chroot $1 mount -t devpts none "/dev/pts"
+    fi
+}
+
 set -e
 
 if [ -r /etc/default/lxc ]; then
@@ -44,10 +114,11 @@ configure_ubuntu()
 # The loopback network interface
 auto lo
 iface lo inet loopback
-
-auto eth0
-iface eth0 inet dhcp
 EOF
+##
+## auto eth0
+## iface eth0 inet dhcp
+## EOF
 
     # set the hostname
     cat <<EOF > $rootfs/etc/hostname
@@ -89,6 +160,10 @@ EOF
         chroot $rootfs update-locale LANG=$LANG
     fi
 
+    # cleanup some files
+    rm -rf $rootfs/etc/ssh/ssh_host_* $rootfs/var/cahe/apt/archives/*deb || echo "Already cleanedup"
+    [[ ! -d "$rootfs/var/run/ssh" ]] && mkdir -pv "$rootfs/var/run/ssh"
+    chmod -R o-rwx $rootfs/run
     return 0
 }
 
@@ -173,7 +248,8 @@ download_ubuntu()
     arch=$2
     release=$3
 
-    packages=vim,ssh
+    # XXX
+    packages=vim,ssh,$EXTRA_PACKAGES
 
     # Try to guess a list of langpacks to install
     langpacks="language-pack-en"
@@ -249,7 +325,7 @@ copy_ubuntu()
     # make a local copy of the miniubuntu
     echo "Copying rootfs to $rootfs ..."
     mkdir -p $rootfs
-    rsync -Ha $cache/rootfs-$arch/ $rootfs/ || return 1
+    rsync -Ha --delete $cache/rootfs-$arch/ $rootfs/ || return 1
     return 0
 }
 
@@ -258,8 +334,8 @@ install_ubuntu()
     rootfs=$1
     release=$2
     flushcache=$3
-    cache="/var/cache/lxc/$release"
-    mkdir -p /var/lock/subsys/
+    cache="$cache/$release"
+    mkdir -p $cache/lock/subsys/
 
     (
         flock -x 200
@@ -293,7 +369,7 @@ install_ubuntu()
 
         return 0
 
-    ) 200>/var/lock/subsys/lxc-ubuntu
+    ) 200>$cache/lock/subsys/lxc-ubuntu
 
     return $?
 }
@@ -472,7 +548,7 @@ post_process()
     release=$2
     trim_container=$3
 
-    if [ $trim_container -eq 1 ]; then
+    if [[ "$trim_container" == "1" ]]; then
         trim $rootfs $release
     elif [ ! -f $rootfs/etc/init/container-detect.conf ]; then
         # Make sure we have a working resolv.conf
@@ -594,7 +670,7 @@ if [ $? -ne 0 ]; then
 fi
 eval set -- "$options"
 
-release=precise # Default to the last Ubuntu LTS release for non-Ubuntu systems
+## release=precise # Default to the last Ubuntu LTS release for non-Ubuntu systems
 if [ -f /etc/lsb-release ]; then
     . /etc/lsb-release
     if [ "$DISTRIB_ID" = "Ubuntu" ]; then
@@ -683,6 +759,22 @@ if [ -z "$path" ]; then
     exit 1
 fi
 
+case $release in
+    lucid) add_lxcguest=1;;
+    quantal) add_lxcguest=1;;
+esac
+if [[ -n $add_lxcguest ]];then
+    PACKAGES="$PACKAGES lxcguest"
+fi
+
+for i in $PACKAGES;do
+    pref=''
+    if [[ -n $EXTRA_PACKAGES ]];then
+        pref=','
+    fi
+    EXTRA_PACKAGES="$EXTRA_PACKAGES${pref}$i"
+done
+
 if [ "$(id -u)" != "0" ]; then
     echo "This script should be run as 'root'"
     exit 1
@@ -696,30 +788,38 @@ else
     rootfs=$path/rootfs
 fi
 
+rootfs=$path
 install_ubuntu $rootfs $release $flushcache
 if [ $? -ne 0 ]; then
     echo "failed to install ubuntu $release"
     exit 1
 fi
 
+rootfs=$path
 configure_ubuntu $rootfs $name $release
 if [ $? -ne 0 ]; then
     echo "failed to configure ubuntu $release for a container"
     exit 1
 fi
 
-copy_configuration $path $rootfs $name $arch $release
-if [ $? -ne 0 ]; then
-    echo "failed write configuration file"
-    exit 1
-fi
+## XXX: docker side
+## rootfs=$path
+## copy_configuration $path $rootfs $name $arch $release
+## if [ $? -ne 0 ]; then
+##     echo "failed write configuration file"
+##     exit 1
+## fi
 
+rootfs=$path
 post_process $rootfs $release $trim_container
 
 if [ -n "$bindhome" ]; then
+    rootfs=$path
     do_bindhome $rootfs $bindhome
+    rootfs=$path
     finalize_user $bindhome
 else
+    rootfs=$path
     finalize_user ubuntu
 fi
 

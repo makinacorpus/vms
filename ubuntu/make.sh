@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 cd $(dirname $0)
-dockers="${@:-base latest}"
+dockers="${@:-base ubuntu}"
 for d in $dockers;do
     case $d in
-        *latest*)
-            do_dockers="$do_dockers latest"
+        *ubuntu*)
+            do_dockers="$do_dockers ubuntu"
             ;;
         *base*)
             do_dockers="$do_dockers base"
@@ -13,17 +13,16 @@ for d in $dockers;do
 done
 maybe_build() {
     if [[ $do_dockers == *$1* ]];then
-        echo build $1
+        echo "---> Building $1"
         CACHE=${DOCK_CACHE:-}
+        bargs="-t makinacorpus/ubuntu"
         case $d in
-            *latest*)
-                bargs="-t makinacorpus/ubuntu/"
-                ;;
             *base*)
-                bargs="-t makinacorpus/ubuntu"
+                bargs="$bargs/$d"
+                ;;
         esac
         bargs="$bargs $1"
-        echo docker build $CACHE -rm=true $bargs
+        docker build $CACHE -rm=true $bargs
         ret=$?
         if [[ $ret != 0 ]];then echo "failed $1";exit -1;fi
     else
@@ -31,5 +30,5 @@ maybe_build() {
     fi
 }
 maybe_build base
-maybe_build latest
+maybe_build ubuntu
 # vim:set et sts=4 ts=4 tw=80:

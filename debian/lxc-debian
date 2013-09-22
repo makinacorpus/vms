@@ -33,8 +33,8 @@ cd $(dirname $0)
 W=$PWD
 SUITE=${SUITE:-wheezy}
 MIRROR=${MIRROR:-http://cdn.debian.net/debian}
-BASE_PACKAGES="$BASE_PACKAGES ssh vim ntp snmpd screen"
-BASE_PACKAGES="$BASE_PACKAGES vim logrotate sudo syslog-ng"
+PACKAGES="$PACKAGES ssh vim ntp snmpd screen"
+PACKAGES="$PACKAGES vim logrotate sudo syslog-ng"
 cache="$W/cache"
 export DEBIAN_FRONTEND=noninteractive
 
@@ -224,7 +224,7 @@ EOF
             chroot "$d" /usr/sbin/locale-gen --purge
             chroot "$d" echo $LANG
             chroot "$d" locale
-            chroot "$d" apt-get -y --force-yes install $BASE_PACKAGES
+            chroot "$d" apt-get -y --force-yes install $PACKAGES
             for i in ssh syslog-ng snmpd cron exim4;do
                 chroot "$d" service $i stop
             done
@@ -238,20 +238,16 @@ EOF
             fi
         fi
         copy_debian $cache $arch $rootfs
-        #[[ ! -e $rootfs/proc/meminfo ]] && mount -t proc none $roofs/proc
-        #[[ ! -e $rootfs/sys/fs ]] && mount -t sysfs none $roofs/sys
-        #rm $rootfs/etc/ssh/ssh_host_*
-        #chown -R o-rwx $rootfs/run
-        #chroot "$rootfs" dpkg-reconfigure openssh-server
-        ##chmod 0711 $rootfs/etc/ssh/ssh_host_*
-        #if [[ $? == 0 ]];then
-        #    [[ -e $rootfs/proc/meminfo ]] && umount $rootfs/proc
-        #    [[ -e $rootfs/sys/fs ]] && umount $rootfs/sys
-        #    touch "$roofs/tmp/.postcopy"
-        #else
-        #    echo "Failed to do post copy stuff"
-        #    return 1
-        #fi
+        [[ ! -e $rootfs/proc/meminfo ]] && mount -t proc none $roofs/proc
+        [[ ! -e $rootfs/sys/fs ]] && mount -t sysfs none $roofs/sys
+        rm $rootfs/etc/ssh/ssh_host_*
+        chown -R o-rwx $rootfs/run
+        chroot "$rootfs" dpkg-reconfigure openssh-server
+        #chmod 0711 $rootfs/etc/ssh/ssh_host_*
+        if [[ $? == 0 ]];then
+            [[ -e $rootfs/proc/meminfo ]] && umount $rootfs/proc
+            [[ -e $rootfs/sys/fs ]] && umount $rootfs/sys
+        fi
         if [ $? -ne 0 ]; then
             echo "Failed to copy rootfs"
             return 1

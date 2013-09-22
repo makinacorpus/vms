@@ -15,10 +15,12 @@ case $1 in
 esac
 shift
 for j in kill rm ;do
-    echo docker $j $(docker ps -a|grep $image |awk '{print $1}')
+    docker $j $(docker ps -a |awk '{print $1}')
+    #docker $j $(docker ps -a|grep $image |awk '{print $1}')
 done
 if [[ -z $NODAEMON ]];then
     args="-d $args"
 fi
-echo docker run $args $image $@
+sleep 2
+docker run $args $image $@
 # vim:set et sts=4 ts=4 tw=80:
