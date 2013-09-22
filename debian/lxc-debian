@@ -238,19 +238,19 @@ EOF
             fi
         fi
         copy_debian $cache $arch $rootfs
+        if [ $? -ne 0 ]; then
+            echo "Failed to copy rootfs"
+            return 1
+        fi  
         [[ ! -e $rootfs/proc/meminfo ]] && mount -t proc none $roofs/proc
         [[ ! -e $rootfs/sys/fs ]] && mount -t sysfs none $roofs/sys
         rm $rootfs/etc/ssh/ssh_host_*
-        chown -R o-rwx $rootfs/run
+        chmod -R o-rwx $rootfs/run
         chroot "$rootfs" dpkg-reconfigure openssh-server
         #chmod 0711 $rootfs/etc/ssh/ssh_host_*
         if [[ $? == 0 ]];then
             [[ -e $rootfs/proc/meminfo ]] && umount $rootfs/proc
             [[ -e $rootfs/sys/fs ]] && umount $rootfs/sys
-        fi
-        if [ $? -ne 0 ]; then
-            echo "Failed to copy rootfs"
-            return 1
         fi
 
         return 0

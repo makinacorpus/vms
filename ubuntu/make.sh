@@ -24,11 +24,20 @@ maybe_build() {
         bargs="$bargs $1"
         docker build $CACHE -rm=true $bargs
         ret=$?
+        midf=$PWD/.docker_ubuntuid
+        if [[ $1 == "ubuntu" ]];then
+                MID=$(docker run -d -privileged makinacorpus/ubuntu /tmp/postinst.sh)
+                docker attach $MID
+                docker commit $MID makinacorpus/ubuntu
+            fi
+            echo $MID $midf
+            echo $MID>$midf
+        fi
         if [[ $ret != 0 ]];then echo "failed $1";exit -1;fi
     else
         echo "$1 not selected to be built ($dockers)"
     fi
 }
-maybe_build base
+#maybe_build base
 maybe_build ubuntu
 # vim:set et sts=4 ts=4 tw=80:
