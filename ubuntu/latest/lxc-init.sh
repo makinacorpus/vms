@@ -88,8 +88,9 @@ configure_ubuntu()
     fi
 
 ##    if [ -z "$bindhome" ]; then
-##        chroot $rootfs useradd --create-home -s /bin/bash ubuntu
-##        echo "ubuntu:ubuntu" | chroot $rootfs chpasswd
+        chroot $rootfs useradd --create-home -s /bin/bash ubuntu
+        echo "ubuntu:ubuntu" | chroot $rootfs chpasswd
+        gpasswd -a ubuntu sudo
 ##    fi
 
     # make sure we have the current locale defined in the container
