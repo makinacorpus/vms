@@ -1,5 +1,4 @@
-# with the ./lxc-ubuntu script we got a debootstrap with some extra packages
-# To boot a fancy LXC container we need some extra stuff:
+# To boot a fancy LXC container with upstart we need some extra stuff:
 # - Re configure some packages
 # - Disable some services at boot
 # - Configure locales
