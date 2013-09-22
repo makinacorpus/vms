@@ -5,7 +5,7 @@ RUN sed -re \
     "s/ main$/ main restricted universe multiverse/g" \
     -e "s:/archive\.:/fr.archive\.:g" \
     -i /etc/apt/sources.list && apt-get -q update && apt-get upgrade -y
-# mitifate half configured packages by installing them separatly
+# mitigate half configured packages by installing them separatly
 RUN apt-get upgrade -y
 RUN apt-get install -y cron
 RUN apt-get install -y dialog
