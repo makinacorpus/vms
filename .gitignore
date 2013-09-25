@@ -1,4 +1,5 @@
 debian/cache/
+.docker*
 ubuntu-base.tar.gz
 .done/
 debian/debian-base.tar.gz

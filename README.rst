@@ -18,11 +18,14 @@ Goal is to have in working state:
 
 Ubuntu
 ------------
-- **NOGO**
-- Tried to make a rootfs similar to what i would have got with lxc-create -t
-- ubuntu
-Did not managed to get upstart running as docker has its own init script spawnning at pid=1;
-- i dont see how to make it start
+
+Working images:
+
+    - **makinacorpus/ubuntu**: minimal ubuntu system
+
+    - **makinacorpus/ubuntu_salt**: ubuntu + salt master + salt minion
+
+    - **makinacorpus/ubuntu_mastersalt**: ubuntu + salt master + salt minion + mastersalt minion
 
 
 Debian
