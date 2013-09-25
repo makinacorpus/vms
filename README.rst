@@ -31,6 +31,7 @@ Working images:
 Debian
 --------
 - **Working**
+- **makinacorpus/debian**: minimal debian system
 - Working on adapting the base lxc-debian lxc template script to
 make a suitable base for docker use
 
