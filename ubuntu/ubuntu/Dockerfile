@@ -11,7 +11,6 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN rm -f /etc/init/resolvconf.conf
 ADD resolvconf.conf /etc/init/resolvconf
 ADD ntp_postinst /root/ntp_postinst
-#apt-get install $(dpkg-deb -I /root/debbuild/ntp.deb |egrep "^\s*Depends:"|sed -re "s/\([^\)]+\)//g" -e "s/,//g" -e "s/Depends://g")
 RUN sed -re 's/ main$/ main restricted universe multiverse/g' -e "s:/archive\.:/fr.archive\.:g" -i /etc/apt/sources.list &&\
     grep "deb " /etc/apt/sources.list|sed -re "s/^deb /deb-src /g" >> /etc/apt/sources.list &&\
     apt-get -q update && apt-get upgrade -y &&\
@@ -36,9 +35,11 @@ RUN sed -re 's/ main$/ main restricted universe multiverse/g' -e "s:/archive\.:/
       cd /root/debbuild/$i/build&&\
       dpkg-deb -b . /root/debbuild/$i.deb&&\
       dpkg -i /root/debbuild/$i.deb&&\
-      apt-get -fy install &&\
+
       echo $i hold | dpkg --set-selections;\
     done&&\
+    apt-get install $(dpkg-deb -I /root/debbuild/ntp.deb |egrep "^\s*Depends:"|sed -re "s/\([^\)]+\)//g" -e "s/,//g" -e "s/Depends://g") &&\
+    apt-get -fy install &&\
     apt-get -fy install &&\
     apt-get install -y cron;\
     apt-get install -y dialog;\
