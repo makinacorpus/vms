@@ -10,31 +10,36 @@ ENV DEBIAN_FRONTEND noninteractive
 #
 RUN rm -f /etc/init/resolvconf.conf
 ADD resolvconf.conf /etc/init/resolvconf
-ADD ntp_postinst /root/ntp-postinst
+ADD ntp_postinst /root/ntp_postinst
+#apt-get install $(dpkg-deb -I /root/debbuild/ntp.deb |egrep "^\s*Depends:"|sed -re "s/\([^\)]+\)//g" -e "s/,//g" -e "s/Depends://g")
 RUN sed -re 's/ main$/ main restricted universe multiverse/g' -e "s:/archive\.:/fr.archive\.:g" -i /etc/apt/sources.list &&\
     grep "deb " /etc/apt/sources.list|sed -re "s/^deb /deb-src /g" >> /etc/apt/sources.list &&\
     apt-get -q update && apt-get upgrade -y &&\
     apt-get install -y libfuse2 &&\
-    if [[ ! -e /root/debbuild ]];then mkdir -pv /root/debbuild;fi &&\
-    mv /root/ntp-postinst /root/debbuild &&\
+    if [ ! -e "/root/debbuild" ];then mkdir -pv /root/debbuild;fi &&\
+    mv /root/ntp_postinst /root/debbuild &&\
     cd /root/debbuild;\
     for i in resolvconf fuse ntp;do \
       mkdir -p $i && cd $i &&\
       apt-get download -y $i &&\
       dpkg-deb -X $i*deb build &&\
       dpkg-deb -e $i*deb build/DEBIAN && \
-      rm *deb && cd ..;done &&c\
-    cp /root/debbuild/ntp-postinst /root/debbuild/ntp/build/DEBIAN/postinst &&\
+      rm *deb && cd ..;done &&\
+    cp /root/debbuild/ntp_postinst /root/debbuild/ntp/build/DEBIAN/postinst &&\
     echo "#!/bin/bash"   >/root/debbuild/resolvconf/build/DEBIAN/postinst &&\
     echo "exit 0"       >>/root/debbuild/resolvconf/build/DEBIAN/postinst &&\
     echo ""             >>/root/debbuild/resolvconf/build/DEBIAN/postinst &&\
     echo "#!/bin/bash"   >/root/debbuild/fuse/build/DEBIAN/postinst &&\
     echo "#exit 0"      >>/root/debbuild/fuse/build/DEBIAN/postinst &&\
     echo ""             >>/root/debbuild/fuse/build/DEBIAN/postinst &&\
-    cd /root/debbuild/ntp/build/        && dpkg-deb -b . /root/debbuild/ntp.deb        && dpkg -i /root/debbuild/ntp.deb &&\
-    cd /root/debbuild/fuse/build/       && dpkg-deb -b . /root/debbuild/fuse.deb       && dpkg -i /root/debbuild/fuse.deb &&\
-    cd /root/debbuild/resolvconf/build/ && dpkg-deb -b . /root/debbuild/resolvconf.deb && dpkg -i /root/debbuild/resolvconf.deb &&\
-    for i in fuse resolvconf ntp;do echo $i hold | dpkg --set-selections;done&&\
+    for i in fuse resolvconf ntd;do\
+      cd /root/debbuild/$i/build&&\
+      dpkg-deb -b . /root/debbuild/$i.deb&&\
+      dpkg -i /root/debbuild/$i.deb&&\
+      apt-get -fy install &&\
+      echo $i hold | dpkg --set-selections;\
+    done&&\
+    apt-get -fy install &&\
     apt-get install -y cron;\
     apt-get install -y dialog;\
     apt-get install -y git-core;\
