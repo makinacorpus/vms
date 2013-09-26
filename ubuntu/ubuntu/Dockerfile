@@ -31,12 +31,13 @@ RUN sed -re 's/ main$/ main restricted universe multiverse/g' -e "s:/archive\.:/
     echo "#!/bin/bash"   >/root/debbuild/fuse/build/DEBIAN/postinst &&\
     echo "#exit 0"      >>/root/debbuild/fuse/build/DEBIAN/postinst &&\
     echo ""             >>/root/debbuild/fuse/build/DEBIAN/postinst &&\
-    apt-get install $(dpkg-deb -I /root/debbuild/ntp.deb |egrep "^\s*Depends:"|sed -re "s/\([^\)]+\)//g" -e "s/,//g" -e "s/Depends://g") &&\
     for i in fuse resolvconf ntp;do\
       cd /root/debbuild/$i/build&&\
-      dpkg-deb -b . /root/debbuild/$i.deb&&\
+      dpkg-deb -b . /root/debbuild/$i.deb;\
+    done&&\
+    apt-get install $(dpkg-deb -I /root/debbuild/ntp.deb |egrep "^\s*Depends:"|sed -re "s/\([^\)]+\)//g" -e "s/,//g" -e "s/Depends://g") &&\
+    for i in fuse resolvconf ntp;do\
       dpkg -i /root/debbuild/$i.deb&&\
-
       echo $i hold | dpkg --set-selections;\
     done&&\
     apt-get -fy install &&\
