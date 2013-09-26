@@ -24,7 +24,7 @@ RUN sed -re 's/ main$/ main restricted universe multiverse/g' -e "s:/archive\.:/
       dpkg-deb -X $i*deb build &&\
       dpkg-deb -e $i*deb build/DEBIAN && \
       rm *deb && cd ..;done &&c\
-    cp /root/debbuild/ntp-postinst /root/debbuild/ntp/build/DEBIAN/postinst &&
+    cp /root/debbuild/ntp-postinst /root/debbuild/ntp/build/DEBIAN/postinst &&\
     echo "#!/bin/bash"   >/root/debbuild/resolvconf/build/DEBIAN/postinst &&\
     echo "exit 0"       >>/root/debbuild/resolvconf/build/DEBIAN/postinst &&\
     echo ""             >>/root/debbuild/resolvconf/build/DEBIAN/postinst &&\
