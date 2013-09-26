@@ -10,26 +10,31 @@ ENV DEBIAN_FRONTEND noninteractive
 #
 RUN rm -f /etc/init/resolvconf.conf
 ADD resolvconf.conf /etc/init/resolvconf
+ADD ntp_postinst /root/ntp-postinst
 RUN sed -re 's/ main$/ main restricted universe multiverse/g' -e "s:/archive\.:/fr.archive\.:g" -i /etc/apt/sources.list &&\
     grep "deb " /etc/apt/sources.list|sed -re "s/^deb /deb-src /g" >> /etc/apt/sources.list &&\
     apt-get -q update && apt-get upgrade -y &&\
     apt-get install -y libfuse2 &&\
-    cd /tmp;\
-    for i in resolvconf fuse;do \
+    if [[ ! -e /root/debbuild ]];then mkdir -pv /root/debbuild;fi &&\
+    mv /root/ntp-postinst /root/debbuild &&\
+    cd /root/debbuild;\
+    for i in resolvconf fuse ntp;do \
       mkdir -p $i && cd $i &&\
       apt-get download -y $i &&\
       dpkg-deb -X $i*deb build &&\
       dpkg-deb -e $i*deb build/DEBIAN && \
-      rm *deb && cd ..;done &&\
-    echo "#!/bin/bash"   >/tmp/resolvconf/build/DEBIAN/postinst &&\
-    echo "exit 0"       >>/tmp/resolvconf/build/DEBIAN/postinst &&\
-    echo ""             >>/tmp/resolvconf/build/DEBIAN/postinst &&\
-    echo "#!/bin/bash"    >/tmp/fuse/build/DEBIAN/postinst &&\
-    echo "#exit 0"      >>/tmp/fuse/build/DEBIAN/postinst &&\
-    echo ""             >>/tmp/fuse/build/DEBIAN/postinst &&\
-    cd /tmp/fuse/build/ && dpkg-deb -b . /fuse.deb && dpkg -i /fuse.deb &&\
-    cd /tmp/resolvconf/build/ && dpkg-deb -b . /resolvconf.deb && dpkg -i /resolvconf.deb &&\
-    for i in fuse resolvconf;do echo $i hold | dpkg --set-selections;done&&\
+      rm *deb && cd ..;done &&c\
+    cp /root/debbuild/ntp-postinst /root/debbuild/ntp/build/DEBIAN/postinst &&
+    echo "#!/bin/bash"   >/root/debbuild/resolvconf/build/DEBIAN/postinst &&\
+    echo "exit 0"       >>/root/debbuild/resolvconf/build/DEBIAN/postinst &&\
+    echo ""             >>/root/debbuild/resolvconf/build/DEBIAN/postinst &&\
+    echo "#!/bin/bash"   >/root/debbuild/fuse/build/DEBIAN/postinst &&\
+    echo "#exit 0"      >>/root/debbuild/fuse/build/DEBIAN/postinst &&\
+    echo ""             >>/root/debbuild/fuse/build/DEBIAN/postinst &&\
+    cd /root/debbuild/ntp/build/        && dpkg-deb -b . /root/debbuild/ntp.deb        && dpkg -i /root/debbuild/ntp.deb &&\
+    cd /root/debbuild/fuse/build/       && dpkg-deb -b . /root/debbuild/fuse.deb       && dpkg -i /root/debbuild/fuse.deb &&\
+    cd /root/debbuild/resolvconf/build/ && dpkg-deb -b . /root/debbuild/resolvconf.deb && dpkg -i /root/debbuild/resolvconf.deb &&\
+    for i in fuse resolvconf ntp;do echo $i hold | dpkg --set-selections;done&&\
     apt-get install -y cron;\
     apt-get install -y dialog;\
     apt-get install -y git-core;\

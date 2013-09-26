@@ -44,10 +44,10 @@ maybe_build() {
             docker build -t makinacorpus/ubuntu_tmp ${1}
             MID=$(docker run -d -privileged makinacorpus/ubuntu_tmp)
             LID=$(docker inspect $MID|grep ID|awk '{print $2}'|sed -re 's/\"//g' -e 's/\,//g')
+            echo "ubuntu_${1} $LID // $MID">${midf}
             lxc-attach -n $LID -- /tmp/postinst.sh
             docker commit $MID makinacorpus/ubuntu_${1}
             echo $MID $midf
-            echo $MID>$midf
             docker rmi makinacorpus/ubuntu_tmp
         else
             docker build $CACHE -rm=true $bargs
