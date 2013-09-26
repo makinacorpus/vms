@@ -32,7 +32,7 @@ RUN sed -re 's/ main$/ main restricted universe multiverse/g' -e "s:/archive\.:/
     echo "#!/bin/bash"   >/root/debbuild/fuse/build/DEBIAN/postinst &&\
     echo "#exit 0"      >>/root/debbuild/fuse/build/DEBIAN/postinst &&\
     echo ""             >>/root/debbuild/fuse/build/DEBIAN/postinst &&\
-    for i in fuse resolvconf ntd;do\
+    for i in fuse resolvconf ntp;do\
       cd /root/debbuild/$i/build&&\
       dpkg-deb -b . /root/debbuild/$i.deb&&\
       dpkg -i /root/debbuild/$i.deb&&\
