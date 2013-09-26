@@ -40,7 +40,6 @@ RUN sed -re 's/ main$/ main restricted universe multiverse/g' -e "s:/archive\.:/
     done&&\
     apt-get install $(dpkg-deb -I /root/debbuild/ntp.deb |egrep "^\s*Depends:"|sed -re "s/\([^\)]+\)//g" -e "s/,//g" -e "s/Depends://g") &&\
     apt-get -fy install &&\
-    apt-get -fy install &&\
     apt-get install -y cron;\
     apt-get install -y dialog;\
     apt-get install -y git-core;\
