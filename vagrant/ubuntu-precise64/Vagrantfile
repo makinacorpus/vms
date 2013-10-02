@@ -1,9 +1,27 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+
+# --------------------- CONFIGURATION ZONE ----------------------------------
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
 MEMORY="1024"
+# Number of available CPU for this VM
+CPU="2"
+# LIMIT ON CPU USAGE
+MAX_CPU_USAGE_PERCENT="50"
+# Use this IP in your /etc/hosts for all names
+# That you want to query this BOX with in your browser
+# The VirtualBox private network 192.168.55.0 will
+# automatically be set to ensure private communications
+# between this VM and your host on this IP
+BOX_PRIVATE_IP="192.168.55.4"
+# Name on your VirtualBox panel
+VIRTUALBOX_VM_NAME="Dev Docker Host Ubuntu precise64"
+# Name inside the VM (as rendered buy hostname command)
+VM_HOSTNAME="devhost.local"
+# ----------------- END CONFIGURATION ZONE ----------------------------------
 
+# ------------- BASE IMAGE UBUNTU LTS 12.04 (precise) -----------------------
 # You can pre-download this image with
 # vagrant box add precise64 http://files.vagrantup.com/precise64.box
 BOX_NAME=ENV['BOX_NAME'] || "precise64"
@@ -12,18 +30,49 @@ BOX_URI=ENV['BOX_URI'] || "http://files.vagrantup.com/precise64.box"
 # Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
 VAGRANTFILE_API_VERSION = "2"
 
-Vagrant::Config.run do |config|
+#Vagrant::Config.run do |config|
+Vagrant.configure("2") do |config|
   # Setup virtual machine box. This VM configuration code is always executed.
   config.vm.box = BOX_NAME
   config.vm.box_url = BOX_URI
   #config.ssh.username = "ubuntu"
   #config.ssh.username = "vagrant"
-  config.vm.host_name = "devhost.local"
+  config.vm.host_name = VM_HOSTNAME
+  config.vm.provider "virtualbox" do |vb|
+      vb.name=VIRTUALBOX_VM_NAME
+  end
+
+  #------------- NETWORKING ----------------
+  # 2 NETWORKS DEFINED, 1 PUBLIC, 1 HOST ONLY
+  # The public one will give you an easy access to outside
+  # The private one will let you ref your dev things with a static IP
+  # in your /etc/hosts
+  #
+  # 1st network is bridging (public DHCP) on eth0 of yout machine
+  # If you do not have an eth0 Vagrant will ask you for an interface
+  config.vm.network "public_network", :bridge => 'eth0'
+  config.vm.network "private_network", ip: BOX_PRIVATE_IP
+  # NAT PORTS, if you want...
+  #config.vm.network "forwarded_port", guest: 80, host: 8080  
+  #config.vm.network "forwarded_port", guest: 22, host: 2222  
+  config.vm.provider "virtualbox" do |vb|
+    
+  end
+
+  #------------ SHARED FOLDERS ----------------------------
+  # The current directory is mapped to the /srv of the mounted host
+  # In this /srv we'll find the salt-stack things and projects
+  config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
+
+  #------------- PROVISIONING ------------------------------
   # Provision docker and new kernel if deployment was not done.
   # It is assumed Vagrant can successfully launch the provider instance.
   if Dir.glob("#{File.dirname(__FILE__)}/.vagrant/machines/default/*/id").empty?
-    # Add Ubuntu raring backported kernel
     pkg_cmd = [
+        "echo STARTING PROVISIONNING, this may take a while...",
+    ]
+    # Add Ubuntu raring backported kernel
+    pkg_cmd += [
       "apt-get update -qq",
       "apt-get install -q -y linux-image-generic-lts-raring linux-headers-generic-lts-raring ",
     ]
@@ -64,17 +113,16 @@ EOF},
     pkg_cmd << "shutdown -r now"
     config.vm.provision :shell, :inline => pkg_cmd.join("\n")
   end
+
 end
 
 # Providers were added on Vagrant >= 1.1.0
 Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
   config.vm.provider :virtualbox do |vb|
-    config.vm.box = BOX_NAME
-    config.vm.box_url = BOX_URI
     vb.customize ["modifyvm", :id, "--ioapic", "on"]
     vb.customize ["modifyvm", :id, "--memory", MEMORY]
-    vb.customize ["modifyvm", :id, "--cpus", "2"]
-    vb.customize ["modifyvm", :id, "--cpuexecutioncap", "50"]
+    vb.customize ["modifyvm", :id, "--cpus", CPUS]
+    vb.customize ["modifyvm", :id, "--cpuexecutioncap", MAX_CPU_USAGE_PERCENT]
   end
 end
 
