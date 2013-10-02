@@ -2,11 +2,20 @@
 # vi: set ft=ruby :
 
 
+# ------------------ USAGE EXAMPLE --------------------
+# > mkdir -p ~/makina/devhost
+# > cd ~/makina/devhost
+# > wget https://github.com/makinacorpus/docker-vms/raw/master/vagrant/ubuntu-precise64/Vagrantfile
+# > vagrant up # first time will be quite long
+# > vagrant ssh # to connect inside
+# > vagrant halt/vagrant suspend # suspend will use more disk space but will be fester to reopen
+# > vagrant destroy # the end of everything
+
 # --------------------- CONFIGURATION ZONE ----------------------------------
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
 MEMORY="1024"
 # Number of available CPU for this VM
-CPU="2"
+CPUS="2"
 # LIMIT ON CPU USAGE
 MAX_CPU_USAGE_PERCENT="50"
 # Use this IP in your /etc/hosts for all names
