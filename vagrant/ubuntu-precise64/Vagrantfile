@@ -8,7 +8,7 @@
 # > wget https://github.com/makinacorpus/docker-vms/raw/master/vagrant/ubuntu-precise64/Vagrantfile
 # > vagrant up # first time will be quite long
 # > vagrant ssh # to connect inside
-# > vagrant halt/vagrant suspend # suspend will use more disk space but will be fester to reopen
+# > vagrant halt/vagrant suspend # suspend will use more disk space but will be faster to reopen
 # > vagrant destroy # the end of everything
 
 # --------------------- CONFIGURATION ZONE ----------------------------------
@@ -72,6 +72,7 @@ Vagrant.configure("2") do |config|
   # The current directory is mapped to the /srv of the mounted host
   # In this /srv we'll find the salt-stack things and projects
   config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
+  config.vm.synced_folder ".", "/vagrant", disabled: true
 
   #------------- PROVISIONING ------------------------------
   # Provision docker and new kernel if deployment was not done.
@@ -115,7 +116,7 @@ EOF},
     pkg_cmd += [
       "export SALT_BOOT=''",
       "wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash",
-      ". /etc/profilegroupadd docker",
+      ". /etc/profile",
     ]
     # Activate kernel & ensure everything starts correctly by rebooting
     pkg_cmd << %{echo -e "\nSETUP SUCCESSFUL, rebooting VM...\n"}
