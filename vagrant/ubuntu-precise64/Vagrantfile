@@ -1,0 +1,80 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
+MEMORY="1024"
+
+# You can pre-download this image with
+# vagrant box add precise64 http://files.vagrantup.com/precise64.box
+BOX_NAME=ENV['BOX_NAME'] || "precise64"
+BOX_URI=ENV['BOX_URI'] || "http://files.vagrantup.com/precise64.box"
+
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant::Config.run do |config|
+  # Setup virtual machine box. This VM configuration code is always executed.
+  config.vm.box = BOX_NAME
+  config.vm.box_url = BOX_URI
+  #config.ssh.username = "ubuntu"
+  #config.ssh.username = "vagrant"
+  config.vm.hostname = "devhost.local"
+  # Provision docker and new kernel if deployment was not done.
+  # It is assumed Vagrant can successfully launch the provider instance.
+  if Dir.glob("#{File.dirname(__FILE__)}/.vagrant/machines/default/*/id").empty?
+    # Add Ubuntu raring backported kernel
+    pkg_cmd += [
+      "apt-get update -qq",
+      "apt-get install -q -y linux-image-generic-lts-raring linux-headers-generic-lts-raring ",
+    ]
+    # Add lxc-docker package
+    pkg_cmd = [
+      "wget -q -O - https://get.docker.io/gpg | apt-key add -",
+      "echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list",
+      "apt-get update -qq; apt-get install -q -y --force-yes lxc-docker",
+    ]
+    # Add guest additions if local vbox VM. As virtualbox is the default provider,
+    # it is assumed it won't be explicitly stated.
+    if ENV["VAGRANT_DEFAULT_PROVIDER"].nil? && ARGV.none? { |arg| arg.downcase.start_with?("--provider") }
+      pkg_cmd += [
+        "apt-get install -q -y linux-headers-generic-lts-raring dkms",
+        "echo 'Downloading VBox Guest Additions...'",
+        "wget -q http://dlc.sun.com.edgesuite.net/virtualbox/4.2.12/VBoxGuestAdditions_4.2.12.iso",
+        # Prepare the VM to add guest additions after reboot
+        %{cat << EOF > /root/guest_additions.sh
+mount -o loop,ro /home/vagrant/VBoxGuestAdditions_4.2.12.iso /mnt
+echo yes | /mnt/VBoxLinuxAdditions.run
+umount /mnt
+rm /root/guest_additions.sh
+EOF},
+        "chmod 700 /root/guest_additions.sh",
+        "sed -i -E 's#^exit 0#[ -x /root/guest_additions.sh ] \\&\\& /root/guest_additions.sh#' /etc/rc.local",
+        "echo 'Installation of VBox Guest Additions is proceeding in the background.'",
+        "echo '\"vagrant reload\" can be used in about 2 minutes to activate the new guest additions.'",
+      ]
+    end
+    # add ou salt-stack bootstrapper
+    pkg_cmd += [
+      "export SALT_BOOT=''"
+      "wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash"
+      ". /etc/profilegroupadd docker",
+    ]
+    # Activate kernel & ensure everything starts correctly by rebooting
+    pkg_cmd << %{echo -e "\nSETUP SUCCESSFUL, rebooting VM...\n"}
+    pkg_cmd << "shutdown -r now"
+    config.vm.provision :shell, :inline => pkg_cmd.join("\n")
+  end
+end
+
+# Providers were added on Vagrant >= 1.1.0
+Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
+  config.vm.provider :virtualbox do |vb|
+    config.vm.box = BOX_NAME
+    config.vm.box_url = BOX_URI
+    vb.customize ["modifyvm", :id, "--ioapic", "on"]
+    vb.customize ["modifyvm", :id, "--memory", MEMORY]
+    vb.customize ["modifyvm", :id, "--cpus", "2"]
+    vb.customize ["modifyvm", :id, "--cpuexecutioncap", "50"]
+  end
+end
+
