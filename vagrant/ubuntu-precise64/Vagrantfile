@@ -107,9 +107,9 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
 
   #------------- PROVISIONING ------------------------------
-  # Provision docker and new kernel if deployment was not done.
-  # It is assumed Vagrant can successfully launch the provider instance.
   if Dir.glob("#{File.dirname(__FILE__)}/.vagrant/machines/default/*/id").empty?
+    # Provision docker and new kernel if deployment was not done.
+    # It is assumed Vagrant can successfully launch the provider instance.
     pkg_cmd = [
         "echo STARTING INITIAL PROVISIONNING, this may take a while...",
     ]
@@ -157,6 +157,11 @@ EOF},
     pkg_cmd << %{echo -e "\nSETUP SUCCESSFUL...\n"}
     config.vm.provision :shell, :inline => pkg_cmd.join("\n")
   else
+    # vagrant 1.3 HACK: provision is now run only at first boot, we want to run it every time
+    if File.exist?("#{File.dirname(__FILE__)}/.vagrant/machines/default/virtualbox/action_provision")
+      # hack: remove this "provision-is-done" marker
+      File.delete("#{File.dirname(__FILE__)}/.vagrant/machines/default/virtualbox/action_provision")
+    end
     # NFS mounts are done at the end, so salt-stack and docker services
     # using the /srv tree cannot be started before the end of vagrant
     # boot. We use the provisionner to start them after all theses things
