@@ -3,6 +3,15 @@
 
 
 # ------------------ USAGE EXAMPLE --------------------
+# -- Install virtualbox, vagrant AND NFS (exemple debian-like)
+# > sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
+# get latest vagrant from
+# http://downloads.vagrantup.com/
+# Exemple: version 1.3.3, paquet .deb pour debian/ubuntu, archi 64bits
+# -- attention pas le 1.3.4, bug sur hostname avec debian
+# > wget http://files.vagrantup.com/packages/db8e7a9c79b23264da129f55cf8569167fc22415/vagrant_1.3.3_x86_64.deb
+# > sudo dpkg -i vagrant_1.3.3_x86_64.deb
+# -- ALL
 # > mkdir -p ~/makina/devhost
 # > cd ~/makina/devhost
 # > wget https://github.com/makinacorpus/docker-vms/raw/master/vagrant/ubuntu-precise64/Vagrantfile
@@ -20,14 +29,25 @@ CPUS="2"
 MAX_CPU_USAGE_PERCENT="50"
 # Use this IP in your /etc/hosts for all names
 # That you want to query this BOX with in your browser
-# The VirtualBox private network 192.168.55.0 will
+# The VirtualBox private network will
 # automatically be set to ensure private communications
 # between this VM and your host on this IP
-BOX_PRIVATE_IP="192.168.55.4"
+# (in VB's preferences network you can see it after first usage)
+BOX_PRIVATE_IP="10.0.42.42"
+#BOX_PRIVATE_NETMASK="255.225.255.0"
 # Name on your VirtualBox panel
 VIRTUALBOX_VM_NAME="Dev Docker Host Ubuntu precise64"
 # Name inside the VM (as rendered buy hostname command)
 VM_HOSTNAME="devhost.local"
+# Set this to true ONLY if you have VirtualBox version > 4.2.12
+# else the synced folder would not work. 
+# When activated this would remove warnings about version mismatch of
+# VirtualBox Guest additions, but we need at least the 4.2.12 version,
+# v 4.2.0 is present in the ubuntu kernel and we add the 4.2.12 in this script
+# even if your host is on a lower version. If you have something greater than
+# 4.2.12 set this to true, comment the 4.2.12 install below and install vbguest
+# vagrant plugin with this command : "vagrant plugin install vagrant-vbguest"
+AUTO_UPDATE_VBOXGUEST_ADD=false
 # ----------------- END CONFIGURATION ZONE ----------------------------------
 
 # ------------- BASE IMAGE UBUNTU LTS 12.04 (precise) -----------------------
@@ -35,6 +55,8 @@ VM_HOSTNAME="devhost.local"
 # vagrant box add precise64 http://files.vagrantup.com/precise64.box
 BOX_NAME=ENV['BOX_NAME'] || "precise64"
 BOX_URI=ENV['BOX_URI'] || "http://files.vagrantup.com/precise64.box"
+
+# -- Other things ----------------------------------------------------------
 
 # Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
 VAGRANTFILE_API_VERSION = "2"
@@ -51,40 +73,54 @@ Vagrant.configure("2") do |config|
       vb.name=VIRTUALBOX_VM_NAME
   end
 
+  # -- VirtualBox Guest Additions ----------
+  config.vbguest.auto_update = AUTO_UPDATE_VBOXGUEST_ADD
+
   #------------- NETWORKING ----------------
-  # 2 NETWORKS DEFINED, 1 PUBLIC, 1 HOST ONLY
-  # The public one will give you an easy access to outside
+  # 2 NETWORKS DEFINED, 1 NAT, 1 HOST ONLY
+  # The default one is a NAT one, automatically done by vagrant, allows internal->external
+  #   and some NAT port  mappings (by defaut a 2222->22 is managed bu vagrant
+  # The public one is commented by default will give you an easy access to outside
   # The private one will let you ref your dev things with a static IP
   # in your /etc/hosts
   #
   # 1st network is bridging (public DHCP) on eth0 of yout machine
   # If you do not have an eth0 Vagrant will ask you for an interface
-  config.vm.network "public_network", :bridge => 'eth0'
+  #config.vm.network "public_network", :bridge => 'eth0'
+  #config.vm.network "private_network", ip: BOX_PRIVATE_IP, netmask: BOX_PRIVATE_NETMASK
   config.vm.network "private_network", ip: BOX_PRIVATE_IP
   # NAT PORTS, if you want...
   #config.vm.network "forwarded_port", guest: 80, host: 8080  
   #config.vm.network "forwarded_port", guest: 22, host: 2222  
-  config.vm.provider "virtualbox" do |vb|
-    
-  end
 
   #------------ SHARED FOLDERS ----------------------------
   # The current directory is mapped to the /srv of the mounted host
   # In this /srv we'll find the salt-stack things and projects
-  config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
+  # we use NFS to avoid speed penalities on VirtualBox (between *10 and *100)
+  # and the "sendfile" bugs with nginx and apache
+  #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
+  # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
+  config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw","no_root_squash","no_subtree_check"]
+#rw,no_subtree_check,all_squash,anonuid=1000,anongid=1000,fsid=3119311264
+#rw,no_subtree_check,,anonuid=0,anongid=0,fsid=149022127
   config.vm.synced_folder ".", "/vagrant", disabled: true
+  config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
 
   #------------- PROVISIONING ------------------------------
   # Provision docker and new kernel if deployment was not done.
   # It is assumed Vagrant can successfully launch the provider instance.
   if Dir.glob("#{File.dirname(__FILE__)}/.vagrant/machines/default/*/id").empty?
     pkg_cmd = [
-        "echo STARTING PROVISIONNING, this may take a while...",
+        "echo STARTING INITIAL PROVISIONNING, this may take a while...",
     ]
     # Add Ubuntu raring backported kernel
     pkg_cmd += [
       "apt-get update -qq",
       "apt-get install -q -y linux-image-generic-lts-raring linux-headers-generic-lts-raring ",
+    ]
+    # Add nfs support
+    pkg_cmd += [
+      "apt-get install nfs-common portmap",
     ]
     # Add lxc-docker package
     pkg_cmd += [
@@ -92,39 +128,81 @@ Vagrant.configure("2") do |config|
       "echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list",
       "apt-get update -qq; apt-get install -q -y --force-yes lxc-docker",
     ]
-    # Add guest additions if local vbox VM. As virtualbox is the default provider,
-    # it is assumed it won't be explicitly stated.
-    if ENV["VAGRANT_DEFAULT_PROVIDER"].nil? && ARGV.none? { |arg| arg.downcase.start_with?("--provider") }
-      pkg_cmd += [
-        "apt-get install -q -y linux-headers-generic-lts-raring dkms",
-        "echo 'Downloading VBox Guest Additions...'",
-        "wget -q http://dlc.sun.com.edgesuite.net/virtualbox/4.2.12/VBoxGuestAdditions_4.2.12.iso",
-        # Prepare the VM to add guest additions after reboot
-        %{cat << EOF > /root/guest_additions.sh
-mount -o loop,ro /home/vagrant/VBoxGuestAdditions_4.2.12.iso /mnt
-echo yes | /mnt/VBoxLinuxAdditions.run
-umount /mnt
-rm /root/guest_additions.sh
-EOF},
-        "chmod 700 /root/guest_additions.sh",
-        "sed -i -E 's#^exit 0#[ -x /root/guest_additions.sh ] \\&\\& /root/guest_additions.sh#' /etc/rc.local",
-        "echo 'Installation of VBox Guest Additions is proceeding in the background.'",
-        "echo '\"vagrant reload\" can be used in about 2 minutes to activate the new guest additions.'",
-      ]
-    end
-    # add ou salt-stack bootstrapper
+    # Add guest additions if local vbox VM.
     pkg_cmd += [
-      "export SALT_BOOT=''",
-      "wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash",
-      ". /etc/profile",
+        %{cat << EOF > /root/provision_script.sh
+if [ ! -f /root/vboxguest4.2.12.ok ]; then
+  echo "Enforce VBoxGuestAdditions 4.2.12..."
+  cd /tmp
+  wget -q http://dlc.sun.com.edgesuite.net/virtualbox/4.2.12/VBoxGuestAdditions_4.2.12.iso
+  apt-get install -q -y linux-headers-generic-lts-raring dkms
+  mount -o loop,ro /tmp/VBoxGuestAdditions_4.2.12.iso /mnt
+  echo yes | /mnt/VBoxLinuxAdditions.run
+  umount /mnt
+  rm /tmp/VBoxGuestAdditions_4.2.12.iso
+  touch /root/vboxguest4.2.12.ok
+fi
+if [ -f /srv/Vagrantfile ]; then
+  if [ ! -f /root/salt_bootstrap_done ]; then
+    echo "Bootstrap Salt env..."
+    export SALT_BOOT=''
+    wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
+    . /etc/profile
+  fi
+fi
+EOF},
+        "chmod 700 /root/provision_script.sh",
+        "/root/provision_script.sh",
     ]
+    # Add guest additions if local vbox VM.
+    #pkg_cmd += [
+    #    "apt-get install -q -y linux-headers-generic-lts-raring dkms",
+    #    "echo 'Downloading VBox Guest Additions...'",
+    #    "wget -q http://dlc.sun.com.edgesuite.net/virtualbox/4.2.12/VBoxGuestAdditions_4.2.12.iso",
+    #    # Prepare the VM to add guest additions after reboot
+    #    %{cat << EOF > /root/guest_additions.sh
+#mount -o loop,ro /home/vagrant/VBoxGuestAdditions_4.2.12.iso /mnt
+#echo yes | /mnt/VBoxLinuxAdditions.run
+#umount /mnt
+#rm /root/guest_additions.sh
+# Prepare Salt boostrap on next reboot
+#sed -i -E 's#^exit 0#[ -x /root/bootstrap_salt_on_second_reboot.sh ] \\&\\& /root/#bootstrap_salt_on_second_reboot.sh\\nexit 0#' /etc/rc.local
+#echo "Going to reboot again, to prepare salt-stack bootstraping..."
+#shutdown -r now
+#EOF},
+#        "chmod 700 /root/guest_additions.sh",
+#        "sed -i -E 's#^exit 0#[ -x /root/guest_additions.sh ] \\&\\& /root/guest_additions.sh\\nexit #0#' /etc/rc.local",
+        # Prepare the VM to add salt-stack bootstrapper
+        # after 2nd reboot
+#        %{cat << EOF > /root/bootstrap_salt_on_second_reboot.sh
+#export SALT_BOOT=''
+#wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
+#rm /root/bootstrap_salt_on_second_reboot.sh
+#EOF},
+#        "chmod 700 /root/bootstrap_salt_on_second_reboot.sh",
+#        "echo 'Installation of VBox Guest Additions is proceeding in the background.'",
+#        "echo '\"vagrant reload\" can be used in about 2 minutes to activate the new guest #additions.'",
+#    ]
     # Activate kernel & ensure everything starts correctly by rebooting
-    pkg_cmd << %{echo -e "\nSETUP SUCCESSFUL, rebooting VM...\n"}
-    pkg_cmd << "shutdown -r now"
+    pkg_cmd << %{echo -e "\nSETUP SUCCESSFUL...\n"}
+    #pkg_cmd << "shutdown -r now"
+    config.vm.provision :shell, :inline => pkg_cmd.join("\n")
+  else
+    # NFS mounts are done at the end, so salt-stack and docker services
+    # using the /srv tree cannot be started before the end of vagrant
+    # boot. We use the provisionner to start them after all theses things
+    pkg_cmd = [
+      "echo Basic daemons using /srv PROVISIONNING",
+      "echo /srv is mounted quite late so we must start salt-stack daemons later",
+      "service salt-master start",
+      "service salt-minion start",
+      "salt-call states.highstates",
+    ]
     config.vm.provision :shell, :inline => pkg_cmd.join("\n")
   end
 
 end
+
 
 # Providers were added on Vagrant >= 1.1.0
 Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
