@@ -145,7 +145,7 @@ Vagrant.configure("2") do |config|
       end
     )
   end
-#  printf(" [*] Checking if local group %s exists\n", newgroup )
+  #printf(" [*] Checking if local group %s exists\n", newgroup )
   found = false
   Etc.group {|g|
     found = true
@@ -158,23 +158,28 @@ Vagrant.configure("2") do |config|
       # Nunux
       `sudo groupadd -g 65753 #{newgroup}`
     else
+      #Mac
       `sudo dscl . -create /groups/#{newgroup} gid 65753`
     end
   end
 #  printf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
   # loop on members of 65753 to find our user
-#  found = false
-#  Etc.getgrgid(65753).mem {|u|
-#    found = true
-#    break if u.gid==65753
-#    found = false
-#  
-#  }
-# usermod -a -G groupName userName
-#  `sudo dseditgroup -o edit -t user -a #{user} #{newgroup}`
-#  my_string = ;
-#  
-#  `sudo useradd -g #{group} #{user}`
+  found = false
+  Etc.getgrgid(65753).mem {|u|
+    found = true
+    break if u==user
+    found = false
+  }
+  if !found
+    printf(" [*] User %s is not member of group %s, adding him\n", user, newgroup)
+    if os==:linux or os==:unix
+      # Nunux
+      `sudo gpasswd -a #{user} #{newgroup}`
+    else
+      #Mac
+      `sudo dseditgroup -o edit -t user -a #{user} #{newgroup}`
+    end
+  end
 
   # Now generate the provision script, put it inside /root VM's directory and launch it
   pkg_cmd = [

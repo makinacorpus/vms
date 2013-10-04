@@ -121,6 +121,67 @@ Vagrant.configure("2") do |config|
     File.delete("#{File.dirname(__FILE__)}/.vagrant/machines/default/virtualbox/action_provision")
   end
 
+  # To manage edition rights sync between the VM and the local host
+  # we need to ensure the current user is member of a salt-admin-vm group (gid 65753) and
+  # that this group exists
+  require 'etc'
+  newgroup = 'salt-admin-vm'
+  user = Etc.getlogin
+
+  # detect current host OS
+  require 'rbconfig'
+
+  def os
+    @os ||= (
+      host_os = RbConfig::CONFIG['host_os']
+      case host_os
+      when /darwin|mac os/
+        :macosx
+      when /linux/
+        :linux
+      when /solaris|bsd/
+        :unix
+      else
+        raise Error::WebDriverError, "Non supported os: #{host_os.inspect}"
+      end
+    )
+  end
+  #printf(" [*] Checking if local group %s exists\n", newgroup )
+  found = false
+  Etc.group {|g|
+    found = true
+    break if g.gid==65753
+    found = false
+  }
+  if !found
+    printf(" [*] local group %s does not exists, creating it\n", newgroup)
+    if os==:linux or os==:unix
+      # Nunux
+      `sudo groupadd -g 65753 #{newgroup}`
+    else
+      #Mac
+      `sudo dscl . -create /groups/#{newgroup} gid 65753`
+    end
+  end
+#  printf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
+  # loop on members of 65753 to find our user
+  found = false
+  Etc.getgrgid(65753).mem {|u|
+    found = true
+    break if u==user
+    found = false
+  }
+  if !found
+    printf(" [*] User %s is not member of group %s, adding him\n", user, newgroup)
+    if os==:linux or os==:unix
+      # Nunux
+      `sudo gpasswd -a #{user} #{newgroup}`
+    else
+      #Mac
+      `sudo dseditgroup -o edit -t user -a #{user} #{newgroup}`
+    end
+  end
+
   # Now generate the provision script, put it inside /root VM's directory and launch it
   pkg_cmd = [
       %{cat << EOF > /root/provision_script.sh
