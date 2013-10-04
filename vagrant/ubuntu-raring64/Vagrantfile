@@ -72,7 +72,7 @@ Vagrant.configure("2") do |config|
   end
 
   # -- VirtualBox Guest Additions ----------
-  if Vagrant.has_plugin?("vagrant-vbguest")
+  if Vagrant.has_plugin?('vbguest management')
     config.vbguest.auto_update = AUTO_UPDATE_VBOXGUEST_ADD
   end
 
