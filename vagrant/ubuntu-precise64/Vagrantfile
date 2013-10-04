@@ -101,38 +101,33 @@ Vagrant.configure("2") do |config|
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
   config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw","no_root_squash","no_subtree_check"]
-#rw,no_subtree_check,all_squash,anonuid=1000,anongid=1000,fsid=3119311264
-#rw,no_subtree_check,,anonuid=0,anongid=0,fsid=149022127
   config.vm.synced_folder ".", "/vagrant", disabled: true
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
 
   #------------- PROVISIONING ------------------------------
-  if Dir.glob("#{File.dirname(__FILE__)}/.vagrant/machines/default/*/id").empty?
-    # Provision docker and new kernel if deployment was not done.
-    # It is assumed Vagrant can successfully launch the provider instance.
-    pkg_cmd = [
-        "echo STARTING INITIAL PROVISIONNING, this may take a while...",
-    ]
-    # Add Ubuntu raring backported kernel
-    pkg_cmd += [
-      "apt-get update -qq",
-      "apt-get install -q -y linux-image-generic-lts-raring linux-headers-generic-lts-raring ",
-    ]
-    # Add nfs support
-    pkg_cmd += [
-      "apt-get install nfs-common portmap",
-    ]
-    # Add lxc-docker package
-    pkg_cmd += [
-      "wget -q -O - https://get.docker.io/gpg | apt-key add -",
-      "echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list",
-      "apt-get update -qq; apt-get install -q -y --force-yes lxc-docker",
-    ]
-    # Add guest additions if local vbox VM.
-    pkg_cmd += [
-        %{cat << EOF > /root/provision_script.sh
+  # We push all the code in a script which manages the versioning of 
+  # provisioning.
+  # Since vagrant 1.3.0 provisioning is run only on the first "up"
+  # or when --provision is used. But we need to run this script
+  # on each up/reload, so that at least this script can handle the
+  # launch of daemons which depends on NFS /srv mount which is done quite
+  # late by vagrant and cannot be done on upstart. So first let's remove
+  # the one-time provisioning marker
+
+  # vagrant 1.3 HACK: provision is now run only at first boot, we want to run it every time
+  if File.exist?("#{File.dirname(__FILE__)}/.vagrant/machines/default/virtualbox/action_provision")
+    # hack: remove this "provision-is-done" marker
+    File.delete("#{File.dirname(__FILE__)}/.vagrant/machines/default/virtualbox/action_provision")
+  end
+
+  # Now generate the provision script, put it inside /root VM's directory and launch it
+  pkg_cmd = [
+      %{cat << EOF > /root/provision_script.sh
+#!/bin/bash
+echo " [*] STARTING VAGRANT PROVISION SCRIPT /root/provision_script.sh"
 if [ ! -f /root/vboxguest4.2.12.ok ]; then
-  echo "Enforce VBoxGuestAdditions 4.2.12..."
+  # Add guest additions if local vbox VM.
+  echo " [*] Enforce VBoxGuestAdditions 4.2.12..."
   cd /tmp
   wget -q http://dlc.sun.com.edgesuite.net/virtualbox/4.2.12/VBoxGuestAdditions_4.2.12.iso
   apt-get install -q -y linux-headers-generic-lts-raring dkms
@@ -142,41 +137,69 @@ if [ ! -f /root/vboxguest4.2.12.ok ]; then
   rm /tmp/VBoxGuestAdditions_4.2.12.iso
   touch /root/vboxguest4.2.12.ok
 fi
+
 if [ -f /srv/Vagrantfile ]; then
+
+  if [ ! -f /root/provision_step_1_done ]; then
+    echo " [*] STARTING INITIAL PROVISIONNING, this may take a while..."
+    # Add Ubuntu raring backported kernel
+    echo " [*] Install lts-raring kernel"
+    apt-get update -qq
+    apt-get install -q -y linux-image-generic-lts-raring linux-headers-generic-lts-raring
+    if [ "0" == "$?" ];then touch /root/provision_step_1_done; fi;
+  fi
+
+  if [ ! -f /root/provision_step_2_done ]; then
+    echo " [*] Install nfs support on guest"
+    apt-get install nfs-common portmap
+    if [ "0" == "$?" ];then touch /root/provision_step_2_done; fi;
+  fi
+
+  if [ ! -f /root/provision_step_3_done ]; then
+    echo " [*] Install lxc-docker support"
+    # Add lxc-docker package
+    wget -q -O - https://get.docker.io/gpg | apt-key add -
+    echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list
+    apt-get update -qq;
+    apt-get install -q -y --force-yes lxc-docker
+    if [ "0" == "$?" ];then touch /root/provision_step_3_done; fi;
+  fi
+
   if [ ! -f /root/salt_bootstrap_done ]; then
-    echo "Bootstrap Salt env..."
+    echo " [ * ] Bootstrap Salt-Stack env..."
     export SALT_BOOT=''
     wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
     . /etc/profile
   fi
+  
+  # Always start salt and docker AFTER /srv has been mounted on the VM
+  echo " [*] Manage Basic daemons using /srv"
+  echo " [*] /srv is mounted quite late so we must start some daemons later"
+  # kill salt that may be running
+  ps aux|egrep "salt-(master|minion|syndic)"|grep mastersalt|awk '{print $2}'|xargs kill -9 &> /dev/null
+  service salt-master start;
+  service salt-minion start;
+  service docker stop;
+  service docker start;
+  #salt '*' state.highstate;
+  echo " [*] VM is now ready for vagrant ssh or other usages..."
+
+else
+  # Try to install nfs on the guest for next reboot
+  if [ ! -f /root/provision_step_2_done ]; then
+    apt-get update -qq
+    apt-get install nfs-common portmap
+    if [ "0" == "$?" ];then touch /root/provision_step_2_done; fi;
+  fi
+  echo " [*] ERROR: You do not have /srv/Vagrantfile, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it!"
 fi
+
 EOF},
-        "chmod 700 /root/provision_script.sh",
-        "/root/provision_script.sh",
-    ]
-    pkg_cmd << %{echo -e "\nSETUP SUCCESSFUL...\n"}
-    config.vm.provision :shell, :inline => pkg_cmd.join("\n")
-  else
-    # vagrant 1.3 HACK: provision is now run only at first boot, we want to run it every time
-    if File.exist?("#{File.dirname(__FILE__)}/.vagrant/machines/default/virtualbox/action_provision")
-      # hack: remove this "provision-is-done" marker
-      File.delete("#{File.dirname(__FILE__)}/.vagrant/machines/default/virtualbox/action_provision")
-    end
-    # NFS mounts are done at the end, so salt-stack and docker services
-    # using the /srv tree cannot be started before the end of vagrant
-    # boot. We use the provisionner to start them after all theses things
-    pkg_cmd = [
-      "echo Basic daemons using /srv PROVISIONNING",
-      "echo /srv is mounted quite late so we must start salt-stack daemons later",
-      "service salt-master start",
-      "service salt-minion start",
-      "salt '*' state.highstate",
-    ]
-    config.vm.provision :shell, :inline => pkg_cmd.join("\n")
-  end
-
+    "chmod 700 /root/provision_script.sh",
+    "/root/provision_script.sh",
+  ]
+  config.vm.provision :shell, :inline => pkg_cmd.join("\n")
 end
-
 
 # Providers were added on Vagrant >= 1.1.0
 Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
