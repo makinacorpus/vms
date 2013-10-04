@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
-# vim: set ft=ruby:
+# vim: set ft=ruby ts=2 et sts=2 tw=0:
 # ------------------ USAGE EXAMPLE --------------------
-# -- Install virtualbox, vagrant AND NFS (exemple debian-like)
+# -- etnstall virtualbox, vagrant AND NFS (exemple debian-like)
 # > sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
 # get latest vagrant from
 # http://downloads.vagrantup.com/
@@ -121,10 +121,10 @@ Vagrant.configure("2") do |config|
   end
 
   # To manage edition rights sync between the VM and the local host
-  # we need to ensure the current user is member of a salt-admin-vm group (gid 65753) and
+  # we need to ensure the current user is member of a salt-admin-vm group (gid: 65753) and
   # that this group exists
   require 'etc'
-  newgid = 65753
+  newgid = 65753 # the most important
   newgroup = 'salt-admin-vm'
   user = Etc.getlogin
 
@@ -146,30 +146,35 @@ Vagrant.configure("2") do |config|
       end
     )
   end
+
   #printf(" [*] Checking if local group %s exists\n", newgroup )
+  # also search for a possible custom name
   found = false
   Etc.group {|g|
-    found = true
-    break if g.gid == newgid
-    found = false
+    puts g.to_s
+    if g.gid == newgid
+      found = true
+      newgroup = g.name
+      break
+    end
   }
   if !found
     printf(" [*] local group %s does not exists, creating it\n", newgroup)
     if os == :linux or os == :unix
-      # Nunux
+      # Unix
       `sudo groupadd -g #{newgid} #{newgroup}`
     else
-      #Mac
+      # Mac
       `sudo dscl . -create /groups/#{newgroup} gid #{newgid}`
     end
   end
   #  printf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
   # loop on members of newgid to find our user
-  found = false
-  Etc.getgrgid(newgid).mem {|u|
-    found = true
-    break if u == user
-    found = false
+  Etc.getgrgid(newgid).mem.each { |u|
+    if u == user
+      found = true
+      break
+    end
   }
   if !found
     printf(" [*] User %s is not member of group %s, adding him\n", user, newgroup)
@@ -233,7 +238,7 @@ if [ -f /srv/Vagrantfile ]; then
     wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
     . /etc/profile
   fi
-  
+
   # Always start salt and docker AFTER /srv has been mounted on the VM
   echo " [*] Manage Basic daemons using /srv"
   echo " [*] /srv is mounted quite late so we must start some daemons later"
