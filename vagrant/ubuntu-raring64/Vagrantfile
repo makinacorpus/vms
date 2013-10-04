@@ -1,0 +1,269 @@
+# -*- mode: ruby -*-
+# vim: set ft=ruby:
+# ------------------ USAGE EXAMPLE --------------------
+# -- Install virtualbox, vagrant AND NFS (exemple debian-like)
+# > sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
+# get latest vagrant from
+# http://downloads.vagrantup.com/
+# Exemple: version 1.3.3, paquet .deb pour debian/ubuntu, archi 64bits
+# -- attention pas le 1.3.4, bug sur hostname avec debian
+#   wget http://files.vagrantup.com/packages/db8e7a9c79b23264da129f55cf8569167fc22415/vagrant_1.3.3_x86_64.deb
+#   sudo dpkg -i vagrant_1.3.3_x86_64.deb
+# -- ALL
+#   mkdir -p ~/makina/devhost
+#   cd ~/makina/devhost
+#   wget https://github.com/makinacorpus/docker-vms/raw/master/vagrant/ubuntu-precise64/Vagrantfile
+#   vagrant up # first time will be quite long
+#   vagrant ssh # to connect inside
+#   vagrant halt/vagrant suspend # suspend will use more disk space but will be faster to reopen
+#   vagrant destroy # the end of everything
+
+# --------------------- CONFIGURATION ZONE ----------------------------------
+# MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
+MEMORY="1024"
+# Number of available CPU for this VM
+CPUS="2"
+# LIMIT ON CPU USAGE
+MAX_CPU_USAGE_PERCENT="50"
+# Use this IP in your /etc/hosts for all names
+# That you want to query this BOX with in your browser
+# The VirtualBox private network will
+# automatically be set to ensure private communications
+# between this VM and your host on this IP
+# (in VB's preferences network you can see it after first usage)
+BOX_PRIVATE_IP="10.0.42.43"
+#BOX_PRIVATE_NETMASK="255.225.255.0"
+# Name on your VirtualBox panel
+VIRTUALBOX_VM_NAME="Docker DevHost Ubuntu Raring64"
+# Name inside the VM (as rendered buy hostname command)
+VM_HOSTNAME="devhost.local"
+# Set this to true ONLY if you have VirtualBox version > 4.2.12
+# else the synced folder would not work.
+# When activated this would remove warnings about version mismatch of
+# VirtualBox Guest additions, but we need at least the 4.2.12 version,
+# v 4.2.10 is present in the ubuntu kernel and we add the 4.2.12 in this script
+# even if your host is on a lower version. If you have something greater than
+# 4.2.12 set this to true, comment the 4.2.12 install below and install vbguest
+# vagrant plugin with this command : "vagrant plugin install vagrant-vbguest"
+AUTO_UPDATE_VBOXGUEST_ADD=false
+# ----------------- END CONFIGURATION ZONE ----------------------------------
+
+# ------------- BASE IMAGE UBUNTU 13.04 (raring) -----------------------
+# You can pre-download this image with
+# vagrant box add raring64 http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
+BOX_NAME=ENV['BOX_NAME'] || "raring64"
+BOX_URI=ENV['BOX_URI'] || "http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box"
+
+# -- Other things ----------------------------------------------------------
+
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+VAGRANTFILE_API_VERSION = "2"
+
+#Vagrant::Config.run do |config|
+Vagrant.configure("2") do |config|
+  # Setup virtual machine box. This VM configuration code is always executed.
+  config.vm.box = BOX_NAME
+  config.vm.box_url = BOX_URI
+  #config.ssh.username = "ubuntu"
+  #config.ssh.username = "vagrant"
+  config.vm.host_name = VM_HOSTNAME
+  config.vm.provider "virtualbox" do |vb|
+      vb.name=VIRTUALBOX_VM_NAME
+  end
+
+  # -- VirtualBox Guest Additions ----------
+  if Vagrant.has_plugin?("vagrant-vbguest")
+    config.vbguest.auto_update = AUTO_UPDATE_VBOXGUEST_ADD
+  end
+
+  #------------- NETWORKING ----------------
+  # 2 NETWORKS DEFINED, 1 NAT, 1 HOST ONLY
+  # The default one is a NAT one, automatically done by vagrant, allows internal->external
+  #   and some NAT port  mappings (by defaut a 2222->22 is managed bu vagrant
+  # The public one is commented by default will give you an easy access to outside
+  # The private one will let you ref your dev things with a static IP
+  # in your /etc/hosts
+  #
+  # 1st network is bridging (public DHCP) on eth0 of yout machine
+  # If you do not have an eth0 Vagrant will ask you for an interface
+  #config.vm.network "public_network", :bridge => 'eth0'
+  #config.vm.network "private_network", ip: BOX_PRIVATE_IP, netmask: BOX_PRIVATE_NETMASK
+  config.vm.network "private_network", ip: BOX_PRIVATE_IP
+  # NAT PORTS, if you want...
+  #config.vm.network "forwarded_port", guest: 80, host: 8080
+  #config.vm.network "forwarded_port", guest: 22, host: 2222
+
+  #------------ SHARED FOLDERS ----------------------------
+  # The current directory is mapped to the /srv of the mounted host
+  # In this /srv we'll find the salt-stack things and projects
+  # we use NFS to avoid speed penalities on VirtualBox (between *10 and *100)
+  # and the "sendfile" bugs with nginx and apache
+  #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
+  # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
+  config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw","no_root_squash","no_subtree_check"]
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+  config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
+
+  #------------- PROVISIONING ------------------------------
+  # We push all the code in a script which manages the versioning of
+  # provisioning.
+  # Since vagrant 1.3.0 provisioning is run only on the first "up"
+  # or when --provision is used. But we need to run this script
+  # on each up/reload, so that at least this script can handle the
+  # launch of daemons which depends on NFS /srv mount which is done quite
+  # late by vagrant and cannot be done on upstart. So first let's remove
+  # the one-time provisioning marker
+
+  # vagrant 1.3 HACK: provision is now run only at first boot, we want to run it every time
+  if File.exist?("#{File.dirname(__FILE__)}/.vagrant/machines/default/virtualbox/action_provision")
+    # hack: remove this "provision-is-done" marker
+    File.delete("#{File.dirname(__FILE__)}/.vagrant/machines/default/virtualbox/action_provision")
+  end
+
+  # To manage edition rights sync between the VM and the local host
+  # we need to ensure the current user is member of a salt-admin-vm group (gid 65753) and
+  # that this group exists
+  require 'etc'
+  newgroup = 'salt-admin-vm'
+  user = Etc.getlogin
+
+  # detect current host OS
+  require 'rbconfig'
+
+  def os
+    @os ||= (
+      host_os = RbConfig::CONFIG['host_os']
+      case host_os
+      when /darwin|mac os/
+        :macosx
+      when /linux/
+        :linux
+      when /solaris|bsd/
+        :unix
+      else
+        raise Error::WebDriverError, "Non supported os: #{host_os.inspect}"
+      end
+    )
+  end
+#  printf(" [*] Checking if local group %s exists\n", newgroup )
+  found = false
+  Etc.group {|g|
+    found = true
+    break if g.gid==65753
+    found = false
+  }
+  if !found
+    printf(" [*] local group %s does not exists, creating it\n", newgroup)
+    if os==:linux or os==:unix
+      # Nunux
+      `sudo groupadd -g 65753 #{newgroup}`
+    else
+      `sudo dscl . -create /groups/#{newgroup} gid 65753`
+    end
+  end
+#  printf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
+  # loop on members of 65753 to find our user
+#  found = false
+#  Etc.getgrgid(65753).mem {|u|
+#    found = true
+#    break if u.gid==65753
+#    found = false
+#  
+#  }
+# usermod -a -G groupName userName
+#  `sudo dseditgroup -o edit -t user -a #{user} #{newgroup}`
+#  my_string = ;
+#  
+#  `sudo useradd -g #{group} #{user}`
+
+  # Now generate the provision script, put it inside /root VM's directory and launch it
+  pkg_cmd = [
+      %{cat << EOF > /root/provision_script.sh
+#!/bin/bash
+echo " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT /root/provision_script.sh"
+if [ ! -f /root/vboxguest4.2.12.ok ]; then
+  # Add guest additions if local vbox VM.
+  echo " [*] Enforce VBoxGuestAdditions 4.2.12..."
+  cd /tmp
+  echo " [*] download iso image..."
+  wget -q http://dlc.sun.com.edgesuite.net/virtualbox/4.2.12/VBoxGuestAdditions_4.2.12.iso
+  echo " [*] install dkms and kernel headers..."
+  apt-get install -q -y linux-headers-generic dkms
+  echo " [*] mount iso and run install"
+  mount -o loop,ro /tmp/VBoxGuestAdditions_4.2.12.iso /mnt
+  echo yes | /mnt/VBoxLinuxAdditions.run
+  umount /mnt
+  rm /tmp/VBoxGuestAdditions_4.2.12.iso
+  touch /root/vboxguest4.2.12.ok
+fi
+
+if [ -f /srv/Vagrantfile ]; then
+
+  if [ ! -f /root/provision_step_1_done ]; then
+    echo " [*] Install nfs support on guest"
+    apt-get install nfs-common portmap
+    if [ "0" == "$?" ];then touch /root/provision_step_1_done; fi;
+  fi
+
+  if [ ! -f /root/provision_step_2_done ]; then
+    echo " [*] Install lxc-docker support"
+    # Add lxc-docker package
+    wget -q -O - https://get.docker.io/gpg | apt-key add -
+    echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list
+    apt-get update -qq;
+    apt-get install -q -y --force-yes lxc-docker
+    if [ "0" == "$?" ];then touch /root/provision_step_2_done; fi;
+  fi
+
+  if [ ! -f /root/provision_step_3_done ]; then
+    echo " [*] fix french language"
+    apt-get install language-pack-fr
+    if [ "0" == "$?" ];then touch /root/provision_step_3_done; fi;
+  fi
+
+  if [ ! -f /root/salt_bootstrap_done ]; then
+    echo " [ * ] Bootstrap Salt-Stack env..."
+    export SALT_BOOT=''
+    wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
+    . /etc/profile
+  fi
+  
+  # Always start salt and docker AFTER /srv has been mounted on the VM
+  echo " [*] Manage Basic daemons using /srv"
+  echo " [*] /srv is mounted quite late so we must start some daemons later"
+  # kill salt that may be running
+  ps aux|egrep "salt-(master|minion|syndic)"|grep mastersalt|awk '{print $2}'|xargs kill -9 &> /dev/null
+  service salt-master start;
+  service salt-minion start;
+  service docker stop;
+  service docker start;
+  #salt '*' state.highstate;
+  echo " [*] VM is now ready for vagrant ssh or other usages..."
+
+else
+  # Try to install nfs on the guest for next reboot
+  if [ ! -f /root/provision_step_1_done ]; then
+    apt-get update -qq
+    apt-get install nfs-common portmap
+    if [ "0" == "$?" ];then touch /root/provision_step_1_done; fi;
+  fi
+  echo " [*] ERROR: You do not have /srv/Vagrantfile, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it!"
+fi
+
+EOF},
+    "chmod 700 /root/provision_script.sh",
+    "/root/provision_script.sh",
+  ]
+  config.vm.provision :shell, :inline => pkg_cmd.join("\n")
+end
+
+# Providers were added on Vagrant >= 1.1.0
+Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
+  config.vm.provider :virtualbox do |vb|
+    vb.customize ["modifyvm", :id, "--ioapic", "on"]
+    vb.customize ["modifyvm", :id, "--memory", MEMORY]
+    vb.customize ["modifyvm", :id, "--cpus", CPUS]
+    vb.customize ["modifyvm", :id, "--cpuexecutioncap", MAX_CPU_USAGE_PERCENT]
+  end
+end
+
