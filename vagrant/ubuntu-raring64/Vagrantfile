@@ -151,7 +151,6 @@ Vagrant.configure("2") do |config|
   # also search for a possible custom name
   found = false
   Etc.group {|g|
-    puts g.to_s
     if g.gid == newgid
       found = true
       newgroup = g.name
