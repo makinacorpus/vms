@@ -124,6 +124,7 @@ Vagrant.configure("2") do |config|
   # we need to ensure the current user is member of a salt-admin-vm group (gid 65753) and
   # that this group exists
   require 'etc'
+  newgid = 65753
   newgroup = 'salt-admin-vm'
   user = Etc.getlogin
 
@@ -149,30 +150,30 @@ Vagrant.configure("2") do |config|
   found = false
   Etc.group {|g|
     found = true
-    break if g.gid==65753
+    break if g.gid == newgid
     found = false
   }
   if !found
     printf(" [*] local group %s does not exists, creating it\n", newgroup)
-    if os==:linux or os==:unix
+    if os == :linux or os == :unix
       # Nunux
-      `sudo groupadd -g 65753 #{newgroup}`
+      `sudo groupadd -g #{newgid} #{newgroup}`
     else
       #Mac
-      `sudo dscl . -create /groups/#{newgroup} gid 65753`
+      `sudo dscl . -create /groups/#{newgroup} gid #{newgid}`
     end
   end
-#  printf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
-  # loop on members of 65753 to find our user
+  #  printf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
+  # loop on members of newgid to find our user
   found = false
-  Etc.getgrgid(65753).mem {|u|
+  Etc.getgrgid(newgid).mem {|u|
     found = true
-    break if u==user
+    break if u == user
     found = false
   }
   if !found
     printf(" [*] User %s is not member of group %s, adding him\n", user, newgroup)
-    if os==:linux or os==:unix
+    if os == :linux or os == :unix
       # Nunux
       `sudo gpasswd -a #{user} #{newgroup}`
     else
