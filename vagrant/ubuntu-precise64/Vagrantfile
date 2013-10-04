@@ -1,7 +1,5 @@
 # -*- mode: ruby -*-
-# vi: set ft=ruby :
-
-
+# vim:set ft=ruby:
 # ------------------ USAGE EXAMPLE --------------------
 # -- Install virtualbox, vagrant AND NFS (exemple debian-like)
 # > sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
@@ -9,16 +7,17 @@
 # http://downloads.vagrantup.com/
 # Exemple: version 1.3.3, paquet .deb pour debian/ubuntu, archi 64bits
 # -- attention pas le 1.3.4, bug sur hostname avec debian
-# > wget http://files.vagrantup.com/packages/db8e7a9c79b23264da129f55cf8569167fc22415/vagrant_1.3.3_x86_64.deb
-# > sudo dpkg -i vagrant_1.3.3_x86_64.deb
+#    wget http://files.vagrantup.com/packages/db8e7a9c79b23264da129f55cf8569167fc22415/vagrant_1.3.3_x86_64.deb
+#    sudo dpkg -i vagrant_1.3.3_x86_64.deb
+#    sudo apt-get install nfs-kernel-server
 # -- ALL
-# > mkdir -p ~/makina/devhost
-# > cd ~/makina/devhost
-# > wget https://github.com/makinacorpus/docker-vms/raw/master/vagrant/ubuntu-precise64/Vagrantfile
-# > vagrant up # first time will be quite long
-# > vagrant ssh # to connect inside
-# > vagrant halt/vagrant suspend # suspend will use more disk space but will be faster to reopen
-# > vagrant destroy # the end of everything
+#   mkdir -p ~/makina/devhost
+#   cd ~/makina/devhost
+#   wget https://github.com/makinacorpus/docker-vms/raw/master/vagrant/ubuntu-precise64/Vagrantfile
+#   vagrant up # first time will be quite long
+#   vagrant ssh # to connect inside
+#   vagrant halt/vagrant suspend # suspend will use more disk space but will be faster to reopen
+#   vagrant destroy # the end of everything
 
 # --------------------- CONFIGURATION ZONE ----------------------------------
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
@@ -36,11 +35,11 @@ MAX_CPU_USAGE_PERCENT="50"
 BOX_PRIVATE_IP="10.0.42.42"
 #BOX_PRIVATE_NETMASK="255.225.255.0"
 # Name on your VirtualBox panel
-VIRTUALBOX_VM_NAME="Dev Docker Host Ubuntu precise64"
+VIRTUALBOX_VM_NAME="Docker DevHost Ubuntu precise64"
 # Name inside the VM (as rendered buy hostname command)
 VM_HOSTNAME="devhost.local"
 # Set this to true ONLY if you have VirtualBox version > 4.2.12
-# else the synced folder would not work. 
+# else the synced folder would not work.
 # When activated this would remove warnings about version mismatch of
 # VirtualBox Guest additions, but we need at least the 4.2.12 version,
 # v 4.2.0 is present in the ubuntu kernel and we add the 4.2.12 in this script
@@ -90,8 +89,8 @@ Vagrant.configure("2") do |config|
   #config.vm.network "private_network", ip: BOX_PRIVATE_IP, netmask: BOX_PRIVATE_NETMASK
   config.vm.network "private_network", ip: BOX_PRIVATE_IP
   # NAT PORTS, if you want...
-  #config.vm.network "forwarded_port", guest: 80, host: 8080  
-  #config.vm.network "forwarded_port", guest: 22, host: 2222  
+  #config.vm.network "forwarded_port", guest: 80, host: 8080
+  #config.vm.network "forwarded_port", guest: 22, host: 2222
 
   #------------ SHARED FOLDERS ----------------------------
   # The current directory is mapped to the /srv of the mounted host
@@ -105,7 +104,7 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
 
   #------------- PROVISIONING ------------------------------
-  # We push all the code in a script which manages the versioning of 
+  # We push all the code in a script which manages the versioning of
   # provisioning.
   # Since vagrant 1.3.0 provisioning is run only on the first "up"
   # or when --provision is used. But we need to run this script
@@ -171,7 +170,7 @@ if [ -f /srv/Vagrantfile ]; then
     wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
     . /etc/profile
   fi
-  
+
   # Always start salt and docker AFTER /srv has been mounted on the VM
   echo " [*] Manage Basic daemons using /srv"
   echo " [*] /srv is mounted quite late so we must start some daemons later"

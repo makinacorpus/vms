@@ -14,7 +14,7 @@ ADD ntp_postinst /root/ntp_postinst
 RUN sed -re 's/ main$/ main restricted universe multiverse/g' -e "s:/archive\.:/fr.archive\.:g" -i /etc/apt/sources.list &&\
     grep "deb " /etc/apt/sources.list|sed -re "s/^deb /deb-src /g" >> /etc/apt/sources.list &&\
     apt-get -q update && apt-get upgrade -y &&\
-    apt-get install -y libfuse2 &&\
+    apt-get install -y libfuse2 apt-utils &&\
     if [ ! -e "/root/debbuild" ];then mkdir -pv /root/debbuild;fi &&\
     mv /root/ntp_postinst /root/debbuild &&\
     cd /root/debbuild;\
@@ -35,7 +35,7 @@ RUN sed -re 's/ main$/ main restricted universe multiverse/g' -e "s:/archive\.:/
       cd /root/debbuild/$i/build&&\
       dpkg-deb -b . /root/debbuild/$i.deb;\
     done&&\
-    apt-get install $(dpkg-deb -I /root/debbuild/ntp.deb |egrep "^\s*Depends:"|sed -re "s/\([^\)]+\)//g" -e "s/,//g" -e "s/Depends://g") &&\
+    apt-get install -y $(dpkg-deb -I /root/debbuild/ntp.deb |egrep "^\s*Depends:"|sed -re "s/\([^\)]+\)//g" -e "s/,//g" -e "s/Depends://g") &&\
     for i in fuse resolvconf ntp;do\
       dpkg -i /root/debbuild/$i.deb&&\
       echo $i hold | dpkg --set-selections;\
