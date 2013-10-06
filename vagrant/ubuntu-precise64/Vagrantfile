@@ -1,5 +1,5 @@
 # -*- mode: ruby -*-
-# vim:set ft=ruby:
+# vim: set ft=ruby ts=2 et sts=2 tw=0:
 # ------------------ USAGE EXAMPLE --------------------
 # -- Install virtualbox, vagrant AND NFS (exemple debian-like)
 # > sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
@@ -125,6 +125,7 @@ Vagrant.configure("2") do |config|
   # we need to ensure the current user is member of a salt-admin-vm group (gid 65753) and
   # that this group exists
   require 'etc'
+  newgid = 65753 # the most important
   newgroup = 'salt-admin-vm'
   user = Etc.getlogin
 
@@ -146,34 +147,38 @@ Vagrant.configure("2") do |config|
       end
     )
   end
+
   #printf(" [*] Checking if local group %s exists\n", newgroup )
+  # also search for a possible custom name
   found = false
   Etc.group {|g|
-    found = true
-    break if g.gid==65753
-    found = false
+    if g.gid == newgid
+      found = true
+      newgroup = g.name
+      break
+    end
   }
   if !found
     printf(" [*] local group %s does not exists, creating it\n", newgroup)
-    if os==:linux or os==:unix
-      # Nunux
-      `sudo groupadd -g 65753 #{newgroup}`
+    if os == :linux or os == :unix
+      # Unix
+      `sudo groupadd -g #{newgid} #{newgroup}`
     else
-      #Mac
-      `sudo dscl . -create /groups/#{newgroup} gid 65753`
+      # Mac
+      `sudo dscl . -create /groups/#{newgroup} gid #{newgid}`
     end
   end
-#  printf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
-  # loop on members of 65753 to find our user
-  found = false
-  Etc.getgrgid(65753).mem {|u|
-    found = true
-    break if u==user
-    found = false
+  #  printf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
+  # loop on members of newgid to find our user
+  Etc.getgrgid(newgid).mem.each { |u|
+    if u == user
+      found = true
+      break
+    end
   }
   if !found
     printf(" [*] User %s is not member of group %s, adding him\n", user, newgroup)
-    if os==:linux or os==:unix
+    if os == :linux or os == :unix
       # Nunux
       `sudo gpasswd -a #{user} #{newgroup}`
     else
@@ -184,17 +189,18 @@ Vagrant.configure("2") do |config|
 
   # Now generate the provision script, put it inside /root VM's directory and launch it
   pkg_cmd = [
-      %{cat << EOF > /root/provision_script.sh
+      %{cat > /root/provision_script.sh  << EOF
 #!/bin/bash
 echo " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT /root/provision_script.sh"
+export DEBIAN_FRONTEND=noninteractive
 if [ ! -f /root/vboxguest4.2.12.ok ]; then
   # Add guest additions if local vbox VM.
   echo " [*] Enforce VBoxGuestAdditions 4.2.12..."
   cd /tmp
   echo " [*] download iso image..."
-  wget -q http://dlc.sun.com.edgesuite.net/virtualbox/4.2.12/VBoxGuestAdditions_4.2.12.iso
+  wget -q "http://dlc.sun.com.edgesuite.net/virtualbox/4.2.12/VBoxGuestAdditions_4.2.12.iso"
   echo " [*] install dkms and kernel headers..."
-  apt-get install -q -y linux-headers-generic-lts-raring dkms
+  apt-get install -q -y --force-yes linux-headers-generic-lts-raring dkms
   echo " [*] mount iso and run install"
   mount -o loop,ro /tmp/VBoxGuestAdditions_4.2.12.iso /mnt
   echo yes | /mnt/VBoxLinuxAdditions.run
@@ -205,32 +211,54 @@ fi
 
 if [ -f /srv/Vagrantfile ]; then
 
-  if [ ! -f /root/provision_step_1_done ]; then
+  if [ ! -e /root/provision_step_provisionning_done ]; then
     echo " [*] STARTING INITIAL PROVISIONNING, this may take a while..."
     # Add Ubuntu raring backported kernel
     echo " [*] Install lts-raring kernel"
     apt-get update -qq
-    apt-get install -q -y linux-image-generic-lts-raring linux-headers-generic-lts-raring
-    if [ "0" == "$?" ];then touch /root/provision_step_1_done; fi;
+    apt-get install -q -y --force-yes linux-image-generic-lts-raring linux-headers-generic-lts-raring
+    if [ "0" == "$?" ];then touch /root/provision_step_provisionning_done; fi;
   fi
 
-  if [ ! -f /root/provision_step_2_done ]; then
+  if [ ! -e /root/provision_step_nfs_done ]; then
     echo " [*] Install nfs support on guest"
-    apt-get install nfs-common portmap
-    if [ "0" == "$?" ];then touch /root/provision_step_2_done; fi;
+    apt-get install -q -y --force-yes nfs-common portmap
+    if [ "0" == "$?" ];then touch /root/provision_step_nfs_done; fi;
   fi
 
-  if [ ! -f /root/provision_step_3_done ]; then
+  if [ ! -e /root/provision_step_lxc_done ]; then
     echo " [*] Install lxc-docker support"
     # Add lxc-docker package
     wget -q -O - https://get.docker.io/gpg | apt-key add -
     echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list
     apt-get update -qq;
     apt-get install -q -y --force-yes lxc-docker
-    if [ "0" == "$?" ];then touch /root/provision_step_3_done; fi;
+    # autorestart dockers on boot
+    sed -re "s/docker -d/docker -r -d/g" -e /etc/init/docker.conf
+    service docker restart
+    if [ "0" == "$?" ];then touch /root/provision_step_lxc_done; fi;
   fi
 
-  if [ ! -f /root/salt_bootstrap_done ]; then
+  if [ ! -e /root/provision_step_lang_done ]; then
+    echo " [*] fix french language"
+    apt-get install install -q -y --force-yes language-pack-fr
+    echo>/etc/locale.gen
+    echo "en_US.UTF-8 UTF-8">>/etc/locale.gen
+    echo "en_US ISO-8859-1">>/etc/locale.gen
+    echo "de_DE.UTF-8 UTF-8">>/etc/locale.gen
+    echo "de_DE ISO-8859-1">>/etc/locale.gen
+    echo "de_DE@euro ISO-8859-15">>/etc/locale.gen
+    echo "fr_FR.UTF-8 UTF-8">>/etc/locale.gen
+    echo "fr_FR ISO-8859-1">>/etc/locale.gen
+    echo "fr_FR@euro ISO-8859-15">>/etc/locale.gen
+    echo 'LANG="fr_FR.utf8"'>/etc/default/locale
+    echo "export LANG=\${LANG:-fr_FR.UTF-8}">>/etc/profile.d/0_lang.sh
+    /usr/sbin/locale-gen
+    update-locale LANG=fr_FR.utf8
+    if [ "0" == "$?" ];then touch /root/provision_step_lang_done; fi;
+  fi
+
+  if [ ! -e /root/salt_bootstrap_done ]; then
     echo " [ * ] Bootstrap Salt-Stack env..."
     export SALT_BOOT=''
     wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
@@ -241,20 +269,21 @@ if [ -f /srv/Vagrantfile ]; then
   echo " [*] Manage Basic daemons using /srv"
   echo " [*] /srv is mounted quite late so we must start some daemons later"
   # kill salt that may be running
-  ps aux|egrep "salt-(master|minion|syndic)"|grep mastersalt|awk '{print $2}'|xargs kill -9 &> /dev/null
-  service salt-master start;
-  service salt-minion start;
-  service docker stop;
-  service docker start;
-  #salt '*' state.highstate;
+  ps aux|egrep "salt-(master|minion|syndic)"|awk '{print $2}'|xargs kill -9 &> /dev/null
+  service salt-master start
+  service salt-minion start
+  service docker stop
+  service docker start
+  #salt '*' state.highstate
+  #salt '*' state.sls setup
   echo " [*] VM is now ready for vagrant ssh or other usages..."
 
 else
   # Try to install nfs on the guest for next reboot
-  if [ ! -f /root/provision_step_2_done ]; then
+  if [ ! -f /root/provision_step_nfs_done ]; then
     apt-get update -qq
     apt-get install nfs-common portmap
-    if [ "0" == "$?" ];then touch /root/provision_step_2_done; fi;
+    if [ "0" == "$?" ];then touch /root/provision_step_nfs_done; fi;
   fi
   echo " [*] ERROR: You do not have /srv/Vagrantfile, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it!"
 fi
