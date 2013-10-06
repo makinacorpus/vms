@@ -170,6 +170,7 @@ Vagrant.configure("2") do |config|
   end
   #  printf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
   # loop on members of newgid to find our user
+  found = false
   Etc.getgrgid(newgid).mem.each { |u|
     if u == user
       found = true
