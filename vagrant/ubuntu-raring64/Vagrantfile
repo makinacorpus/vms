@@ -24,33 +24,6 @@
 # [pid 11295] poll([{fd=59, events=POLLIN}], 1, 5000 <unfinished ...>
 # [pid 11284] open("/srv/salt/makina-states/src/salt/salt/modules/functools.so", O_RDONLY) = -1 ENOENT (No such file or #
 #
-# NOTE: right know you need to use a very uptodate kernel not to suffer from big slowness on ubuntu
-# To improve performance of virtualisation, you need a kernel > 3.10
-#
-# install a recent kernel:
-#   wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-headers-3.10.14-031014_3.10.14-031014.201310011335_all.deb
-#   wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-headers-3.10.14-031014-generic_3.10.14-031014.201310011335_amd64.deb
-#   wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-image-3.10.14-031014-generic_3.10.14-031014.201310011335_amd64.deb
-#   dpkg -i *3.10.14*deb
-#
-# If you use nvidia drivers, you need nvidia>325 to run on kernel 3.10+:
-#   sudo add-apt-repository ppa:xorg-edgers/ppa
-#   sudo add-apt-repository ppa:bumblebee/stable
-#   sudo apt-get update
-#   sudo apt-get purge nvidia-304 nvidia-settings-304
-#   apt-get install nvidia-325 nvidia-settings-325
-#   # If you have optimus based chipset you will need to upgrade your bumblebee setup:
-#     sudo apt-get install bumblebee bumblebee-nvidia primus primus-libs-ia32:i386 virtualgl
-#   # Then, edit in /etc/bumblebee/bumblebee.conf
-#     KernelDriver=nvidia_325
-#     LibraryPath=/usr/lib/nvidia-325/:/usr/lib32/nvidia-325:/usr/lib/nvidia-current:/usr/lib32/nvidia-current
-#     XorgModulePath=/usr/lib/nvidia-325/xorg,/usr/lib/nvidia-current/xorg,/usr/lib/xorg/modules
-#   # You can then use nvidia settings as usual:
-#     optirun nvidia-settings -c :8
-#
-#   # finally remove this edge repo:
-#     sudo add-apt-repository --remove ppa:xorg-edgers:ppa
-#
 # ------------------ USAGE EXAMPLE --------------------
 # -- Install virtualbox, vagrant AND NFS (exemple debian-like)
 # > sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
@@ -69,7 +42,8 @@
 #   vagrant ssh # to connect inside
 #   vagrant halt/vagrant suspend # suspend will use more disk space but will be faster to reopen
 #   vagrant destroy # the end of everything
-
+#
+# If you want to improve perfomances specially network related, please read the end of this file
 # --------------------- CONFIGURATION ZONE ----------------------------------
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
 MEMORY="1024"
@@ -152,7 +126,7 @@ Vagrant.configure("2") do |config|
   # and the "sendfile" bugs with nginx and apache
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
-  config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw","no_root_squash","no_subtree_check"]
+  config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check"]
   config.vm.synced_folder ".", "/vagrant", disabled: true
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
 
@@ -356,3 +330,30 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
   end
 end
 
+# NOTE: right know you need to use a very uptodate kernel not to suffer from big slowness on ubuntu
+# To improve performance of virtualisation, you need a kernel > 3.10
+#
+# install a recent kernel:
+#   wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-headers-3.10.14-031014_3.10.14-031014.201310011335_all.deb
+#   wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-headers-3.10.14-031014-generic_3.10.14-031014.201310011335_amd64.deb
+#   wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-image-3.10.14-031014-generic_3.10.14-031014.201310011335_amd64.deb
+#   dpkg -i *3.10.14*deb
+#
+# If you use nvidia drivers, you need nvidia>325 to run on kernel 3.10+:
+#   sudo add-apt-repository ppa:xorg-edgers/ppa
+#   sudo add-apt-repository ppa:bumblebee/stable
+#   sudo apt-get update
+#   sudo apt-get purge nvidia-304 nvidia-settings-304
+#   apt-get install nvidia-325 nvidia-settings-325
+#   # If you have optimus based chipset you will need to upgrade your bumblebee setup:
+#     sudo apt-get install bumblebee bumblebee-nvidia primus primus-libs-ia32:i386 virtualgl
+#   # Then, edit in /etc/bumblebee/bumblebee.conf
+#     KernelDriver=nvidia_325
+#     LibraryPath=/usr/lib/nvidia-325/:/usr/lib32/nvidia-325:/usr/lib/nvidia-current:/usr/lib32/nvidia-current
+#     XorgModulePath=/usr/lib/nvidia-325/xorg,/usr/lib/nvidia-current/xorg,/usr/lib/xorg/modules
+#   # You can then use nvidia settings as usual:
+#     optirun nvidia-settings -c :8
+#
+#   # finally remove this edge repo:
+#     sudo add-apt-repository --remove ppa:xorg-edgers:ppa
+#
