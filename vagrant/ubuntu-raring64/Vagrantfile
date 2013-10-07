@@ -42,7 +42,7 @@ VM_HOSTNAME="devhost.local"
 # else the synced folder would not work.
 # When activated this would remove warnings about version mismatch of
 # VirtualBox Guest additions, but we need at least the 4.2.12 version,
-# v 4.2.0 is present in the ubuntu kernel and we add the 4.2.12 in this script
+# v 4.2.10 is present in the ubuntu kernel and we add the 4.2.12 in this script
 # even if your host is on a lower version. If you have something greater than
 # 4.2.12 set this to true, comment the 4.2.12 install below and install vbguest
 # vagrant plugin with this command : "vagrant plugin install vagrant-vbguest"
