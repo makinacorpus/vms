@@ -292,7 +292,7 @@ if [ -f /srv/Vagrantfile ]; then
 
   if [ ! -e /root/provision_step_lang_done ]; then
     echo " [*] fix french language"
-    apt-get install install -q -y --force-yes language-pack-fr
+    apt-get install -q -y --force-yes language-pack-fr
     echo>/etc/locale.gen
     echo "en_US.UTF-8 UTF-8">>/etc/locale.gen
     echo "en_US ISO-8859-1">>/etc/locale.gen
