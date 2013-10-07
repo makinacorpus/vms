@@ -1,5 +1,56 @@
 # -*- mode: ruby -*-
 # vim: set ft=ruby ts=2 et sts=2 tw=0:
+#
+# current strace where lockin
+# [pid 11295] close(59)                   = 0
+# [pid 11295] access("/etc/ld.so.nohwcap", F_OK) = -1 ENOENT (No such file or directory)
+# [pid 11295] open("/lib/x86_64-linux-gnu/libresolv.so.2", O_RDONLY|O_CLOEXEC) = 59
+# [pid 11295] read(59, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\320:\0\0\0\0\0\0"..., 832) = 832
+# [pid 11295] fstat(59, {st_mode=S_IFREG|0644, st_size=97144, ...}) = 0
+# [pid 11295] mmap(NULL, 2202280, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 59, 0) = 0x7f9a577b3000
+# [pid 11295] mprotect(0x7f9a577c9000, 2097152, PROT_NONE) = 0
+# [pid 11295] mmap(0x7f9a579c9000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 59, 0x16000) = 0x7f9a579c9000
+# [pid 11295] mmap(0x7f9a579cb000, 6824, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f9a579cb000
+# [pid 11295] close(59)                   = 0
+# [pid 11295] mprotect(0x7f9a579c9000, 4096, PROT_READ) = 0
+# [pid 11295] mprotect(0x7f9a57bd2000, 4096, PROT_READ) = 0
+# [pid 11295] munmap(0x7f9a662a1000, 30718) = 0
+# [pid 11295] stat("/etc/resolv.conf", {st_mode=S_IFREG|0644, st_size=171, ...}) = 0
+# [pid 11295] socket(PF_INET, SOCK_DGRAM|SOCK_NONBLOCK, IPPROTO_IP) = 59
+# [pid 11295] connect(59, {sa_family=AF_INET, sin_port=htons(53), sin_addr=inet_addr("10.0.2.3")}, 16) = 0
+# [pid 11295] gettimeofday({1381099796, 139497}, NULL) = 0
+# [pid 11295] poll([{fd=59, events=POLLOUT}], 1, 0) = 1 ([{fd=59, revents=POLLOUT}])
+# [pid 11295] sendto(59, "I\260\1\0\0\1\0\0\0\0\0\0\7devhost\5local\0\0\34\0\1", 31, MSG_NOSIGNAL, NULL, 0) = 31
+# [pid 11295] poll([{fd=59, events=POLLIN}], 1, 5000 <unfinished ...>
+# [pid 11284] open("/srv/salt/makina-states/src/salt/salt/modules/functools.so", O_RDONLY) = -1 ENOENT (No such file or #
+#
+# NOTE: right know you need to use a very uptodate kernel not to suffer from big slowness on ubuntu
+# To improve performance of virtualisation, you need a kernel > 3.10
+#
+# install a recent kernel:
+#   wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-headers-3.10.14-031014_3.10.14-031014.201310011335_all.deb
+#   wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-headers-3.10.14-031014-generic_3.10.14-031014.201310011335_amd64.deb
+#   wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-image-3.10.14-031014-generic_3.10.14-031014.201310011335_amd64.deb
+#   dpkg -i *3.10.14*deb
+#
+# If you use nvidia drivers, you need nvidia>325 to run on kernel 3.10+:
+#   sudo add-apt-repository ppa:xorg-edgers/ppa
+#   sudo add-apt-repository ppa:bumblebee/stable
+#   sudo apt-get update
+#   sudo apt-get purge nvidia-304 nvidia-settings-304
+#   apt-get install nvidia-325 nvidia-settings-325
+#   # If you have optimus based chipset you will need to upgrade your bumblebee setup:
+#     sudo apt-get install bumblebee bumblebee-nvidia primus primus-libs-ia32:i386 virtualgl
+#   # Then, edit in /etc/bumblebee/bumblebee.conf
+#     KernelDriver=nvidia_325
+#     LibraryPath=/usr/lib/nvidia-325/:/usr/lib32/nvidia-325:/usr/lib/nvidia-current:/usr/lib32/nvidia-current
+#     XorgModulePath=/usr/lib/nvidia-325/xorg,/usr/lib/nvidia-current/xorg,/usr/lib/xorg/modules
+#   # You can then use nvidia settings as usual:
+#     optirun nvidia-settings -c :8
+#
+#   # finally remove this edge repo:
+#     sudo add-apt-repository --remove ppa:xorg-edgers:ppa
+#
 # ------------------ USAGE EXAMPLE --------------------
 # -- Install virtualbox, vagrant AND NFS (exemple debian-like)
 # > sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
@@ -211,6 +262,14 @@ if [ ! -f /root/vboxguest4.2.12.ok ]; then
 fi
 
 if [ -f /srv/Vagrantfile ]; then
+
+  if [ ! -e /root/provision_step_kernel_done ]; then
+    wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-headers-3.10.14-031014_3.10.14-031014.201310011335_all.deb
+    wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-headers-3.10.14-031014-generic_3.10.14-031014.201310011335_amd64.deb
+    wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-image-3.10.14-031014-generic_3.10.14-031014.201310011335_amd64.deb
+    dpkg -i *3.10.14*deb
+    touch /root/provision_step_kernel_done
+  fi
 
   if [ ! -e /root/provision_step_nfs_done ]; then
     echo " [*] Install nfs support on guest"
