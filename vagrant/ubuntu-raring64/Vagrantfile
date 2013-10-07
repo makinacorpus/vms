@@ -37,7 +37,7 @@
 # -- ALL
 #   mkdir -p ~/makina/devhost
 #   cd ~/makina/devhost
-#   wget https://github.com/makinacorpus/docker-vms/raw/master/vagrant/ubuntu-precise64/Vagrantfile
+#   wget https://raw.github.com/makinacorpus/docker-vms/master/vagrant/ubuntu-raring64/Vagrantfile
 #   vagrant up # first time will be quite long
 #   vagrant ssh # to connect inside
 #   vagrant halt/vagrant suspend # suspend will use more disk space but will be faster to reopen
@@ -305,6 +305,9 @@ if [ -f /srv/Vagrantfile ]; then
 
 else
   # Try to install nfs on the guest for next reboot
+  if [ ! -d "/srv" ]; then
+    mkdir /srv
+  fi
   if [ ! -f /root/provision_step_nfs_done ]; then
     apt-get update -qq
     apt-get install nfs-common portmap

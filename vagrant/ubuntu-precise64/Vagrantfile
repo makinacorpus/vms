@@ -281,6 +281,9 @@ if [ -f /srv/Vagrantfile ]; then
 
 else
   # Try to install nfs on the guest for next reboot
+  if [ ! -d "/srv" ]; then
+    mkdir /srv
+  fi
   if [ ! -f /root/provision_step_nfs_done ]; then
     apt-get update -qq
     apt-get install nfs-common portmap
