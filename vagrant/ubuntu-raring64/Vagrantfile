@@ -309,6 +309,7 @@ else
     mkdir /srv
   fi
   if [ ! -f /root/provision_step_nfs_done ]; then
+    echo " [*] Installing nfs tools on guest for next reboot, please wait..."
     apt-get update -qq
     apt-get install nfs-common portmap
     if [ "0" == "$?" ];then touch /root/provision_step_nfs_done; fi;
