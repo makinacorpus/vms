@@ -5,8 +5,8 @@
 # > sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
 # get latest vagrant from
 # http://downloads.vagrantup.com/
-# Exemple: version 1.3.3, paquet .deb pour debian/ubuntu, archi 64bits
-# -- attention pas le 1.3.4, bug sur hostname avec debian
+# Eg: version 1.3.3, paquet .deb pour debian/ubuntu, archi 64bits
+# -- WARNING NOT 1.3.4, bug ON hostname with Debian
 #    wget http://files.vagrantup.com/packages/db8e7a9c79b23264da129f55cf8569167fc22415/vagrant_1.3.3_x86_64.deb
 #    sudo dpkg -i vagrant_1.3.3_x86_64.deb
 #    sudo apt-get install nfs-kernel-server
@@ -18,7 +18,11 @@
 #   vagrant ssh # to connect inside
 #   vagrant halt/vagrant suspend # suspend will use more disk space but will be faster to reopen
 #   vagrant destroy # the end of everything
-
+#
+# !!!!!!!!!!!!!!!!:
+# !!! IMPORTANT !!!
+# !!!!!!!!!!!!!!!!!
+# If you want to improve perfomances specially network related, please read the end of this file
 # --------------------- CONFIGURATION ZONE ----------------------------------
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
 MEMORY="1024"
@@ -42,7 +46,7 @@ VM_HOSTNAME="devhost.local"
 # else the synced folder would not work.
 # When activated this would remove warnings about version mismatch of
 # VirtualBox Guest additions, but we need at least the 4.2.12 version,
-# v 4.2.0 is present in the ubuntu kernel and we add the 4.2.12 in this script
+# v 4.2.10 is present in the ubuntu kernel and we add the 4.2.12 in this script
 # even if your host is on a lower version. If you have something greater than
 # 4.2.12 set this to true, comment the 4.2.12 install below and install vbguest
 # vagrant plugin with this command : "vagrant plugin install vagrant-vbguest"
@@ -101,7 +105,7 @@ Vagrant.configure("2") do |config|
   # and the "sendfile" bugs with nginx and apache
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
-  config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw","no_root_squash","no_subtree_check"]
+  config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check"]
   config.vm.synced_folder ".", "/vagrant", disabled: true
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
 
@@ -194,32 +198,57 @@ Vagrant.configure("2") do |config|
 #!/bin/bash
 echo " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT /root/provision_script.sh"
 export DEBIAN_FRONTEND=noninteractive
-if [ ! -f /root/vboxguest4.2.12.ok ]; then
+# DNS TMP OVERRIDE
+cat > /etc/resolv.conf << DNSEOF
+nameserver 8.8.8.8
+nameserver 4.4.4.4
+DNSEOF
+MIRROR="http://fr.archive.ubuntu.com/ubuntu"
+KV="3.11.0"
+KVM="\\${KV}-11"
+V1="\\${KV}-11.17"
+VBOX_GUEST_V="4.2.12"
+# order is important
+KERNEL_PKGS=""
+KERNEL_PKGS="\\$KERNEL_PKGS pool/main/l/linux/linux-source-\\${KV}_\\${V1}_all.deb"
+KERNEL_PKGS="\\$KERNEL_PKGS pool/main/l/linux/linux-headers-\\${KVM}_\\${V1}_all.deb"
+KERNEL_PKGS="\\$KERNEL_PKGS pool/main/l/linux/linux-headers-\\${KVM}-generic_\\${V1}_amd64.deb"
+KERNEL_PKGS="\\$KERNEL_PKGS pool/main/l/linux/linux-image-\\${KVM}-generic_\\${V1}_amd64.deb"
+KERNEL_PKGS="\\$KERNEL_PKGS pool/main/l/linux/linux-image-extra-\\${KVM}-generic_\\${V1}_amd64.deb"
+kernel_marker="/root/provision_step_kernel\\${KVM}saucy_done"
+if [ ! -e "\\${kernel_marker}" ]; then
+  apt-get -f -y --force-yes install
+  apt-get install -y --force-yes linux-image-extra-virtual
+  cd /root
+  to_install=""
+  for pkg in \\$KERNEL_PKGS;do
+      url="\\$MIRROR/\\$pkg"
+      echo " [*] Downloading \\$url"
+      wget -q -c "\\$url"
+      to_install="\\$to_install \\$(basename \\$pkg)"
+  done
+  echo " [*] Installing \\$to_install"
+  dpkg -i \\$to_install && touch "\\${kernel_marker}"
+  echo " [*] The first time, you need to reload the new kernel and reprovision."
+  echo " [*] For that, issue now 'vagrant reload'"
+  exit 1
+fi
+if [ ! -f /root/vboxguest\\${KVM}_\\${VBOX_GUEST_V}.ok ]; then
   # Add guest additions if local vbox VM.
-  echo " [*] Enforce VBoxGuestAdditions 4.2.12..."
+  echo " [*] Enforce VBoxGuestAdditions \\${VBOX_GUEST_V}..."
   cd /tmp
-  echo " [*] download iso image..."
-  wget -q "http://dlc.sun.com.edgesuite.net/virtualbox/4.2.12/VBoxGuestAdditions_4.2.12.iso"
-  echo " [*] install dkms and kernel headers..."
-  apt-get install -q -y --force-yes linux-headers-generic-lts-raring dkms
-  echo " [*] mount iso and run install"
-  mount -o loop,ro /tmp/VBoxGuestAdditions_4.2.12.iso /mnt
+  echo " [*] Download iso image for guest additions (\\${VBOX_GUEST_V})..."
+  wget -c -q "http://dlc.sun.com.edgesuite.net/virtualbox/\\${VBOX_GUEST_V}/VBoxGuestAdditions_\\${VBOX_GUEST_V}.iso"
+  echo " [*] Install dkms and kernel headers..."
+  apt-get install -q -y linux-headers-generic dkms
+  echo " [*] Mount iso and run install"
+  mount -o loop,ro /tmp/VBoxGuestAdditions_\\${VBOX_GUEST_V}.iso /mnt
   echo yes | /mnt/VBoxLinuxAdditions.run
   umount /mnt
-  rm /tmp/VBoxGuestAdditions_4.2.12.iso
-  touch /root/vboxguest4.2.12.ok
+  rm /tmp/VBoxGuestAdditions_\\${VBOX_GUEST_V}.iso
+  touch /root/vboxguest-\\${KVM}_\\${VBOX_GUEST_V}.ok
 fi
-
 if [ -f /srv/Vagrantfile ]; then
-
-  if [ ! -e /root/provision_step_provisionning_done ]; then
-    echo " [*] STARTING INITIAL PROVISIONNING, this may take a while..."
-    # Add Ubuntu raring backported kernel
-    echo " [*] Install lts-raring kernel"
-    apt-get update -qq
-    apt-get install -q -y --force-yes linux-image-generic-lts-raring linux-headers-generic-lts-raring
-    if [ "0" == "$?" ];then touch /root/provision_step_provisionning_done; fi;
-  fi
 
   if [ ! -e /root/provision_step_nfs_done ]; then
     echo " [*] Install nfs support on guest"
@@ -241,7 +270,7 @@ if [ -f /srv/Vagrantfile ]; then
   fi
 
   if [ ! -e /root/provision_step_lang_done ]; then
-    echo " [*] fix french language"
+    echo " [*] Fix French language"
     apt-get install -q -y --force-yes language-pack-fr
     echo>/etc/locale.gen
     echo "en_US.UTF-8 UTF-8">>/etc/locale.gen
@@ -316,3 +345,36 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
   end
 end
 
+# NOTE: right know you need to use a very uptodate kernel not to suffer from big slowness on ubuntu
+# To improve performance of virtualisation, you need a kernel > 3.10
+# Idea is to backport the official next-ubuntu kernel (Codename: saucy)
+#
+# install a recent kernel (saucy backport):
+#  MIRROR="http://fr.archive.ubuntu.com/ubuntu";KV="3.11.0";KVM="${KV}-11";V1="${KV}-11.17"
+#  # order is important
+#  KERNEL_PKGS=""
+#  KERNEL_PKGS="$KERNEL_PKGS pool/main/l/linux/linux-source-${KV}_${V1}_all.deb"
+#  KERNEL_PKGS="$KERNEL_PKGS pool/main/l/linux/linux-headers-${KVM}_${V1}_all.deb"
+#  KERNEL_PKGS="$KERNEL_PKGS pool/main/l/linux/linux-headers-${KVM}-generic_${V1}_amd64.deb"
+#  KERNEL_PKGS="$KERNEL_PKGS pool/main/l/linux/linux-image-${KVM}-generic_${V1}_amd64.deb"
+#  KERNEL_PKGS="$KERNEL_PKGS pool/main/l/linux/linux-image-extra-${KVM}-generic_${V1}_amd64.deb"
+#  for pkg in $KERNEL_PKGS;do url="$MIRROR/$pkg";wget -q -c "$url";to_install="$to_install $(basename $pkg)";done
+#  apt-get install linux-image-extra-virtual && dpkg -i $to_install
+#
+# If you use nvidia drivers, you need nvidia>325 to run on kernel 3.10+:
+#  sudo add-apt-repository ppa:xorg-edgers/ppa
+#  sudo add-apt-repository ppa:bumblebee/stable
+#  sudo apt-get update
+#  sudo apt-get purge nvidia-304 nvidia-settings-304
+#  apt-get install nvidia-325 nvidia-settings-325
+#  # If you have optimus based chipset you will need to upgrade your bumblebee setup:
+#    sudo apt-get install bumblebee bumblebee-nvidia primus primus-libs-ia32:i386 virtualgl
+#  # Then, edit in /etc/bumblebee/bumblebee.conf
+#    KernelDriver=nvidia_325
+#    LibraryPath=/usr/lib/nvidia-325/:/usr/lib32/nvidia-325:/usr/lib/nvidia-current:/usr/lib32/nvidia-current
+#    XorgModulePath=/usr/lib/nvidia-325/xorg,/usr/lib/nvidia-current/xorg,/usr/lib/xorg/modules
+#  # You can then use nvidia settings as usual:
+#    optirun nvidia-settings -c :8
+#
+#  # finally remove this edge repo:
+#    sudo add-apt-repository --remove ppa:xorg-edgers:ppa

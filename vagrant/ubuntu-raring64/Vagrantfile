@@ -1,39 +1,20 @@
 # -*- mode: ruby -*-
-# vim: set ft=ruby ts=2 et sts=2 tw=0:
+# vim: set ft=ruby ts=2 et sts=2 tw=0 ai:
 #
 # current strace where lockin
-# [pid 11295] close(59)                   = 0
-# [pid 11295] access("/etc/ld.so.nohwcap", F_OK) = -1 ENOENT (No such file or directory)
-# [pid 11295] open("/lib/x86_64-linux-gnu/libresolv.so.2", O_RDONLY|O_CLOEXEC) = 59
-# [pid 11295] read(59, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\320:\0\0\0\0\0\0"..., 832) = 832
-# [pid 11295] fstat(59, {st_mode=S_IFREG|0644, st_size=97144, ...}) = 0
-# [pid 11295] mmap(NULL, 2202280, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 59, 0) = 0x7f9a577b3000
-# [pid 11295] mprotect(0x7f9a577c9000, 2097152, PROT_NONE) = 0
-# [pid 11295] mmap(0x7f9a579c9000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 59, 0x16000) = 0x7f9a579c9000
-# [pid 11295] mmap(0x7f9a579cb000, 6824, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f9a579cb000
-# [pid 11295] close(59)                   = 0
-# [pid 11295] mprotect(0x7f9a579c9000, 4096, PROT_READ) = 0
-# [pid 11295] mprotect(0x7f9a57bd2000, 4096, PROT_READ) = 0
-# [pid 11295] munmap(0x7f9a662a1000, 30718) = 0
-# [pid 11295] stat("/etc/resolv.conf", {st_mode=S_IFREG|0644, st_size=171, ...}) = 0
-# [pid 11295] socket(PF_INET, SOCK_DGRAM|SOCK_NONBLOCK, IPPROTO_IP) = 59
-# [pid 11295] connect(59, {sa_family=AF_INET, sin_port=htons(53), sin_addr=inet_addr("10.0.2.3")}, 16) = 0
-# [pid 11295] gettimeofday({1381099796, 139497}, NULL) = 0
-# [pid 11295] poll([{fd=59, events=POLLOUT}], 1, 0) = 1 ([{fd=59, revents=POLLOUT}])
-# [pid 11295] sendto(59, "I\260\1\0\0\1\0\0\0\0\0\0\7devhost\5local\0\0\34\0\1", 31, MSG_NOSIGNAL, NULL, 0) = 31
-# [pid 11295] poll([{fd=59, events=POLLIN}], 1, 5000 <unfinished ...>
-# [pid 11284] open("/srv/salt/makina-states/src/salt/salt/modules/functools.so", O_RDONLY) = -1 ENOENT (No such file or #
+# DNS 10.0.2.3 does not work, mess with dnsmasq, need to investigate more
 #
 # ------------------ USAGE EXAMPLE --------------------
 # -- Install virtualbox, vagrant AND NFS (exemple debian-like)
 # > sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
 # get latest vagrant from
 # http://downloads.vagrantup.com/
-# Exemple: version 1.3.3, paquet .deb pour debian/ubuntu, archi 64bits
-# -- attention pas le 1.3.4, bug sur hostname avec debian
+# Eg: version 1.3.3, paquet .deb pour debian/ubuntu, archi 64bits
+# -- WARNING NOT 1.3.4, bug ON hostname with Debian
 #    wget http://files.vagrantup.com/packages/db8e7a9c79b23264da129f55cf8569167fc22415/vagrant_1.3.3_x86_64.deb
 #    sudo dpkg -i vagrant_1.3.3_x86_64.deb
 #    sudo apt-get install nfs-kernel-server
+#
 # -- ALL
 #   mkdir -p ~/makina/devhost
 #   cd ~/makina/devhost
@@ -43,6 +24,9 @@
 #   vagrant halt/vagrant suspend # suspend will use more disk space but will be faster to reopen
 #   vagrant destroy # the end of everything
 #
+# !!!!!!!!!!!!!!!!:
+# !!! IMPORTANT !!!
+# !!!!!!!!!!!!!!!!!
 # If you want to improve perfomances specially network related, please read the end of this file
 # --------------------- CONFIGURATION ZONE ----------------------------------
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
@@ -219,77 +203,151 @@ Vagrant.configure("2") do |config|
 #!/bin/bash
 echo " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT /root/provision_script.sh"
 export DEBIAN_FRONTEND=noninteractive
-if [ ! -f /root/vboxguest4.2.12.ok ]; then
-  # Add guest additions if local vbox VM.
-  echo " [*] Enforce VBoxGuestAdditions 4.2.12..."
-  cd /tmp
-  echo " [*] download iso image..."
-  wget -q "http://dlc.sun.com.edgesuite.net/virtualbox/4.2.12/VBoxGuestAdditions_4.2.12.iso"
-  echo " [*] install dkms and kernel headers..."
-  apt-get install -q -y linux-headers-generic dkms
-  echo " [*] mount iso and run install"
-  mount -o loop,ro /tmp/VBoxGuestAdditions_4.2.12.iso /mnt
-  echo yes | /mnt/VBoxLinuxAdditions.run
-  umount /mnt
-  rm /tmp/VBoxGuestAdditions_4.2.12.iso
-  touch /root/vboxguest4.2.12.ok
+# DNS TMP OVERRIDE
+cat > /etc/resolv.conf << DNSEOF
+nameserver 8.8.8.8
+nameserver 4.4.4.4
+DNSEOF
+MIRROR="http://fr.archive.ubuntu.com/ubuntu"
+KV="3.11.0"
+KVM="\\${KV}-11"
+V1="\\${KV}-11.17"
+# order is important
+KERNEL_PKGS=""
+KERNEL_PKGS="\\$KERNEL_PKGS pool/main/l/linux/linux-source-\\${KV}_\\${V1}_all.deb"
+KERNEL_PKGS="\\$KERNEL_PKGS pool/main/l/linux/linux-headers-\\${KVM}_\\${V1}_all.deb"
+KERNEL_PKGS="\\$KERNEL_PKGS pool/main/l/linux/linux-headers-\\${KVM}-generic_\\${V1}_amd64.deb"
+KERNEL_PKGS="\\$KERNEL_PKGS pool/main/l/linux/linux-image-\\${KVM}-generic_\\${V1}_amd64.deb"
+KERNEL_PKGS="\\$KERNEL_PKGS pool/main/l/linux/linux-image-extra-\\${KVM}-generic_\\${V1}_amd64.deb"
+kernel_marker="/root/provision_step_kernel\\${KVM}saucy_done"
+VBOX_V="4.2.16"
+VBOX_REV="-3"
+VBOX_GUEST_V="\\$VBOX_V"
+VBOX_PKGS=""
+VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox_\\${VBOX_V}-dfsg\\${VBOX_REV}_amd64.deb"
+VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-dkms_\\${VBOX_V}-dfsg\\${VBOX_REV}_all.deb"
+VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-guest-dkms_\\${VBOX_V}-dfsg\\${VBOX_REV}_all.deb"
+VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox-guest-additions-iso/virtualbox-guest-additions-iso_\\${VBOX_V}-1_all.deb"
+VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-guest-utils_\\${VBOX_V}-dfsg\\${VBOX_REV}_amd64.deb"
+VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-guest-x11_\\${VBOX_V}-dfsg\\${VBOX_REV}_amd64.deb"
+VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-guest-source_\\${VBOX_V}-dfsg\\${VBOX_REV}_all.deb"
+VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-guest-dkms_\\${VBOX_V}-dfsg\\${VBOX_REV}_all.deb"
+VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-qt_\\${VBOX_V}-dfsg\\${VBOX_REV}_amd64.deb"
+VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-source_\\${VBOX_V}-dfsg\\${VBOX_REV}_all.deb"
+vbox_marker="/root/vbox_\\${VBOX_V}.ok"
+NEED_RESTART=""
+if [ ! -e "\\$vbox_marker" ];then
+    echo " [*] Backporting saucy vbox"
+    sudo add-apt-repository ppa:xorg-edgers/ppa
+    apt-get update -qq
+    apt-get -f -y --force-yes install
+    apt-get install libgsoap3 libvncserver0 xserver-xorg-core
+    cd /root
+    to_install=""
+    for pkg in \\$VBOX_PKGS;do
+        url="\\$MIRROR/\\$pkg"
+        echo " [*] Downloading \\$url"
+        wget -q -c "\\$url"
+        to_install="\\$to_install \\$(basename \\$pkg)"
+    done
+    echo " [*] Installing \\$to_install"
+    dpkg -i \\$to_install && touch "\\${vbox_marker}"
+    echo " [*] The first time, you need to reload the new kernel and reprovision."
+    echo " [*] For that, issue now 'vagrant reload'"
+    NEED_RESTART=1
 fi
-
+if [ ! -e "\\${kernel_marker}" ]; then
+    echo " [*] Backporting saucy kernel"
+    apt-get -f -y --force-yes install
+    apt-get install -y --force-yes linux-image-extra-virtual
+    cd /root
+    to_install=""
+    for pkg in \\$KERNEL_PKGS;do
+        url="\\$MIRROR/\\$pkg"
+        echo " [*] Downloading \\$url"
+        wget -q -c "\\$url"
+        to_install="\\$to_install \\$(basename \\$pkg)"
+    done
+    echo " [*] Installing \\$to_install"
+    dpkg -i \\$to_install && touch "\\${kernel_marker}"
+    echo " [*] The first time, you need to reload the new kernel and reprovision."
+    echo " [*] For that, issue now 'vagrant reload'"
+    NEED_RESTART=1
+fi
+if [[ -n \\$NEED_RESTART ]];then
+    exit \\$NEED_RESTART
+fi
+#if [ ! -f /root/vboxguest\\${KVM}_\\${VBOX_GUEST_V}.ok ]; then
+#  # Add guest additions if local vbox VM.
+#  echo " [*] Enforce VBoxGuestAdditions \\${VBOX_GUEST_V}..."
+#  cd /tmp
+#  echo " [*] Download iso image for guest additions (\\${VBOX_GUEST_V})..."
+#  wget -c -q "http://dlc.sun.com.edgesuite.net/virtualbox/\\${VBOX_GUEST_V}/VBoxGuestAdditions_\\${VBOX_GUEST_V}.iso"
+#  echo " [*] Install dkms and kernel headers..."
+#  apt-get install -q -y linux-headers-generic dkms
+#  echo " [*] Mount iso and run install"
+#  mount -o loop,ro /tmp/VBoxGuestAdditions_\\${VBOX_GUEST_V}.iso /mnt
+#  echo yes | /mnt/VBoxLinuxAdditions.run
+#  umount /mnt
+#  rm /tmp/VBoxGuestAdditions_\\${VBOX_GUEST_V}.iso
+#  touch /root/vboxguest-\\${KVM}_\\${VBOX_GUEST_V}.ok
+#fi
 if [ -f /srv/Vagrantfile ]; then
 
-  if [ ! -e /root/provision_step_kernel_done ]; then
-    wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-headers-3.10.14-031014_3.10.14-031014.201310011335_all.deb
-    wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-headers-3.10.14-031014-generic_3.10.14-031014.201310011335_amd64.deb
-    wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-image-3.10.14-031014-generic_3.10.14-031014.201310011335_amd64.deb
-    dpkg -i *3.10.14*deb
-    touch /root/provision_step_kernel_done
-  fi
+  if [[ ! -e "\\$kernel_marker" ]];then
+    echo " [*] The first time, you need to reload the new kernel and reprovision."
+    echo " [*] For that, issue now 'vagrant reload'"
+    exit 1
+  else
+    echo \$to_install;
+    if [ ! -e /root/provision_step_nfs_done ]; then
+      echo " [*] Install nfs support on guest"
+      apt-get install -q -y --force-yes nfs-common portmap
+      if [ "0" == "$?" ];then touch /root/provision_step_nfs_done; fi;
+    fi
 
-  if [ ! -e /root/provision_step_nfs_done ]; then
-    echo " [*] Install nfs support on guest"
-    apt-get install -q -y --force-yes nfs-common portmap
-    if [ "0" == "$?" ];then touch /root/provision_step_nfs_done; fi;
-  fi
+    if [ ! -e /root/provision_step_lxc_done ]; then
+      echo " [*] Install lxc-docker support"
+      # Add lxc-docker package
+      wget -c -q -O - https://get.docker.io/gpg | apt-key add -
+      echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list
+      apt-get update -qq
+      apt-get install -q -y --force-yes lxc-docker
+      # autorestart dockers on boot
+      sed -re "s/docker -d/docker -r -d/g" -e /etc/init/docker.conf
+      service docker restart
+      if [ "0" == "$?" ];then touch /root/provision_step_lxc_done; fi;
+    fi
 
-  if [ ! -e /root/provision_step_lxc_done ]; then
-    echo " [*] Install lxc-docker support"
-    # Add lxc-docker package
-    wget -q -O - https://get.docker.io/gpg | apt-key add -
-    echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list
-    apt-get update -qq;
-    apt-get install -q -y --force-yes lxc-docker
-    # autorestart dockers on boot
-    sed -re "s/docker -d/docker -r -d/g" -e /etc/init/docker.conf
-    service docker restart
-    if [ "0" == "$?" ];then touch /root/provision_step_lxc_done; fi;
-  fi
+    if [ ! -e /root/provision_step_lang_done ]; then
+      echo " [*] Fix French language"
+      apt-get install -q -y --force-yes language-pack-fr
+      echo>/etc/locale.gen
+      echo "en_US.UTF-8 UTF-8">>/etc/locale.gen
+      echo "en_US ISO-8859-1">>/etc/locale.gen
+      echo "de_DE.UTF-8 UTF-8">>/etc/locale.gen
+      echo "de_DE ISO-8859-1">>/etc/locale.gen
+      echo "de_DE@euro ISO-8859-15">>/etc/locale.gen
+      echo "fr_FR.UTF-8 UTF-8">>/etc/locale.gen
+      echo "fr_FR ISO-8859-1">>/etc/locale.gen
+      echo "fr_FR@euro ISO-8859-15">>/etc/locale.gen
+      echo 'LANG="fr_FR.utf8"'>/etc/default/locale
+      echo "export LANG=\${LANG:-fr_FR.UTF-8}">>/etc/profile.d/0_lang.sh
+      /usr/sbin/locale-gen
+      update-locale LANG=fr_FR.utf8
+      if [ "0" == "$?" ];then touch /root/provision_step_lang_done; fi;
+    fi
 
-  if [ ! -e /root/provision_step_lang_done ]; then
-    echo " [*] fix french language"
-    apt-get install -q -y --force-yes language-pack-fr
-    echo>/etc/locale.gen
-    echo "en_US.UTF-8 UTF-8">>/etc/locale.gen
-    echo "en_US ISO-8859-1">>/etc/locale.gen
-    echo "de_DE.UTF-8 UTF-8">>/etc/locale.gen
-    echo "de_DE ISO-8859-1">>/etc/locale.gen
-    echo "de_DE@euro ISO-8859-15">>/etc/locale.gen
-    echo "fr_FR.UTF-8 UTF-8">>/etc/locale.gen
-    echo "fr_FR ISO-8859-1">>/etc/locale.gen
-    echo "fr_FR@euro ISO-8859-15">>/etc/locale.gen
-    echo 'LANG="fr_FR.utf8"'>/etc/default/locale
-    echo "export LANG=\${LANG:-fr_FR.UTF-8}">>/etc/profile.d/0_lang.sh
-    /usr/sbin/locale-gen
-    update-locale LANG=fr_FR.utf8
-    if [ "0" == "$?" ];then touch /root/provision_step_lang_done; fi;
+    if [ ! -e /root/salt_bootstrap_done ]; then
+      echo " [ * ] Bootstrap Salt-Stack env..."
+      export SALT_BOOT=''
+      wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
+      . /etc/profile
+    fi
   fi
-
-  if [ ! -e /root/salt_bootstrap_done ]; then
-    echo " [ * ] Bootstrap Salt-Stack env..."
-    export SALT_BOOT=''
-    wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
-    . /etc/profile
-  fi
-
+  echo " [*] set local host routing to be able to find host docker guests"
+  `sudo route add -host 10.0.42.43 gw 10.0.42.1 2>&1 | grep -v "exist"`
+  `sudo route add -net 172.17.0.0 netmask 255.255.0.0 gw 10.0.42.43 2>&1 | grep -v "exist"`
   # Always start salt and docker AFTER /srv has been mounted on the VM
   echo " [*] Manage Basic daemons using /srv"
   echo " [*] /srv is mounted quite late so we must start some daemons later"
@@ -302,7 +360,7 @@ if [ -f /srv/Vagrantfile ]; then
   #salt '*' state.highstate
   #salt '*' state.sls setup
   echo " [*] set local host routing to be able to find host docker guests"
-  `sudo route add -host 10.0.42.43 gw 10.0.42.1 2>&1 | grep -v "exist"`
+  `sudo route add -host 10.0.42.42 gw 10.0.42.1 2>&1 | grep -v "exist"`
   `sudo route add -net 172.17.0.0 netmask 255.255.0.0 gw 10.0.42.43 2>&1 | grep -v "exist"`
   sysctl -w net.ipv4.ip_forward=1
   sysctl -w net.ipv4.conf.all.rp_filter=0
@@ -342,28 +400,49 @@ end
 
 # NOTE: right know you need to use a very uptodate kernel not to suffer from big slowness on ubuntu
 # To improve performance of virtualisation, you need a kernel > 3.10
+# Idea is to backport the official next-ubuntu kernel (Codename: saucy)
 #
-# install a recent kernel:
-#   wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-headers-3.10.14-031014_3.10.14-031014.201310011335_all.deb
-#   wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-headers-3.10.14-031014-generic_3.10.14-031014.201310011335_amd64.deb
-#   wget http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.10.14-saucy/linux-image-3.10.14-031014-generic_3.10.14-031014.201310011335_amd64.deb
-#   dpkg -i *3.10.14*deb
+# install a recent kernel (saucy backport):
+#  MIRROR="http://fr.archive.ubuntu.com/ubuntu";KV="3.11.0";KVM="${KV}-11";V1="${KV}-11.17"
+#  # order is important
+#  KERNEL_PKGS=""
+#  KERNEL_PKGS="$KERNEL_PKGS pool/main/l/linux/linux-source-${KV}_${V1}_all.deb"
+#  KERNEL_PKGS="$KERNEL_PKGS pool/main/l/linux/linux-headers-${KVM}_${V1}_all.deb"
+#  KERNEL_PKGS="$KERNEL_PKGS pool/main/l/linux/linux-headers-${KVM}-generic_${V1}_amd64.deb"
+#  KERNEL_PKGS="$KERNEL_PKGS pool/main/l/linux/linux-image-${KVM}-generic_${V1}_amd64.deb"
+#  KERNEL_PKGS="$KERNEL_PKGS pool/main/l/linux/linux-image-extra-${KVM}-generic_${V1}_amd64.deb"
+#  for pkg in $KERNEL_PKGS;do url="$MIRROR/$pkg";wget -q -c "$url";to_install="$to_install $(basename $pkg)";done
+#  apt-get install linux-image-extra-virtual && dpkg -i $to_install
+#  VBOX_V="4.2.16
+#  VBOX_REV=-3
+#  VBOX_PKGS=""
+#  VBOX_PKGS="$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox_${VBOX_V}-dfsg\\${VBOX_REV}_amd64.deb"
+#  VBOX_PKGS="$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-dkms_${VBOX_V}-dfsg\\${VBOX_REV}_all.deb"
+#  VBOX_PKGS="$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-guest-dkms_${VBOX_V}-dfsg\\${VBOX_REV}_all.deb"
+#  VBOX_PKGS="$VBOX_PKGS pool/multiverse/v/virtualbox-guest-additions-iso/virtualbox-guest-additions-iso_${VBOX_V}-1_all.deb"
+#  VBOX_PKGS="$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-guest-utils_${VBOX_V}-dfsg\\${VBOX_REV}_amd64.deb"
+#  VBOX_PKGS="$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-guest-x11_${VBOX_V}-dfsg\\${VBOX_REV}_amd64.deb"
+#  VBOX_PKGS="$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-guest-source_${VBOX_V}-dfsg\\${VBOX_REV}_all.deb"
+#  VBOX_PKGS="$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-guest-dkms_${VBOX_V}-dfsg\\${VBOX_REV}_all.deb"
+#  VBOX_PKGS="$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-qt_${VBOX_V}-dfsg\\${VBOX_REV}_amd64.deb"
+#  VBOX_PKGS="$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-source_${VBOX_V}-dfsg\\${VBOX_REV}_all.deb"
+#  for pkg in $VBOX_PKGS;do url="$MIRROR/$pkg";wget -q -c "$url";to_install="$to_install $(basename $pkg)";done
+#  apt-get install linux-image-extra-virtual && dpkg -i $to_install
 #
 # If you use nvidia drivers, you need nvidia>325 to run on kernel 3.10+:
-#   sudo add-apt-repository ppa:xorg-edgers/ppa
-#   sudo add-apt-repository ppa:bumblebee/stable
-#   sudo apt-get update
-#   sudo apt-get purge nvidia-304 nvidia-settings-304
-#   apt-get install nvidia-325 nvidia-settings-325
-#   # If you have optimus based chipset you will need to upgrade your bumblebee setup:
-#     sudo apt-get install bumblebee bumblebee-nvidia primus primus-libs-ia32:i386 virtualgl
-#   # Then, edit in /etc/bumblebee/bumblebee.conf
-#     KernelDriver=nvidia_325
-#     LibraryPath=/usr/lib/nvidia-325/:/usr/lib32/nvidia-325:/usr/lib/nvidia-current:/usr/lib32/nvidia-current
-#     XorgModulePath=/usr/lib/nvidia-325/xorg,/usr/lib/nvidia-current/xorg,/usr/lib/xorg/modules
-#   # You can then use nvidia settings as usual:
-#     optirun nvidia-settings -c :8
+#  sudo add-apt-repository ppa:xorg-edgers/ppa
+#  sudo add-apt-repository ppa:bumblebee/stable
+#  sudo apt-get update
+#  sudo apt-get purge nvidia-304 nvidia-settings-304
+#  apt-get install nvidia-325 nvidia-settings-325
+#  # If you have optimus based chipset you will need to upgrade your bumblebee setup:
+#    sudo apt-get install bumblebee bumblebee-nvidia primus primus-libs-ia32:i386 virtualgl
+#  # Then, edit in /etc/bumblebee/bumblebee.conf
+#    KernelDriver=nvidia_325
+#    LibraryPath=/usr/lib/nvidia-325/:/usr/lib32/nvidia-325:/usr/lib/nvidia-current:/usr/lib32/nvidia-current
+#    XorgModulePath=/usr/lib/nvidia-325/xorg,/usr/lib/nvidia-current/xorg,/usr/lib/xorg/modules
+#  # You can then use nvidia settings as usual:
+#    optirun nvidia-settings -c :8
 #
-#   # finally remove this edge repo:
-#     sudo add-apt-repository --remove ppa:xorg-edgers:ppa
-#
+#  # finally remove this edge repo:
+#    sudo add-apt-repository --remove ppa:xorg-edgers:ppa
