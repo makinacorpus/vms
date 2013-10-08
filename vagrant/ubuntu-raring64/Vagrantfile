@@ -42,6 +42,8 @@ MAX_CPU_USAGE_PERCENT="50"
 # between this VM and your host on this IP
 # (in VB's preferences network you can see it after first usage)
 BOX_PRIVATE_IP="10.0.42.43"
+# Custom dns server
+DNS_SERVER="8.8.8.8"
 #BOX_PRIVATE_NETMASK="255.225.255.0"
 # Name on your VirtualBox panel
 VIRTUALBOX_VM_NAME="Docker DevHost Ubuntu Raring64"
@@ -212,6 +214,7 @@ export DEBIAN_FRONTEND=noninteractive
 cat > /etc/resolv.conf << DNSEOF
 nameserver 8.8.8.8
 nameserver 4.4.4.4
+nameserver #{DNS_SERVER}
 DNSEOF
 MIRROR="http://fr.archive.ubuntu.com/ubuntu"
 KV="3.11.0"
@@ -242,6 +245,7 @@ VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-source_\\${VBOX_
 vbox_marker="/root/vbox_\\${VBOX_V}.ok"
 NEED_RESTART=""
 if [ ! -e "/root/vbox_init_global_upgrade" ];then
+    echo " [*] Upgrading base image"
     apt-get update && apt-get upgrade -y && apt-get dist-upgrade -y
 fi
 if [ ! -e "\\$vbox_marker" ];then
