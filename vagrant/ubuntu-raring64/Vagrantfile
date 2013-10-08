@@ -198,6 +198,10 @@ Vagrant.configure("2") do |config|
     end
   end
 
+  printf (" [*] set local host routing to be able to find host docker guests 172.17.0.0/16 via %s",BOX_PRIVATE_IP)
+  `sudo route add -host #{BOX_PRIVATE_IP} gw 10.0.42.1 2>&1 | grep -v "exist"`
+  `sudo route add -net 172.17.0.0 netmask 255.255.0.0 gw #{BOX_PRIVATE_IP} 2>&1 | grep -v "exist"`
+
   # Now generate the provision script, put it inside /root VM's directory and launch it
   pkg_cmd = [
       %{cat > /root/provision_script.sh  << EOF
@@ -358,9 +362,7 @@ if [ -f /srv/Vagrantfile ]; then
   service docker start
   #salt '*' state.highstate
   #salt '*' state.sls setup
-  echo " [*] set local host routing to be able to find host docker guests"
-  `sudo route add -host #{BOX_PRIVATE_IP} gw 10.0.42.1 2>&1 | grep -v "exist"`
-  `sudo route add -net 172.17.0.0 netmask 255.255.0.0 gw #{BOX_PRIVATE_IP} 2>&1 | grep -v "exist"`
+  echo " [*] allow routing of traffic comingfrom dev host going to docker net"
   sysctl -w net.ipv4.ip_forward=1
   sysctl -w net.ipv4.conf.all.rp_filter=0
   sysctl -w net.ipv4.conf.all.log_martians=1
