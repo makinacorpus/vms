@@ -46,7 +46,8 @@ VM_HOSTNAME="devhost.local"
 # else the synced folder would not work.
 # When activated this would remove warnings about version mismatch of
 # VirtualBox Guest additions, but we need at least the 4.2.12 version,
-# v 4.2.10 is present in the ubuntu kernel and we add the 4.2.12 in this script
+# v 4.2.0 is present in the default precise ubuntu kernel and 4.2.10 on
+# raring and we add the 4.2.12 in this script
 # even if your host is on a lower version. If you have something greater than
 # 4.2.12 set this to true, comment the 4.2.12 install below and install vbguest
 # vagrant plugin with this command : "vagrant plugin install vagrant-vbguest"
@@ -307,8 +308,8 @@ if [ -f /srv/Vagrantfile ]; then
   #salt '*' state.highstate
   #salt '*' state.sls setup
   echo " [*] set local host routing to be able to find host docker guests"
-  `sudo route add -host 10.0.42.43 gw 10.0.42.1 2>&1 | grep -v "exist"`
-  `sudo route add -net 172.17.0.0 netmask 255.255.0.0 gw 10.0.42.43 2>&1 | grep -v "exist"`
+  `sudo route add -host #{BOX_PRIVATE_IP} gw 10.0.42.1 2>&1 | grep -v "exist"`
+  `sudo route add -net 172.17.0.0 netmask 255.255.0.0 gw #{BOX_PRIVATE_IP} 2>&1 | grep -v "exist"`
   sysctl -w net.ipv4.ip_forward=1
   sysctl -w net.ipv4.conf.all.rp_filter=0
   sysctl -w net.ipv4.conf.all.log_martians=1
