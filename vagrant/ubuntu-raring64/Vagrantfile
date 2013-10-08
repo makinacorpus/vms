@@ -232,6 +232,8 @@ VBOX_V="4.2.16"
 VBOX_REV="-3"
 VBOX_GUEST_V="\\$VBOX_V"
 VBOX_PKGS=""
+VBOX_PKGS="\\$VBOX_PKGS pool/main/x/xorg-server/xserver-xorg-core_1.14.3-3ubuntu1_amd64.deb"
+VBOX_PKGS="\\$VBOX_PKGS pool/universe/g/gsoap/libgsoap3_2.8.12-1_amd64.deb"
 VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox_\\${VBOX_V}-dfsg\\${VBOX_REV}_amd64.deb"
 VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-dkms_\\${VBOX_V}-dfsg\\${VBOX_REV}_all.deb"
 VBOX_PKGS="\\$VBOX_PKGS pool/multiverse/v/virtualbox/virtualbox-guest-dkms_\\${VBOX_V}-dfsg\\${VBOX_REV}_all.deb"
@@ -246,7 +248,7 @@ vbox_marker="/root/vbox_\\${VBOX_V}.ok"
 NEED_RESTART=""
 if [ ! -e "/root/vbox_init_global_upgrade" ];then
     echo " [*] Upgrading base image"
-    apt-get update && apt-get upgrade -y && apt-get dist-upgrade -y
+    apt-get update -qq && apt-get upgrade -y && apt-get dist-upgrade -y
 fi
 if [ ! -e "\\$vbox_marker" ];then
     echo " [*] Backporting saucy vbox"
