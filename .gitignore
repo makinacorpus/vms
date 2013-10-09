@@ -1,4 +1,10 @@
 debian/cache/
+vagrant/*/salt
+vagrant/*/pillar
+vagrant/*/project
+vagrant/*/projects
+vagrant/*/projets
+vagrant/*/projet
 .docker*
 ubuntu-base.tar.gz
 .done/
