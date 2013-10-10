@@ -230,7 +230,7 @@ output " [*] /srv is mounted quite late so we must start some daemons later"
 # kill salt that may be running
 ps aux|egrep "salt-(master|minion|syndic)"|awk '{print $2}'|xargs kill -9 &> /dev/null
 service salt-master start
-rm -rf /etc/salt/pki/minion/minion_master.pub
+#rm -rf /etc/salt/pki/minion/minion_master.pub
 service salt-minion start
 service docker stop
 service docker start
