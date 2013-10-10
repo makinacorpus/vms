@@ -3,8 +3,8 @@ Vagrant VMs
 Their use is to facilitate the learning of docker and to mitigate current
 installation issues by providing a ready-to-use docker+salt virtualised host.
 
-- **ubuntu-precise64**: ubuntu Precice based VM
-- **ubuntu-raring64**: ubuntu Raring based VM
+- **ubuntu-precise64**: `ubuntu Precice based VM <https://github.com/makinacorpus/vms/tree/master/vagrant/ubuntu-precise64>`_
+- **ubuntu-raring64**: `ubuntu Raring based VM <https://github.com/makinacorpus/vms/tree/master/vagrant/ubuntu-raring64>`_
 
 As of now, we needed to backport those next-ubuntu stuff (saucy) for things to behave correctly and efficiently:
 
