@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#
+# This script is ubuntu specific for the moment.
+# Script is supposed to be run on development VMs (Virtualbox)
+# This will install correctly NFS client, salt, makina-states, docker & virtualbox extensions
+#
+# Beware on raring and saucy baremetal vms, this script is not safe
+# as it backport a lot of saucy packages, see ../backport-pgks.sh
+# for backporting things on a bare metal machine
+#
 output() { echo "$@" >&2; }
 die_if_error() {
     if [[ "$?" != "0" ]];then
@@ -64,7 +73,7 @@ if [[ "$(grep "$UBUNTU_NEXT_RELEASE" ${src_l} | wc -l)" != "0" ]];then
     apt-get update -qq
 fi
 for p in "$PREFIX" "$MARKERS";do
-    if [[ ! -e $PREFIX ]];then
+    if [[ ! -e $p ]];then
         mkdir -pv "$p"
     fi
 done
@@ -180,7 +189,8 @@ else
     service docker restart
     die_if_error
     touch $MARKERS/provision_step_lxc_done
-    NEED_RESTART=1
+    # since apparmor backport, seem we have not to reboot anymore
+    # NEED_RESTART=1
   fi
   if [ ! -e $MARKERS/provision_step_lang_done ]; then
     output " [*] Fix French language"
@@ -212,7 +222,8 @@ else
     . /etc/profile
     touch $MARKERS/salt_bootstrap_done
   fi
-  if [[ ! -e /srv/salt/setup.sls ]];then
+  # migrate existing vms, be sure to have all files
+  if [[ ! -e /srv/salt/setup.sls ]] || [[ ! -e /srv/salt/top.sls ]];then
       SALT_BOOT='server' /srv/salt/makina-states/_sscripts/boot-salt.sh
   fi
 fi
