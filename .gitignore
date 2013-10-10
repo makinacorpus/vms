@@ -1,4 +1,7 @@
 debian/cache/
+docker/debian/debian-base.tar.gz
+docker-git
+\.vagrant
 vagrant/*/salt
 vagrant/*/pillar
 vagrant/*/project
