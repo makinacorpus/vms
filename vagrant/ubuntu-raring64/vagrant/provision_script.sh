@@ -16,11 +16,13 @@ output " [*] You can safely relaunch this script from within the vm"
 # source a maybe existing settings file
 SETTINGS="${SETTINGS:-"/root/vagrant_provision_settings.sh"}"
 if [ -f $SETTINGS ];then
-    output " [*] Loading custom settinsg in $SETTINGS"
+    output " [*] Loading custom settings in $SETTINGS"
     . $SETTINGS
 fi
 PREFIX="${PREFIX:-"/srv"}"
 VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
+# Markers must not be on a shared folder for a new VM to be reprovisionned correctly
+MARKERS="${MARKERS:-"/root/vagrant/markers"}"
 DNS_SERVER="${DNS_SERVER:-"8.8.8.8"}"
 PREVIOUS_OFFICIAL_MIRROR="${PREVIOUS_OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
 PREVIOUS_LOCAL_MIRROR="${PREVIOUS_LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
@@ -28,8 +30,6 @@ OFFICIAL_MIRROR="${OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
 LOCAL_MIRROR="${LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
 UBUNTU_RELEASE="${UBUNTU_RELEASE:-"raring"}"
 UBUNTU_NEXT_RELEASE="${UBUNTU_NEXT_RELEASE:-"saucy"}"
-# Markers must not be on a shared folder for a new VM to be reprovisionned correctly
-MARKERS="${PREFIX:-"/root/vagrant/markers"}"
 CHRONO="$(date "+%F_%H-%M-%S")"
 # order is important
 LXC_PKGS="lxc apparmor apparmor-profiles"
