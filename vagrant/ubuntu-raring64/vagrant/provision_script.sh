@@ -31,12 +31,6 @@ UBUNTU_NEXT_RELEASE="${UBUNTU_NEXT_RELEASE:-"saucy"}"
 # Markers must not be on a shared folder for a new VM to be reprovisionned correctly
 MARKERS="${PREFIX:-"/root/vagrant/markers"}"
 CHRONO="$(date "+%F_%H-%M-%S")"
-# DNS TMP OVERRIDE
-cat > /etc/resolv.conf << DNSEOF
-nameserver ${DNS_SERVER}
-nameserver 8.8.8.8
-nameserver 4.4.4.4
-DNSEOF
 # order is important
 LXC_PKGS="lxc apparmor apparmor-profiles"
 KERNEL_PKGS="linux-source linux-image-generic linux-headers-generic linux-image-extra-virtual"
@@ -46,6 +40,9 @@ VB_PKGS="$VB_PKGS virtualbox-guest-utils virtualbox-guest-x11 virtualbox-guest-d
 kernel_marker="$MARKERS/provision_step_kernel${UBUNTU_NEXT_RELEASE}_done"
 lxc_marker="$MARKERS/vbox_lxc_from_${UBUNTU_NEXT_RELEASE}.ok"
 vbox_marker="$MARKERS/vbox_vbox_from_${UBUNTU_NEXT_RELEASE}.ok"
+mirror_marker="$MARKERS/vbox_pkg_2_init_repos_${OFFICIAL_MIRROR//\//-}_${LOCAL_MIRROR//\//-}_${PREVIOUS_LOCAL_MIRROR//\//-}"
+NEED_RESTART=""
+export DEBIAN_FRONTEND="noninteractive"
 # escape to 5 "antislash"
 # http://www./#foo -> http:\/\/www\./\#foo
 RE_PREVIOUS_OFFICIAL_MIRROR="$(echo "${PREVIOUS_OFFICIAL_MIRROR}" | sed -re "s/([.#/])/\\\\\1/g")"
@@ -53,10 +50,13 @@ RE_PREVIOUS_LOCAL_MIRROR="$(echo "${PREVIOUS_LOCAL_MIRROR}"       | sed -re "s/(
 RE_OFFICIAL_MIRROR="$(echo "${OFFICIAL_MIRROR}"                   | sed -re "s/([.#/])/\\\\\1/g")"
 RE_LOCAL_MIRROR="$(echo "${LOCAL_MIRROR}"                         | sed -re "s/([.#/])/\\\\\1/g")"
 RE_UBUNTU_RELEASE="$(echo "${UBUNTU_RELEASE}"                     | sed -re "s/([.#/])/\\\\\1/g")"
-NEED_RESTART=""
-export DEBIAN_FRONTEND=noninteractive
-mirror_marker="$MARKERS/vbox_pkg_2_init_repos_${OFFICIAL_MIRROR//\//-}_${LOCAL_MIRROR//\//-}_${PREVIOUS_LOCAL_MIRROR//\//-}"
 src_l="/etc/apt/sources.list"
+# DNS TMP OVERRIDE
+cat > /etc/resolv.conf << DNSEOF
+nameserver ${DNS_SERVER}
+nameserver 8.8.8.8
+nameserver 4.4.4.4
+DNSEOF
 # cleanup old failed provisions
 if [[ "$(grep "$UBUNTU_NEXT_RELEASE" ${src_l} | wc -l)" != "0" ]];then
     output " [*] Deactivating next-release($UBUNTU_NEXT_RELEASE) repos"
