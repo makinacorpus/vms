@@ -1,29 +1,6 @@
 # -*- mode: ruby -*-
 # vim: set ft=ruby ts=2 et sts=2 tw=0 ai:
 #
-# current strace where lockin
-# DNS 10.0.2.3 does not work, mess with dnsmasq, need to investigate more
-#
-# ------------------ USAGE EXAMPLE --------------------
-# -- Install virtualbox, vagrant AND NFS (exemple debian-like)
-# > sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
-# get latest vagrant from
-# http://downloads.vagrantup.com/
-# Eg: version 1.3.3, paquet .deb pour debian/ubuntu, archi 64bits
-# -- WARNING NOT 1.3.4, bug ON hostname with Debian
-#    wget http://files.vagrantup.com/packages/db8e7a9c79b23264da129f55cf8569167fc22415/vagrant_1.3.3_x86_64.deb
-#    sudo dpkg -i vagrant_1.3.3_x86_64.deb
-#    sudo apt-get install nfs-kernel-server
-#
-# -- ALL -- wait, need rework, soon
-#   mkdir -p ~/makina/devhost
-#   cd ~/makina/devhost
-#   wget https://raw.github.com/makinacorpus/docker-vms/master/vagrant/ubuntu-raring64/Vagrantfile
-#   vagrant up # first time will be quite long
-#   vagrant ssh # to connect inside
-#   vagrant halt/vagrant suspend # suspend will use more disk space but will be faster to reopen
-#   vagrant destroy # the end of everything
-#
 # !!!!!!!!!!!!!!!!:
 # !!! IMPORTANT !!!
 # !!!!!!!!!!!!!!!!!
