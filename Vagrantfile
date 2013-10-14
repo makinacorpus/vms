@@ -15,7 +15,7 @@
 #    sudo dpkg -i vagrant_1.3.3_x86_64.deb
 #    sudo apt-get install nfs-kernel-server
 #
-# -- ALL
+# -- ALL -- wait, need rework, soon
 #   mkdir -p ~/makina/devhost
 #   cd ~/makina/devhost
 #   wget https://raw.github.com/makinacorpus/docker-vms/master/vagrant/ubuntu-raring64/Vagrantfile
@@ -127,7 +127,6 @@ Vagrant.configure("2") do |config|
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
   config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check"]
-  config.vm.synced_folder "../../docker", "/srv/docker", nfs: true, linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check"]
   #disabling default vagrant mount on /vagrant as we mount it on /srv
   config.vm.synced_folder ".", "/vagrant", disabled: true
   # dev: mount of etc, so we can alter current host /etc/hosts fromm the guest (insecure by defintion)

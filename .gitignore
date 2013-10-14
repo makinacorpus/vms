@@ -16,3 +16,4 @@ debian/deboostrap/
 debian/debian-base.tgz
 cache/
 deboostrap/
+*~
