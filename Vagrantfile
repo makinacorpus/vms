@@ -7,7 +7,7 @@
 # If you want to improve perfomances specially network related, please read the end of this file
 # --------------------- CONFIGURATION ZONE ----------------------------------
 
-UBUNTU_RELEASE="raring"
+UBUNTU_RELEASE="precise"
 UBUNTU_LTS_RELEASE="precise"
 UBUNTU_NEXT_RELEASE="saucy"
 
@@ -23,7 +23,7 @@ MAX_CPU_USAGE_PERCENT="50"
 # automatically be set to ensure private communications
 # between this VM and your host on this IP
 # (in VB's preferences network you can see it after first usage)
-BOX_PRIVATE_IP="10.0.42.43"
+BOX_PRIVATE_IP="10.0.42.42"
 # Custom dns server
 DNS_SERVER="8.8.8.8"
 #BOX_PRIVATE_NETMASK="255.225.255.0"
@@ -43,9 +43,9 @@ VM_HOSTNAME="devhost.local"
 AUTO_UPDATE_VBOXGUEST_ADD=false
 # ----------------- END CONFIGURATION ZONE ----------------------------------
 
-# ------------- BASE IMAGE UBUNTU 13.04 (raring) -----------------------
+# ------------- BASE IMAGE LTS 12.04 (precise) -----------------------
 # You can pre-download this image with
-# vagrant box add raring64 http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
+# vagrant box add precise64 http://cloud-images.ubuntu.com/vagrant/precise/current/precise-server-cloudimg-amd64-vagrant-disk1.box
 BOX_NAME=ENV['BOX_NAME'] || UBUNTU_RELEASE+"64"
 BOX_URI=ENV['BOX_URI'] || "http://cloud-images.ubuntu.com/vagrant/"+UBUNTU_RELEASE+"/current/"+UBUNTU_RELEASE+"-server-cloudimg-amd64-vagrant-disk1.box"
 
