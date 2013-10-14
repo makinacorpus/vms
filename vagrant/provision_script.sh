@@ -213,7 +213,6 @@ else
     echo "fr_FR ISO-8859-1">>/etc/locale.gen
     echo "fr_FR@euro ISO-8859-15">>/etc/locale.gen
     echo 'LANG="fr_FR.utf8"'>/etc/default/locale
-    M
     echo "export LANG=\${LANG:-fr_FR.UTF-8}">>/etc/profile.d/0_lang.sh
     /usr/sbin/locale-gen || die_if_error
     update-locale LANG=fr_FR.utf8 || die_if_error
