@@ -229,7 +229,7 @@ EOF},
 #!/usr/bin/env bash
 output() { echo "\\$@" >&2; };
 grep --quiet docker0 /etc/network/interfaces
-if [[ "$?" != "0" ]]
+if [[ "$?" != "0" ]]; then
   output " [*] Init docker0 network interface to enforce network class on it."
   echo "auto docker0" >> /etc/network/interfaces
   echo "iface docker0 inet static" >> /etc/network/interfaces
