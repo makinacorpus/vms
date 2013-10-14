@@ -71,9 +71,9 @@ For a debian/ubuntu deb-like host, version 1.3.3 64 bits::
 Installation
 ---------------
 
-Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projetcs source code managment.:
+Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projects source code managment::
 
-  # Take a base place on your home
+  # Take a base location on your home
   mkdir -p ~/makina/
   cd ~/makina/
   # get this project in the vms subdirectory of this base place
@@ -110,6 +110,10 @@ Stoping the VM can be done like that::
   vagrant halt # classical
   vagrant -f halt # try to enforce it
   vagrant suspend # faster on up, but requires disk space to store current state
+
+Reloading the vm is::
+
+  vagrant reload # with sometimes tiemout problems on stop, redo-it.
 
 To remove an outdated or broken VM::
 
