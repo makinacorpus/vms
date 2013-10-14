@@ -40,7 +40,7 @@ BOX_PRIVATE_IP="10.0.42.42"
 #BOX_PRIVATE_NETMASK="255.225.255.0"
 # Name on your VirtualBox panel
 VIRTUALBOX_VM_NAME="Docker DevHost Ubuntu precise64"
-# Name inside the VM (as rendered buy hostname command)
+# Name inside the VM (as rendered by hostname command)
 VM_HOSTNAME="devhost.local"
 # Set this to true ONLY if you have VirtualBox version > 4.2.12
 # else the synced folder would not work.
@@ -107,7 +107,9 @@ Vagrant.configure("2") do |config|
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
   config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check"]
+  #disabling default vagrant mount on /vagrant as we mount it on /srv
   config.vm.synced_folder ".", "/vagrant", disabled: true
+  # dev: mount of etc, so we can alter current host /etc/hosts fromm the guest (insecure by defintion)
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
 
   #------------- PROVISIONING ------------------------------
