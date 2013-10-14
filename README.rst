@@ -119,4 +119,4 @@ To remove an outdated or broken VM::
 
   vagrant destroy
 
-Note that all the files mounted on the ``/srv`` vm directory are in fact stored on the base directory of this project and will not be removed after a vagrant destroy. so you can easily destroy a VM without loosing really important files. then redo a ``vagrant up`` to rebuild a new VM with all needed dependencies.
+Note that all the files mounted on the ``/srv`` vm directory are in fact stored on the base directory of this project and will not be removed after a vagrant destroy. so you can easily destroy a VM without loosing really important files. Then redo a ``vagrant up`` to rebuild a new VM with all needed dependencies.

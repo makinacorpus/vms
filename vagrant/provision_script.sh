@@ -60,6 +60,8 @@ RE_OFFICIAL_MIRROR="$(echo "${OFFICIAL_MIRROR}"                   | sed -re "s/(
 RE_LOCAL_MIRROR="$(echo "${LOCAL_MIRROR}"                         | sed -re "s/([.#/])/\\\\\1/g")"
 RE_UBUNTU_RELEASE="$(echo "${UBUNTU_RELEASE}"                     | sed -re "s/([.#/])/\\\\\1/g")"
 src_l="/etc/apt/sources.list"
+
+output " [*] Temporary DNs overrides in /etc/resolv.conf : ${DNS_SERVER}, 8.8.8.8 & 4.4.4.4"
 # DNS TMP OVERRIDE
 cat > /etc/resolv.conf << DNSEOF
 nameserver ${DNS_SERVER}
@@ -80,14 +82,14 @@ done
 if [ ! -e "$mirror_marker" ];then
     if [ ! -e "$MARKERS/vbox_pkg_1_initial_update" ];then
         # generate a proper commented /etc/apt/source.list
-        output " [*] Initial upgrade"
+        output " [*] Initial upgrade with cloud-init"
         /usr/bin/cloud-init init
         /usr/bin/cloud-init modules --mode=config
         /usr/bin/cloud-init modules --mode=final
         cp "${src_l}" "${src_l}.${CHRONO}.sav" || die_if_error
         touch "$MARKERS/vbox_pkg_1_initial_update"
     fi
-    output " [*] Activating some repos"
+    output " [*] Activating some Ubuntu repository and mirrors"
     sed -re "s/(.*deb(-src)?\s+)(${RE_PREVIOUS_OFFICIAL_MIRROR}|${RE_PREVIOUS_LOCAL_MIRROR}|${RE_OFFICIAL_MIRROR})(.*)/\1${RE_LOCAL_MIRROR}\4/g" -i ${src_l}
     sed -re "s/^(#|\s)*(deb(-src)?\s+[^ ]+\s+(precise|raring|${UBUNTU_NEXT_RELEASE}|${UBUNTU_RELEASE})(-(updates|backports|security))?)\s+(.*)/\2 \7/g" -i ${src_l}
     for rel in $UBUNTU_RELEASE ${UBUNTU_RELEASE}-updates;do
@@ -121,17 +123,20 @@ if [ ! -e "$mirror_marker" ];then
     touch "$mirror_marker"
 fi
 if [ ! -e "$MARKERS/vbox_init_global_upgrade" ];then
-    output " [*] Upgrading base image"
+    output " [*] Upgrading base image (apt-get upgrade & dist-upgrade)"
     apt-get update -qq && apt-get upgrade -y && apt-get dist-upgrade -y
     die_if_error
     touch "$MARKERS/vbox_init_global_upgrade"
 fi
 if [ ! -e "$lxc_marker" ];then
-    output " [*] Backporting Saucy LXC packages"
+    output " [*] Backporting Saucy LXC packages: adding repository"
     sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i "${src_l}" && \
     apt-get update -qq && \
+    output " [*] Backporting Saucy LXC packages:"
+    output " [*]   ${LXC_PKGS}"
     apt-get install -y --force-yes ${LXC_PKGS}
     die_if_error
+    output " [*] cleanup of apt, removing backports from sources"
     sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i "${src_l}" && apt-get update -qq
     die_if_error
     output " [*] The first time, you need to reload the new kernel and reprovision."
@@ -140,11 +145,12 @@ if [ ! -e "$lxc_marker" ];then
     NEED_RESTART=1
 fi
 if [ ! -e "$vbox_marker" ];then
-    output " [*] Backporting Saucy Virtualbox packages"
+    output " [*] Backporting Saucy Virtualbox packages:"
     output " [*]   $VB_PKGS"
     sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
     apt-get update -qq && apt-get install -y --force-yes $VB_PKGS
     die_if_error
+    output " [*] Backporting Saucy Virtualbox packages: cleanup repository"
     sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
     die_if_error
     output " [*] The first time, you need to reload the new kernel and reprovision."
@@ -182,7 +188,9 @@ else
     # Add lxc-docker package
     wget -c -q -O - https://get.docker.io/gpg | apt-key add -
     echo deb http://get.docker.io/ubuntu docker main > ${src_l}.d/docker.list
+    output " [*] Install lxc-docker support: refresh packages list"
     apt-get update -qq || die_if_error
+    output " [*] Install lxc-docker support: install lxc-docker package"
     apt-get install -q -y --force-yes lxc-docker || die_if_error
     # autorestart dockers on boot
     sed -re "s/docker -d/docker -r -d/g" -e /etc/init/docker.conf
@@ -222,7 +230,7 @@ else
     . /etc/profile
     touch $MARKERS/salt_bootstrap_done
   fi
-  # migrate existing vms, be sure to have all files
+  # migrate existing vms, be sure to have all files (pre-oct 2013)
   if [[ ! -e /srv/salt/setup.sls ]] || [[ ! -e /srv/salt/top.sls ]];then
       SALT_BOOT='server' /srv/salt/makina-states/_sscripts/boot-salt.sh
   fi
@@ -245,7 +253,7 @@ service salt-master start
 service salt-minion start
 service docker stop
 service docker start
-output " [*] allow routing of traffic comingfrom dev host going to docker net"
+output " [*] allow routing of traffic coming from dev host going to docker net"
 sysctl -w net.ipv4.ip_forward=1
 sysctl -w net.ipv4.conf.all.rp_filter=0
 sysctl -w net.ipv4.conf.all.log_martians=1
