@@ -57,62 +57,62 @@ Prerequisitements
 You need to have ``virtualbox``, ``vagrant`` and ``NFS`` (as a server).
 
 
-For a debian-like host this would be ok with theses commands:
+For a debian-like host this would be ok with theses commands::
 
-    sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
+  sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
 
 For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so waiting for ``1.3.5`` you should use version ``1.3.3``. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_.
 
-For a debian/ubuntu deb-like host, version 1.3.3 64 bits:
+For a debian/ubuntu deb-like host, version 1.3.3 64 bits::
 
-    wget http://files.vagrantup.com/packages/db8e7a9c79b23264da129f55cf8569167fc22415/vagrant_1.3.3_x86_64.deb
-    sudo dpkg -i vagrant_1.3.3_x86_64.deb
+  wget http://files.vagrantup.com/packages/db8e7a9c79b23264da129f55cf8569167fc22415/vagrant_1.3.3_x86_64.deb
+  sudo dpkg -i vagrant_1.3.3_x86_64.deb
 
 Installation
 ---------------
 
-Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projetcs source code managment.
+Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projetcs source code managment.:
 
-    # Take a base place on your home
-    mkdir -p ~/makina/
-    cd ~/makina/
-    # get this project in the vms subdirectory of this base place
-    git clone https://github.com/makinacorpus/vms.git
-    cd vms
-    # Optionnaly preload the base image
-    vagrant box add raring64 http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
-    # Optionnaly, read the Vagrantfile top section, containing VM cpu and memory settings
-    vi Vagrantfile
-    # start the VM a first time, this will launch the VM creation and provisioning
-    vagrant up
-    # you will certainly need one or to reload to finish the provision steps
-    vagrant reload
+  # Take a base place on your home
+  mkdir -p ~/makina/
+  cd ~/makina/
+  # get this project in the vms subdirectory of this base place
+  git clone https://github.com/makinacorpus/vms.git
+  cd vms
+  # Optionnaly preload the base image
+  vagrant box add raring64 http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
+  # Optionnaly, read the Vagrantfile top section, containing VM cpu and memory settings
+  vi Vagrantfile
+  # start the VM a first time, this will launch the VM creation and provisioning
+  vagrant up
+  # you will certainly need one or to reload to finish the provision steps
+  vagrant reload
 
 Daily usage
 ------------
 
 Now that vagrant as created a vistualbox image for you you should always manipulate this virtualbox VM with vagrant.
 
-To launch a Vagrant command always ``cd`` to the VM base directory:
+To launch a Vagrant command always ``cd`` to the VM base directory::
 
-    cd ~/makina/vms
+  cd ~/makina/vms
 
-Starting the VM is simple:
+Starting the VM is simple::
 
-    vagrant up
+  vagrant up
 
-connecting to the VM in ssh with the ``vagrant`` user (sudoer) is:
+connecting to the VM in ssh with the ``vagrant`` user (sudoer) is::
 
-    vagrant ssh
+  vagrant ssh
 
-Stoping the VM can be done like that:
+Stoping the VM can be done like that::
 
-    vagrant halt # classical
-    vagrant -f halt # try to enforce it
-    vagrant suspend # faster on up, but requires disk space to store current state
+  vagrant halt # classical
+  vagrant -f halt # try to enforce it
+  vagrant suspend # faster on up, but requires disk space to store current state
 
-To remove an outdated or broken VM:
+To remove an outdated or broken VM::
 
-    vagrant destroy
+  vagrant destroy
 
 Note that all the files mounted on the ``/srv`` vm directory are in fact stored on the base directory of this project and will not be removed after a vagrant destroy. so you can easily destroy a VM without loosing really important files. then redo a ``vagrant up`` to rebuild a new VM with all needed dependencies.
