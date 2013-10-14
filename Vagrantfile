@@ -26,8 +26,8 @@ MAX_CPU_USAGE_PERCENT="50"
 BOX_PRIVATE_IP="10.0.42.42"
 BOX_PRIVATE_GW="10.0.42.1"
 # 172.17.0.0 is the default, we use it with the raring image, 172.16.0.0 is enforced on this precise image
-DOCKER_NETWORK_ETH="172.17.42.1"
-DOCKER_NETWORK="172.17.0.0"
+DOCKER_NETWORK_ETH="172.16.42.1"
+DOCKER_NETWORK="172.16.0.0"
 DOCKER_NETWORK_MASK="255.255.0.0"
 # Custom dns server
 DNS_SERVER="8.8.8.8"
