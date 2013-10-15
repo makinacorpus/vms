@@ -199,7 +199,7 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  printf(" [*] checking local routes to %s/%s via %s. If sudo password is requested then it means we need to alter local host routing... n",DOCKER_NETWORK,DOCKER_NETWORK_MASK_NUM,BOX_PRIVATE_IP)
+  printf(" [*] checking local routes to %s/%s via %s. If sudo password is requested then it means we need to alter local host routing... \n",DOCKER_NETWORK,DOCKER_NETWORK_MASK_NUM,BOX_PRIVATE_IP)
   `ip route show|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM}"|grep "#{BOX_PRIVATE_IP}";if [ "\\$?" != "0" ];then sudo ip route replace #{BOX_PRIVATE_IP} via #{BOX_PRIVATE_GW}; sudo ip route replace #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} via #{BOX_PRIVATE_IP}; fi;`
   printf(" [*] local routes ok, check it on your guest host with 'ip route show'\n\n")
 
