@@ -100,7 +100,6 @@ if [[ '$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)' == "0" ]];th
     echo "    bridge_ports eth0" >> /etc/network/interfaces.docker0
     service networking restart
 fi
-exit -1
 if [ ! -e "$mirror_marker" ];then
     if [ ! -e "$MARKERS/vbox_pkg_1_initial_update" ];then
         # generate a proper commented /etc/apt/source.list
