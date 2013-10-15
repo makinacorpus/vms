@@ -20,6 +20,12 @@ ready_to_run() {
     output " 'You can upgrade all your projects with \"salt '*' state.highstate\""
     output " 'You can upgrade the base salt infrastructure with \"salt '*' state.sls setup\""
 }
+open_routes() {
+    output " [*] allow routing of traffic coming from dev host going to docker net"
+    sysctl -w net.ipv4.ip_forward=1
+    sysctl -w net.ipv4.conf.all.rp_filter=0
+    sysctl -w net.ipv4.conf.all.log_martians=1
+}
 output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
 output " [*] You can safely relaunch this script from within the vm"
 # source a maybe existing settings file
@@ -39,9 +45,10 @@ OFFICIAL_MIRROR="${OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
 LOCAL_MIRROR="${LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
 UBUNTU_RELEASE="${UBUNTU_RELEASE:-"raring"}"
 UBUNTU_NEXT_RELEASE="${UBUNTU_NEXT_RELEASE:-"saucy"}"
+DOCKER_NETWORK_HOST_IF="${DOCKER_NETWORK_HOST_IF:-eth0}"
 DOCKER_NETWORK_IF="${DOCKER_NETWORK_IF:-docker0}"
 DOCKER_NETWORK_GATEWAY="${DOCKER_NETWORK_GATEWAY:-"172.17.42.1"}"
-DOCKER_NETWORK="${DOCKER_NETWORK_MASK:-"172.17.0.0"}"
+DOCKER_NETWORK="${DOCKER_NETWORK:-"172.17.0.0"}"
 DOCKER_NETWORK_MASK="${DOCKER_NETWORK_MASK:-"255.255.0.0"}"
 DOCKER_NETWORK_MASK_NUM="${DOCKER_NETWORK_MASK_NUM:-"16"}"
 CHRONO="$(date "+%F_%H-%M-%S")"
@@ -85,26 +92,64 @@ for p in "$PREFIX" "$MARKERS";do
         mkdir -pv "$p"
     fi
 done
-
-# Create the docker0 bridge before docker does it to hard-fix the docker network adress
+# Create the docker0 bridge before docker does it to hard-fcode
+# the docker network address
+if_file="/etc/network/interfaces.${DOCKER_NETWORK_IF}"
+if_conf="$if_file.conf "
+NETWORK_RESTART=""
 if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];then
     apt-get install -y --force-yes bridge-utils
-    output " [*] Init ${DOCKER_NETWORK_IF} network interface bridge to enforce docker network class on it."
-    echo >>/etc/network/interfaces
+    echo>>/etc/network/interfaces
+    touch $if_conf
     echo "# configure dockers">>/etc/network/interfaces
-    echo "source /etc/network/interfaces.${DOCKER_NETWORK_IF}">>/etc/network/interfaces
-    echo >>/etc/network/interfaces.${DOCKER_NETWORK_IF}
-    echo "auto ${DOCKER_NETWORK_IF}" > /etc/network/interfaces.${DOCKER_NETWORK_IF}
-    echo "iface ${DOCKER_NETWORK_IF} inet static" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
-    echo "    address ${DOCKER_NETWORK_GATEWAY}" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
-    echo "    netmask ${DOCKER_NETWORK_MASK}" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
-    echo "    bridge_stp off" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
-    echo "    bridge_fd 0" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
-    # currently this is crashing the VM network conn on eth0, quite bad for vagrant
-    #echo "    bridge_ports eth0" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
-    #service networking restart
+    echo "source $if_conf">>/etc/network/interfaces
+    echo>>/etc/network/interfaces
+    NETWORK_RESTART="1"
 fi
+# configure bridge
+cat > $if_file.up <<EOF
+#!/usr/bin/env bash
+iptables -t nat -A POSTROUTING -s ${DOCKER_NETWORK}/$DOCKER_NETWORK_MASK_NUM -d ${DOCKER_NETWORK}/$DOCKER_NETWORK_MASK_NUM -o $DOCKER_NETWORK_HOST_IF -j MASQUERADE
+EOF
+cat > $if_file.down << EOF
+#!/usr/bin/env bash
+iptables -t nat -F || true
+EOF
+chmod +x "/etc/network/interfaces.${DOCKER_NETWORK_IF}."{up,down}
+    cat > $if_conf << EOF
+auto ${DOCKER_NETWORK_IF}
+iface ${DOCKER_NETWORK_IF} inet static
+    address ${DOCKER_NETWORK_GATEWAY}
+    netmask ${DOCKER_NETWORK_MASK}
+    bridge_ports none
+    bridge_stp off
+    bridge_fd 0
+    pre-up $if_file.up
+    post-down $if_file.down
 
+EOF
+if [[ "$(md5sum $if_conf 2>/dev/null)" != "$(md5sum $if_conf.new 2>/dev/null)" ]];then
+    cp -f $if_conf.new $if_conf
+    NETWORK_RESTART="1"
+fi
+if [[ -n "$NETWORK_RESTART" ]];then
+    output " [*] Init docker(${DOCKER_NETWORK_IF}) network bridge to fix docker network class"
+    service networking restart
+fi
+open_routes
+# disable some useless and harmfull services
+PLYMOUTH_SERVICES=$(find /etc/init -name 'plymouth*'|grep -v override|sed -re "s:/etc/init/(.*)\.conf:\1:g")
+UPSTART_DISABLED_SERVICES="$PLYMOUTH_SERVICES"
+for service in $UPSTART_DISABLED_SERVICES;do
+    sf=/etc/init/$service.override
+    if [[ "$(cat $sf 2>/dev/null)" != "manual" ]];then
+        output " [*] Disable $service upstart service"
+        echo "manual" > "$sf"
+        service $service stop
+        NEED_RESTART=1
+    fi
+done
+exit -1
 if [ ! -e "$mirror_marker" ];then
     if [ ! -e "$MARKERS/vbox_pkg_1_initial_update" ];then
         # generate a proper commented /etc/apt/source.list
@@ -180,19 +225,6 @@ if [ ! -e "$vbox_marker" ];then
     touch "$vbox_marker"
     NEED_RESTART=1
 fi
-
-# disable some useless and harmfull services
-PLYMOUTH_SERVICES=$(find /etc/init -name 'plymouth*'|grep -v override|sed -re "s:/etc/init/(.*)\.conf:\1:g")
-UPSTART_DISABLED_SERVICES="$PLYMOUTH_SERVICES"
-for service in $UPSTART_DISABLED_SERVICES;do
-    sf=/etc/init/$service.override
-    if [[ "$(cat $sf 2>/dev/null)" != "manual" ]];then
-        output " [*] Disable $service upstart service"
-        echo "manual" > "$sf"
-        service $service stop
-        NEED_RESTART=1
-    fi
-done
 if [ ! -e "${kernel_marker}" ]; then
     output " [*] Backporting Saucy kernel ($KERNEL_PKGS)"
     sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
@@ -297,9 +329,6 @@ service salt-master start
 service salt-minion start
 service docker stop
 service docker start
-output " [*] allow routing of traffic coming from dev host going to docker net"
-sysctl -w net.ipv4.ip_forward=1
-sysctl -w net.ipv4.conf.all.rp_filter=0
-sysctl -w net.ipv4.conf.all.log_martians=1
+open_routes
 ready_to_run
 # vim:set et sts=4 ts=4 tw=0:

@@ -15,6 +15,7 @@ UBUNTU_RELEASE="raring"
 UBUNTU_LTS_RELEASE="precise"
 UBUNTU_NEXT_RELEASE="saucy"
 CWD=File.dirname(__FILE__)
+VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
 
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
 MEMORY="1024"
@@ -32,6 +33,7 @@ BOX_PRIVATE_IP="10.0.42.43"
 BOX_PRIVATE_GW="10.0.42.1"
 # 172.17.0.0 is the default, we use it with the raring image, 172.16.0.0 is enforced on this precise image
 DOCKER_NETWORK_IF="docker0"
+DOCKER_NETWORK_HOST_IF="eth0"
 DOCKER_NETWORK_GATEWAY="172.17.42.1"
 DOCKER_NETWORK="172.17.0.0"
 DOCKER_NETWORK_MASK="255.255.0.0"
@@ -40,10 +42,19 @@ DOCKER_NETWORK_MASK_NUM="16"
 DNS_SERVER="8.8.8.8"
 #BOX_PRIVATE_NETMASK="255.225.255.0"
 # md5 based on currentpath
-MD5=Digest::MD5.hexdigest(CWD)
-printf(" [*] VB MD5: #{MD5}\n")
 # Name on your VirtualBox panel
-VIRTUALBOX_VM_NAME="Docker DevHost Ubuntu "+UBUNTU_RELEASE+"64 (#{MD5})"
+VIRTUALBOX_BASE_VM_NAME="Docker DevHost Ubuntu "+UBUNTU_RELEASE+"64"
+if (not File.exist?(VBOX_NAME_FILE))
+    md5_fo = File.open(VBOX_NAME_FILE, 'w')
+    MD5=Digest::MD5.hexdigest(CWD)
+    VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME} (#{MD5})"
+    md5_fo.write(VIRTUALBOX_VM_NAME)
+    md5_fo.close()
+else
+    md5_fo = File.open(VBOX_NAME_FILE, 'r')
+    VIRTUALBOX_VM_NAME=md5_fo.read()
+end
+printf(" [*] VB NAME: #{VIRTUALBOX_VM_NAME}\n")
 # Name inside the VM (as rendered by hostname command)
 VM_HOSTNAME="devhost.local"
 # Set this to true ONLY if you have VirtualBox version > 4.2.12
@@ -241,16 +252,16 @@ OFFICIAL_MIRROR="#{OFFICIAL_MIRROR}"
 LOCAL_MIRROR="#{LOCAL_MIRROR}"
 UBUNTU_RELEASE="#{UBUNTU_RELEASE}"
 UBUNTU_NEXT_RELEASE="#{UBUNTU_NEXT_RELEASE}"
+DOCKER_NETWORK_HOST_IF="#{DOCKER_NETWORK_HOST_IF}"
 DOCKER_NETWORK_IF="#{DOCKER_NETWORK_IF}"
 DOCKER_NETWORK_GATEWAY="#{DOCKER_NETWORK_GATEWAY}"
 DOCKER_NETWORK="#{DOCKER_NETWORK}"
 DOCKER_NETWORK_MASK="#{DOCKER_NETWORK_MASK}"
 DOCKER_NETWORK_MASK_NUM="#{DOCKER_NETWORK_MASK_NUM}"
-VB_MD5="#{MD5}"
+VB_NAME="#{VIRTUALBOX_VM_NAME}"
 EOF},
-      "chmod 700 /root/provision_nfs.sh /srv/vagrant/provision_script.sh /root/provision_docker_bridge.sh;",
+      "chmod 700 /root/provision_nfs.sh /srv/vagrant/provision_script.sh;",
       "/root/provision_nfs.sh;",
-      "/root/provision_docker_bridge.sh;",
       "/srv/vagrant/provision_script.sh",
   ]
   config.vm.provision :shell, :inline => pkg_cmd.join("\n")

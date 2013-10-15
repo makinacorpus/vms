@@ -1,4 +1,5 @@
 debian/cache/
+.vb_name
 salt/
 projects/
 pillar/
