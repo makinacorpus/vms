@@ -86,18 +86,18 @@ for p in "$PREFIX" "$MARKERS";do
 done
 if [[ '$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)' == "0" ]];then
     apt-get install -y --force-yes bridge-utils
-    output " [*] Init docker0 network interface bridge to enforce network class on it."
+    output " [*] Init ${DOCKER_NETWORK_IF} network interface bridge to enforce docker network class on it."
     echo >>/etc/network/interfaces
     echo "# configure dockers">>/etc/network/interfaces
-    echo "source /etc/network/interfaces.docker0">>/etc/network/interfaces
-    echo >>/etc/network/interfaces
-    echo "auto ${DOCKER_NETWORK_IF}" > /etc/network/interfaces.docker0
-    echo "iface ${DOCKER_NETWORK_IF} inet static" >> /etc/network/interfaces.docker0
-    echo "    address ${DOCKER_NETWORK_GATEWAY}" >> /etc/network/interfaces.docker0
-    echo "    netmask ${DOCKER_NETWORK_MASK}" >> /etc/network/interfaces.docker0
-    echo "    bridge_stp off" >> /etc/network/interfaces.docker0
-    echo "    bridge_fd 0" >> /etc/network/interfaces.docker0
-    echo "    bridge_ports eth0" >> /etc/network/interfaces.docker0
+    echo "source /etc/network/interfaces.${DOCKER_NETWORK_IF}">>/etc/network/interfaces
+    echo >>/etc/network/interfaces.${DOCKER_NETWORK_IF}
+    echo "auto ${DOCKER_NETWORK_IF}" > /etc/network/interfaces.${DOCKER_NETWORK_IF}
+    echo "iface ${DOCKER_NETWORK_IF} inet static" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
+    echo "    address ${DOCKER_NETWORK_GATEWAY}" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
+    echo "    netmask ${DOCKER_NETWORK_MASK}" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
+    echo "    bridge_stp off" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
+    echo "    bridge_fd 0" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
+    echo "    bridge_ports eth0" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
     service networking restart
 fi
 if [ ! -e "$mirror_marker" ];then
