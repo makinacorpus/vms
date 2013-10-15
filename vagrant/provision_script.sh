@@ -39,6 +39,11 @@ OFFICIAL_MIRROR="${OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
 LOCAL_MIRROR="${LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
 UBUNTU_RELEASE="${UBUNTU_RELEASE:-"raring"}"
 UBUNTU_NEXT_RELEASE="${UBUNTU_NEXT_RELEASE:-"saucy"}"
+DOCKER_NETWORK_IF="${DOCKER_NETWORK_IF:-docker0}"
+DOCKER_NETWORK_GATEWAY="${DOCKER_NETWORK_GATEWAY:-"172.17.42.1"}"
+DOCKER_NETWORK="${DOCKER_NETWORK_MASK:-"172.17.0.0"}"
+DOCKER_NETWORK_MASK="${DOCKER_NETWORK_MASK:-"255.255.0.0"}"
+DOCKER_NETWORK_MASK_NUM="${DOCKER_NETWORK_MASK_NUM:-"16"}"
 CHRONO="$(date "+%F_%H-%M-%S")"
 # order is important
 LXC_PKGS="lxc apparmor apparmor-profiles"
@@ -79,6 +84,23 @@ for p in "$PREFIX" "$MARKERS";do
         mkdir -pv "$p"
     fi
 done
+if [[ '$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)' == "0" ]];then
+    apt-get install -y --force-yes bridge-utils
+    output " [*] Init docker0 network interface to enforce network class on it."
+    echo >>/etc/network/interfaces
+    echo "# configure dockers">>/etc/network/interfaces
+    echo "source /etc/network/interfaces.docker0">>/etc/network/interfaces
+    echo >>/etc/network/interfaces
+    echo "auto #{DOCKER_NETWORK_IF}" > /etc/network/interfaces.docker0
+    echo "iface #{DOCKER_NETWORK_IF} inet static" >> /etc/network/interfaces.docker0
+    echo "    address #{DOCKER_NETWORK_GATEWAY}" >> /etc/network/interfaces.docker0
+    echo "    netmask #{DOCKER_NETWORK_MASK}" >> /etc/network/interfaces.docker0
+    echo "    bridge_stp off" >> /etc/network/interfaces.docker0
+    echo "    bridge_fd 0" >> /etc/network/interfaces.docker0
+    echo "    bridge_ports eth0" >> /etc/network/interfaces.docker0
+    service networking restart
+fi
+exit -1
 if [ ! -e "$mirror_marker" ];then
     if [ ! -e "$MARKERS/vbox_pkg_1_initial_update" ];then
         # generate a proper commented /etc/apt/source.list
@@ -159,7 +181,7 @@ fi
 PLYMOUTH_SERVICES=$(find /etc/init -name 'plymouth*'|grep -v override|sed -re "s:/etc/init/(.*)\.conf:\1:g")
 UPSTART_DISABLED_SERVICES="$PLYMOUTH_SERVICES"
 for service in $UPSTART_DISABLED_SERVICES;do
-    sf=/etc/init/$service.override 
+    sf=/etc/init/$service.override
     if [[ "$(cat $sf 2>/dev/null)" != "manual" ]];then
         output " [*] Disable $service upstart service"
         echo "manual" > "$sf"
