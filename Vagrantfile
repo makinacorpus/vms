@@ -23,7 +23,7 @@ MAX_CPU_USAGE_PERCENT="50"
 # automatically be set to ensure private communications
 # between this VM and your host on this IP
 # (in VB's preferences network you can see it after first usage)
-BOX_PRIVATE_IP="10.0.42.43"
+BOX_PRIVATE_IP="10.0.42.42"
 BOX_PRIVATE_GW="10.0.42.1"
 # 172.17.0.0 is the default, we use it with the raring image, 172.16.0.0 is enforced on this precise image
 DOCKER_NETWORK_ETH="172.16.42.1"
