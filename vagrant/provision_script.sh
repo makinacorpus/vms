@@ -84,7 +84,7 @@ for p in "$PREFIX" "$MARKERS";do
         mkdir -pv "$p"
     fi
 done
-if [[ '$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)' == "0" ]];then
+if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];then
     apt-get install -y --force-yes bridge-utils
     output " [*] Init ${DOCKER_NETWORK_IF} network interface bridge to enforce docker network class on it."
     echo >>/etc/network/interfaces
