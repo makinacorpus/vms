@@ -61,7 +61,7 @@ AUTO_UPDATE_VBOXGUEST_ADD=false
 # ------------- BASE IMAGE UBUNTU 13.04 (raring) -----------------------
 # You can pre-download this image with
 # vagrant box add raring64 http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
-BOX_NAME=ENV['BOX_NAME'] || UBUNTU_RELEASE+"64_#{MD5}"
+BOX_NAME=ENV['BOX_NAME'] || UBUNTU_RELEASE+"64"
 BOX_URI=ENV['BOX_URI'] || "http://cloud-images.ubuntu.com/vagrant/"+UBUNTU_RELEASE+"/current/"+UBUNTU_RELEASE+"-server-cloudimg-amd64-vagrant-disk1.box"
 
 
