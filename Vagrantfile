@@ -29,6 +29,7 @@ BOX_PRIVATE_GW="10.0.42.1"
 DOCKER_NETWORK_ETH="172.17.42.1"
 DOCKER_NETWORK="172.17.0.0"
 DOCKER_NETWORK_MASK="255.255.0.0"
+DOCKER_NETWORK_MASK_NUM="16"
 # Custom dns server
 DNS_SERVER="8.8.8.8"
 #BOX_PRIVATE_NETMASK="255.225.255.0"
@@ -197,9 +198,9 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  printf(" [*] Set local host routing to be able to find host docker guests #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK} via %s\n", BOX_PRIVATE_IP)
-  `sudo route add -host #{BOX_PRIVATE_IP} gw #{BOX_PRIVATE_GW} 2>&1 | grep -v "exist"`
-  `sudo route add -net #{DOCKER_NETWORK} netmask #{DOCKER_NETWORK_MASK} gw #{BOX_PRIVATE_IP} 2>&1 | grep -v "exist"`
+  printf(" [*] checking local routes to %s/%s via %s. If sudo password is requested then it means we need to alter local host routing...\n",DOCKER_NETWORK,DOCKER_NETWORK_MASK_NUM,BOX_PRIVATE_IP)
+  `ip route show|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM}"|grep "#{BOX_PRIVATE_IP}";if [ "\\$?" != "0" ];then sudo ip route replace #{BOX_PRIVATE_IP} via #{BOX_PRIVATE_GW}; sudo ip route replace #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} via #{BOX_PRIVATE_IP}; fi;`
+  printf(" [*] local routes ok, check it on your guest host with 'ip route show'\n\n")
 
   # Now generate the provision script, put it inside /root VM's directory and launch it
   # provision script has been moved to a bash script as it growned too much see ./provision_script.sh
