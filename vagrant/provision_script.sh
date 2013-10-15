@@ -79,11 +79,14 @@ if [[ "$(grep "$UBUNTU_NEXT_RELEASE" ${src_l} | wc -l)" != "0" ]];then
     sed -re "s/$UBUNTU_NEXT_RELEASE/$UBUNTU_RELEASE/g" -i ${src_l}
     apt-get update -qq
 fi
+# Create basic directories
 for p in "$PREFIX" "$MARKERS";do
     if [[ ! -e $p ]];then
         mkdir -pv "$p"
     fi
 done
+
+# Create the docker0 bridge before docker does it to hard-fix the docker network adress
 if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];then
     apt-get install -y --force-yes bridge-utils
     output " [*] Init ${DOCKER_NETWORK_IF} network interface bridge to enforce docker network class on it."
@@ -97,9 +100,11 @@ if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];th
     echo "    netmask ${DOCKER_NETWORK_MASK}" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
     echo "    bridge_stp off" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
     echo "    bridge_fd 0" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
-    echo "    bridge_ports eth0" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
-    service networking restart
+    # currently this is crashing the VM network conn on eth0, quite bad for vagrant
+    #echo "    bridge_ports eth0" >> /etc/network/interfaces.${DOCKER_NETWORK_IF}
+    #service networking restart
 fi
+
 if [ ! -e "$mirror_marker" ];then
     if [ ! -e "$MARKERS/vbox_pkg_1_initial_update" ];then
         # generate a proper commented /etc/apt/source.list
