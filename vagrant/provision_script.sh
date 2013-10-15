@@ -39,6 +39,11 @@ OFFICIAL_MIRROR="${OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
 LOCAL_MIRROR="${LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
 UBUNTU_RELEASE="${UBUNTU_RELEASE:-"raring"}"
 UBUNTU_NEXT_RELEASE="${UBUNTU_NEXT_RELEASE:-"saucy"}"
+DOCKER_NETWORK_IF="${DOCKER_NETWORK_IF:-docker0}"
+DOCKER_NETWORK_GATEWAY="${DOCKER_NETWORK_GATEWAY:-"172.17.42.1"}"
+DOCKER_NETWORK="${DOCKER_NETWORK_MASK:-"172.17.0.0"}"
+DOCKER_NETWORK_MASK="${DOCKER_NETWORK_MASK:-"255.255.0.0"}"
+DOCKER_NETWORK_MASK_NUM="${DOCKER_NETWORK_MASK_NUM:-"16"}"
 CHRONO="$(date "+%F_%H-%M-%S")"
 # order is important
 LXC_PKGS="lxc apparmor apparmor-profiles"
@@ -79,6 +84,22 @@ for p in "$PREFIX" "$MARKERS";do
         mkdir -pv "$p"
     fi
 done
+if [[ '$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)' == "0" ]];then
+    apt-get install -y --force-yes bridge-utils
+    output " [*] Init docker0 network interface to enforce network class on it."
+    echo >>/etc/network/interfaces
+    echo "# configure dockers">>/etc/network/interfaces
+    echo "source /etc/network/interfaces.docker0">>/etc/network/interfaces
+    echo >>/etc/network/interfaces
+    echo "auto #{DOCKER_NETWORK_IF}" > /etc/network/interfaces.docker0
+    echo "iface #{DOCKER_NETWORK_IF} inet static" >> /etc/network/interfaces.docker0
+    echo "    address #{DOCKER_NETWORK_GATEWAY}" >> /etc/network/interfaces.docker0
+    echo "    netmask #{DOCKER_NETWORK_MASK}" >> /etc/network/interfaces.docker0
+    echo "    bridge_stp off" >> /etc/network/interfaces.docker0
+    echo "    bridge_fd 0" >> /etc/network/interfaces.docker0
+    echo "    bridge_ports eth0" >> /etc/network/interfaces.docker0
+    service networking restart
+fi
 if [ ! -e "$mirror_marker" ];then
     if [ ! -e "$MARKERS/vbox_pkg_1_initial_update" ];then
         # generate a proper commented /etc/apt/source.list
@@ -139,8 +160,6 @@ if [ ! -e "$lxc_marker" ];then
     output " [*] cleanup of apt, removing backports from sources"
     sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i "${src_l}" && apt-get update -qq
     die_if_error
-    output " [*] The first time, you need to reload the new kernel and reprovision."
-    output " [*] For that, issue now 'vagrant reload'"
     touch "$lxc_marker"
     NEED_RESTART=1
 fi
@@ -153,9 +172,30 @@ if [ ! -e "$vbox_marker" ];then
     output " [*] Backporting Saucy Virtualbox packages: cleanup repository"
     sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
     die_if_error
-    output " [*] The first time, you need to reload the new kernel and reprovision."
-    output " [*] For that, issue now 'vagrant reload'"
     touch "$vbox_marker"
+    NEED_RESTART=1
+fi
+
+# disable some useless and harmfull services
+PLYMOUTH_SERVICES=$(find /etc/init -name 'plymouth*'|grep -v override|sed -re "s:/etc/init/(.*)\.conf:\1:g")
+UPSTART_DISABLED_SERVICES="$PLYMOUTH_SERVICES"
+for service in $UPSTART_DISABLED_SERVICES;do
+    sf=/etc/init/$service.override
+    if [[ "$(cat $sf 2>/dev/null)" != "manual" ]];then
+        output " [*] Disable $service upstart service"
+        echo "manual" > "$sf"
+        service $service stop
+        NEED_RESTART=1
+    fi
+done
+if [ ! -e "${kernel_marker}" ]; then
+    output " [*] Backporting Saucy kernel ($KERNEL_PKGS)"
+    sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
+    apt-get update -qq && apt-get install -y --force-yes $KERNEL_PKGS
+    die_if_error
+    sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
+    die_if_error
+    touch "$kernel_marker"
     NEED_RESTART=1
 fi
 if [ ! -e "${kernel_marker}" ]; then
@@ -165,12 +205,12 @@ if [ ! -e "${kernel_marker}" ]; then
     die_if_error
     sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
     die_if_error
-    output " [*] The first time, you need to reload the new kernel and reprovision."
-    output " [*] For that, issue now 'vagrant reload'"
     touch "$kernel_marker"
     NEED_RESTART=1
 fi
 if [[ -n $NEED_RESTART ]];then
+    output " [*] The first time, you need to reload the new kernel and reprovision."
+    output " [*] For that, issue now 'vagrant reload'"
     exit $NEED_RESTART
 fi
 if [[ ! -e "$kernel_marker" ]];then
