@@ -24,6 +24,12 @@ MAX_CPU_USAGE_PERCENT="50"
 # between this VM and your host on this IP
 # (in VB's preferences network you can see it after first usage)
 BOX_PRIVATE_IP="10.0.42.43"
+BOX_PRIVATE_GW="10.0.42.1"
+# 172.17.0.0 is the default, we use it with the raring image, 172.16.0.0 is enforced on this precise image
+DOCKER_NETWORK_ETH="172.17.42.1"
+DOCKER_NETWORK="172.17.0.0"
+DOCKER_NETWORK_MASK="255.255.0.0"
+DOCKER_NETWORK_MASK_NUM="16"
 # Custom dns server
 DNS_SERVER="8.8.8.8"
 #BOX_PRIVATE_NETMASK="255.225.255.0"
@@ -192,9 +198,9 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  printf(" [*] Set local host routing to be able to find host docker guests 172.17.0.0/16 via %s\n", BOX_PRIVATE_IP)
-  `sudo route add -host #{BOX_PRIVATE_IP} gw 10.0.42.1 2>&1 | grep -v "exist"`
-  `sudo route add -net 172.17.0.0 netmask 255.255.0.0 gw #{BOX_PRIVATE_IP} 2>&1 | grep -v "exist"`
+  printf(" [*] checking local routes to %s/%s via %s. If sudo password is requested then it means we need to alter local host routing...\n",DOCKER_NETWORK,DOCKER_NETWORK_MASK_NUM,BOX_PRIVATE_IP)
+  `ip route show|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM}"|grep "#{BOX_PRIVATE_IP}";if [ "\\$?" != "0" ];then sudo ip route replace #{BOX_PRIVATE_IP} via #{BOX_PRIVATE_GW}; sudo ip route replace #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} via #{BOX_PRIVATE_IP}; fi;`
+  printf(" [*] local routes ok, check it on your guest host with 'ip route show'\n\n")
 
   # Now generate the provision script, put it inside /root VM's directory and launch it
   # provision script has been moved to a bash script as it growned too much see ./provision_script.sh
@@ -220,6 +226,20 @@ if [[ ! -f /srv/Vagrantfile ]];then
     exit 1
 fi
 EOF},
+    %{cat > /root/provision_docker_bridge.sh  << EOF
+#!/usr/bin/env bash
+output() { echo "\\$@" >&2; };
+grep --quiet docker0 /etc/network/interfaces
+if [[ "\\$?" != "0" ]]; then
+  output " [*] Init docker0 network interface to enforce network class on it."
+  echo "auto docker0" >> /etc/network/interfaces
+  echo "iface docker0 inet static" >> /etc/network/interfaces
+  echo "    address #{DOCKER_NETWORK_ETH}" >> /etc/network/interfaces
+  echo "    netmask #{DOCKER_NETWORK_MASK}" >> /etc/network/interfaces
+  echo "    bridge_stp off" >> /etc/network/interfaces
+  echo "    bridge_fd 0" >> /etc/network/interfaces
+fi
+EOF},
     %{cat > /root/vagrant_provision_settings.sh  << EOF
 DNS_SERVER="#{DNS_SERVER}"
 PREVIOUS_OFFICIAL_MIRROR="#{PREVIOUS_OFFICIAL_MIRROR}"
@@ -229,8 +249,9 @@ LOCAL_MIRROR="#{LOCAL_MIRROR}"
 UBUNTU_RELEASE="#{UBUNTU_RELEASE}"
 UBUNTU_NEXT_RELEASE="#{UBUNTU_NEXT_RELEASE}"
 EOF},
-      "chmod 700 /root/provision_nfs.sh /srv/vagrant/provision_script.sh;",
+      "chmod 700 /root/provision_nfs.sh /srv/vagrant/provision_script.sh /root/provision_docker_bridge.sh;",
       "/root/provision_nfs.sh;",
+      "/root/provision_docker_bridge.sh;",
       "/srv/vagrant/provision_script.sh",
   ]
   config.vm.provision :shell, :inline => pkg_cmd.join("\n")
