@@ -139,8 +139,6 @@ if [ ! -e "$lxc_marker" ];then
     output " [*] cleanup of apt, removing backports from sources"
     sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i "${src_l}" && apt-get update -qq
     die_if_error
-    output " [*] The first time, you need to reload the new kernel and reprovision."
-    output " [*] For that, issue now 'vagrant reload'"
     touch "$lxc_marker"
     NEED_RESTART=1
 fi
@@ -153,9 +151,30 @@ if [ ! -e "$vbox_marker" ];then
     output " [*] Backporting Saucy Virtualbox packages: cleanup repository"
     sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
     die_if_error
-    output " [*] The first time, you need to reload the new kernel and reprovision."
-    output " [*] For that, issue now 'vagrant reload'"
     touch "$vbox_marker"
+    NEED_RESTART=1
+fi
+
+# disable some useless and harmfull services
+PLYMOUTH_SERVICES=$(find /etc/init -name 'plymouth*'|grep -v override|sed -re "s:/etc/init/(.*)\.conf:\1:g")
+UPSTART_DISABLED_SERVICES="$PLYMOUTH_SERVICES"
+for service in $UPSTART_DISABLED_SERVICES;do
+    sf=/etc/init/$service.override 
+    if [[ "$(cat $sf 2>/dev/null)" != "manual" ]];then
+        output " [*] Disable $service upstart service"
+        echo "manual" > "$sf"
+        service $service stop
+        NEED_RESTART=1
+    fi
+done
+if [ ! -e "${kernel_marker}" ]; then
+    output " [*] Backporting Saucy kernel ($KERNEL_PKGS)"
+    sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
+    apt-get update -qq && apt-get install -y --force-yes $KERNEL_PKGS
+    die_if_error
+    sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
+    die_if_error
+    touch "$kernel_marker"
     NEED_RESTART=1
 fi
 if [ ! -e "${kernel_marker}" ]; then
@@ -165,12 +184,12 @@ if [ ! -e "${kernel_marker}" ]; then
     die_if_error
     sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
     die_if_error
-    output " [*] The first time, you need to reload the new kernel and reprovision."
-    output " [*] For that, issue now 'vagrant reload'"
     touch "$kernel_marker"
     NEED_RESTART=1
 fi
 if [[ -n $NEED_RESTART ]];then
+    output " [*] The first time, you need to reload the new kernel and reprovision."
+    output " [*] For that, issue now 'vagrant reload'"
     exit $NEED_RESTART
 fi
 if [[ ! -e "$kernel_marker" ]];then
