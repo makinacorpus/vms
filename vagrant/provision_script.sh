@@ -9,14 +9,17 @@
 # for backporting things on a bare metal machine
 #
 output() { echo "$@" >&2; }
+
 die_if_error() {
     if [[ "$?" != "0" ]];then
         output "There were errors"
         exit 1
     fi
 }
+
 output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
 output " [*] You can safely relaunch this script from within the vm"
+
 # source a maybe existing settings file
 SETTINGS="${SETTINGS:-"/root/vagrant_provision_settings.sh"}"
 if [ -f $SETTINGS ];then
@@ -25,6 +28,7 @@ if [ -f $SETTINGS ];then
 fi
 PREFIX="${PREFIX:-"/srv"}"
 VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
+
 # Markers must not be on a shared folder for a new VM to be reprovisionned correctly
 MARKERS="${MARKERS:-"/root/vagrant/markers"}"
 DNS_SERVER="${DNS_SERVER:-"8.8.8.8"}"
@@ -40,10 +44,12 @@ DOCKER_NETWORK_GATEWAY="${DOCKER_NETWORK_GATEWAY:-"172.17.42.1"}"
 DOCKER_NETWORK="${DOCKER_NETWORK:-"172.17.0.0"}"
 DOCKER_NETWORK_MASK="${DOCKER_NETWORK_MASK:-"255.255.0.0"}"
 DOCKER_NETWORK_MASK_NUM="${DOCKER_NETWORK_MASK_NUM:-"16"}"
+
 # disable some useless and harmfull services
 PLYMOUTH_SERVICES=$(find /etc/init -name 'plymouth*'|grep -v override|sed -re "s:/etc/init/(.*)\.conf:\1:g")
 UPSTART_DISABLED_SERVICES="$PLYMOUTH_SERVICES"
 CHRONO="$(date "+%F_%H-%M-%S")"
+
 # order is important
 LXC_PKGS="lxc apparmor apparmor-profiles"
 KERNEL_PKGS="linux-source linux-image-generic linux-headers-generic linux-image-extra-virtual"
@@ -64,17 +70,20 @@ RE_OFFICIAL_MIRROR="$(echo "${OFFICIAL_MIRROR}"                   | sed -re "s/(
 RE_LOCAL_MIRROR="$(echo "${LOCAL_MIRROR}"                         | sed -re "s/([.#/])/\\\\\1/g")"
 RE_UBUNTU_RELEASE="$(echo "${UBUNTU_RELEASE}"                     | sed -re "s/([.#/])/\\\\\1/g")"
 src_l="/etc/apt/sources.list"
+
 ready_to_run() {
     output " [*] VM is now ready for vagrant ssh or other usages..."
     output " 'You can upgrade all your projects with \"salt '*' state.highstate\""
     output " 'You can upgrade the base salt infrastructure with \"salt '*' state.sls setup\""
 }
+
 deactivate_ifup_debugging() {
     if [[ -f /root/ifup ]];then
         cp /root/ifup /sbin/ifup
         rm -rf /ifup.debug /root/ifup
     fi
 }
+
 activate_ifup_debugging() {
     if [[ ! -f /root/ifup ]];then
         cp /sbin/ifup /root/ifup
@@ -89,12 +98,21 @@ EOF
         chmod +x /sbin/ifup
     fi
 }
+
+initialize_devel_salt_grains() {
+    output " [*] Initialize salt grain makina.devhost=true to mark this host as a dev host for salt-stack"
+    salt-call --local grains.setval makina.devhost true
+    # sync grains right now, do not wait for reboot
+    salt-call saltutil.sync_grains
+}
+
 open_routes() {
     output " [*] allow routing of traffic coming from dev host going to docker net"
     sysctl -w net.ipv4.ip_forward=1
     sysctl -w net.ipv4.conf.all.rp_filter=0
     sysctl -w net.ipv4.conf.all.log_martians=1
 }
+
 output " [*] Temporary DNs overrides in /etc/resolv.conf : ${DNS_SERVER}, 8.8.8.8 & 4.4.4.4"
 # DNS TMP OVERRIDE
 cat > /etc/resolv.conf << DNSEOF
@@ -102,24 +120,29 @@ nameserver ${DNS_SERVER}
 nameserver 8.8.8.8
 nameserver 4.4.4.4
 DNSEOF
+
 # cleanup old failed provisions
 if [[ "$(grep "$UBUNTU_NEXT_RELEASE" ${src_l} | wc -l)" != "0" ]];then
     output " [*] Deactivating next-release($UBUNTU_NEXT_RELEASE) repos"
     sed -re "s/$UBUNTU_NEXT_RELEASE/$UBUNTU_RELEASE/g" -i ${src_l}
     apt-get update -qq
 fi
+
 # Create basic directories
 for p in "$PREFIX" "$MARKERS";do
     if [[ ! -e $p ]];then
         mkdir -pv "$p"
     fi
 done
+
 # Create the docker0 bridge before docker does it to hard-fcode
 # the docker network address
 if_file="/etc/network/interfaces.${DOCKER_NETWORK_IF}"
 if_conf="$if_file.conf "
 NETWORK_RESTART=""
+
 activate_ifup_debugging
+
 if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];then
     apt-get install -y --force-yes bridge-utils
     echo>>/etc/network/interfaces
@@ -129,21 +152,24 @@ if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];th
     echo>>/etc/network/interfaces
     NETWORK_RESTART="1"
 fi
+
 # we control activation of main interface in docker conf
 # comment it in main file
 sed -re "s/^#*(.*${DOCKER_NETWORK_HOST_IF})/#\1/g" -i /etc/network/interfaces
+
 # configure bridge
 cat > $if_file.up <<EOF
 #!/usr/bin/env bash
 iptables -t nat -A POSTROUTING -s ${DOCKER_NETWORK}/$DOCKER_NETWORK_MASK_NUM -d ${DOCKER_NETWORK}/$DOCKER_NETWORK_MASK_NUM -o $DOCKER_NETWORK_HOST_IF -j MASQUERADE
 EOF
+
 cat > $if_file.down << EOF
 #!/usr/bin/env bash
 iptables -t nat -F || true
 EOF
+
 chmod +x "/etc/network/interfaces.${DOCKER_NETWORK_IF}."{up,down}
     cat > $if_conf << EOF
-
 # for this to work, we need  ${DOCKER_NETWORK_HOST_IF} to be wired
 # we force so with a pre-up call
 auto ${DOCKER_NETWORK_HOST_IF}
@@ -161,17 +187,21 @@ iface ${DOCKER_NETWORK_IF} inet static
     post-down $if_file.down
 
 EOF
+
 if [[ "$(md5sum $if_conf 2>/dev/null)" != "$(md5sum $if_conf.new 2>/dev/null)" ]];then
     cp -f $if_conf.new $if_conf
     NETWORK_RESTART="1"
 fi
+
 if [[ -n "$NETWORK_RESTART" ]];then
     output " [*] Init docker(${DOCKER_NETWORK_IF}) network bridge to fix docker network class"
     service networking restart
 fi
+
 # be sure to have routes forwarded on a network restart or at boot time
 # on a vagrant reload
 open_routes
+
 for service in $UPSTART_DISABLED_SERVICES;do
     sf=/etc/init/$service.override
     if [[ "$(cat $sf 2>/dev/null)" != "manual" ]];then
@@ -181,6 +211,7 @@ for service in $UPSTART_DISABLED_SERVICES;do
         NEED_RESTART=1
     fi
 done
+
 if [ ! -e "$mirror_marker" ];then
     if [ ! -e "$MARKERS/vbox_pkg_1_initial_update" ];then
         # generate a proper commented /etc/apt/source.list
@@ -224,12 +255,14 @@ if [ ! -e "$mirror_marker" ];then
     die_if_error
     touch "$mirror_marker"
 fi
+
 if [ ! -e "$MARKERS/vbox_init_global_upgrade" ];then
     output " [*] Upgrading base image (apt-get upgrade & dist-upgrade)"
     apt-get update -qq && apt-get upgrade -y && apt-get dist-upgrade -y
     die_if_error
     touch "$MARKERS/vbox_init_global_upgrade"
 fi
+
 if [ ! -e "$lxc_marker" ];then
     output " [*] Backporting Saucy LXC packages: adding repository"
     sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i "${src_l}" && \
@@ -244,6 +277,7 @@ if [ ! -e "$lxc_marker" ];then
     touch "$lxc_marker"
     NEED_RESTART=1
 fi
+
 if [ ! -e "$vbox_marker" ];then
     output " [*] Backporting Saucy Virtualbox packages:"
     output " [*]   $VB_PKGS"
@@ -256,6 +290,7 @@ if [ ! -e "$vbox_marker" ];then
     touch "$vbox_marker"
     NEED_RESTART=1
 fi
+
 if [ ! -e "${kernel_marker}" ]; then
     output " [*] Backporting Saucy kernel ($KERNEL_PKGS)"
     sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
@@ -266,6 +301,7 @@ if [ ! -e "${kernel_marker}" ]; then
     touch "$kernel_marker"
     NEED_RESTART=1
 fi
+
 if [ ! -e "${kernel_marker}" ]; then
     output " [*] Backporting Saucy kernel ($KERNEL_PKGS)"
     sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
@@ -276,11 +312,13 @@ if [ ! -e "${kernel_marker}" ]; then
     touch "$kernel_marker"
     NEED_RESTART=1
 fi
+
 if [[ -n $NEED_RESTART ]];then
     output " [*] The first time, you need to reload the new kernel and reprovision."
     output " [*] For that, issue now 'vagrant reload'"
     exit $NEED_RESTART
 fi
+
 if [[ ! -e "$kernel_marker" ]];then
   output " [*] The first time, you need to reload the new kernel and reprovision."
   output " [*] For that, issue now 'vagrant reload'"
@@ -342,25 +380,35 @@ else
       SALT_BOOT='server' /srv/salt/makina-states/_sscripts/boot-salt.sh
   fi
 fi
+
 if [[ -n $NEED_RESTART ]];then
     output "You need to reboot, issue 'vagrant reload'"
     exit $NEED_RESTART
 fi
+
 # cleanup archives to preserve vm SPACE
 if [[ $(find /var/cache/apt/archives/ -name *deb|wc -l) != "0" ]];then
     rm -rf /var/cache/apt/archives/*deb
 fi
+
 deactivate_ifup_debugging
+
 # Always start salt and docker AFTER /srv has been mounted on the VM
 output " [*] Manage Basic daemons using /srv"
 output " [*] /srv is mounted quite late so we must start some daemons later"
+
 # kill salt that may be running
 ps aux|egrep "salt-(master|minion|syndic)"|awk '{print $2}'|xargs kill -9 &> /dev/null
 service salt-master start
 #rm -rf /etc/salt/pki/minion/minion_master.pub
+
 service salt-minion start
 service docker stop
 service docker start
+
 open_routes
+
+initialize_devel_salt_grains
+
 ready_to_run
 # vim:set et sts=4 ts=4 tw=0:
