@@ -55,7 +55,8 @@ else
     VIRTUALBOX_VM_NAME=md5_fo.read()
 end
 printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
-printf(" [*] VB IP: '#{BOX_PRIVATE_IP}( (to have multiple hosts, you can change the last bits (default; 43) via the MAKINA_DEVHOST_NUM env variable)\n")
+printf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
+printf(" [*] To have multiple hosts, you can change the last bits (default: 43) via the MAKINA_DEVHOST_NUM env variable)\n")
 printf(" [*] if you want to share this wm, dont forget to have ./.vb_name along\n")
 # Name inside the VM (as rendered by hostname command)
 VM_HOSTNAME="devhost.local"
