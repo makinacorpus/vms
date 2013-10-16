@@ -38,7 +38,7 @@ MAX_CPU_USAGE_PERCENT="50"
 #
 # Be sure to have only one unique subnet per devhost per physical host
 #
-devhost_num=ENV.fetch("MAKINA_DEVHOST_NUM", nil)
+devhost_num=ENV.fetch("MAKINA_DEVHOST_NUM", "")
 if not devhost_num and File.exist?(VBOX_SUBNET_FILE)
     devhost_num=File.open(VBOX_SUBNET_FILE, 'r').read()
 end
