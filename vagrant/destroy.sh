@@ -3,6 +3,6 @@ echo "Are you really sure ? (controlc to abort)"
 read
 vagrant halt -f
 vagrant destroy -f
-rm -rf .vb_name .vagrant salt
+rm -rf .vb_name salt
 vagrant up
 # vim:set et sts=4 ts=4 tw=80:
