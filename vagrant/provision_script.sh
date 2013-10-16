@@ -383,7 +383,7 @@ else
   fi
   # migrate existing vms, be sure to have all files (pre-oct 2013)
   if [[ ! -e /srv/salt/setup.sls ]] || [[ ! -e /srv/salt/top.sls ]];then
-      SALT_BOOT='server' /srv/salt/makina-states/_sscripts/boot-salt.sh
+      SALT_BOOT='server' /srv/salt/makina-states/_scripts/boot-salt.sh
   fi
 fi
 
