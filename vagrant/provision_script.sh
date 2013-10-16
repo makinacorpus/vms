@@ -136,6 +136,9 @@ if [[ -n "$NETWORK_RESTART" ]];then
     output " [*] Init docker(${DOCKER_NETWORK_IF}) network bridge to fix docker network class"
     service networking restart
 fi
+# be sure to have routes forwarded on a network restart or at boot time
+# on a vagrant reload
+open_routes
 # disable some useless and harmfull services
 PLYMOUTH_SERVICES=$(find /etc/init -name 'plymouth*'|grep -v override|sed -re "s:/etc/init/(.*)\.conf:\1:g")
 UPSTART_DISABLED_SERVICES="$PLYMOUTH_SERVICES"
