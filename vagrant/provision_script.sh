@@ -136,7 +136,6 @@ if [[ -n "$NETWORK_RESTART" ]];then
     output " [*] Init docker(${DOCKER_NETWORK_IF}) network bridge to fix docker network class"
     service networking restart
 fi
-open_routes
 # disable some useless and harmfull services
 PLYMOUTH_SERVICES=$(find /etc/init -name 'plymouth*'|grep -v override|sed -re "s:/etc/init/(.*)\.conf:\1:g")
 UPSTART_DISABLED_SERVICES="$PLYMOUTH_SERVICES"
@@ -149,7 +148,6 @@ for service in $UPSTART_DISABLED_SERVICES;do
         NEED_RESTART=1
     fi
 done
-exit -1
 if [ ! -e "$mirror_marker" ];then
     if [ ! -e "$MARKERS/vbox_pkg_1_initial_update" ];then
         # generate a proper commented /etc/apt/source.list
