@@ -61,12 +61,13 @@ For a debian-like host this would be ok with theses commands::
 
   sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
 
-For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so waiting for ``1.3.5`` you should use version ``1.3.3``. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_.
+For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
 
-For a debian/ubuntu deb-like host, version 1.3.3 64 bits::
+For a debian/ubuntu deb-like host, version 1.3.5 64 bits::
 
-  wget http://files.vagrantup.com/packages/db8e7a9c79b23264da129f55cf8569167fc22415/vagrant_1.3.3_x86_64.deb
-  sudo dpkg -i vagrant_1.3.3_x86_64.deb
+  wget http://files.vagrantup.com/packages/a40522f5fabccb9ddabad03d836e120ff5d14093/vagrant_1.3.5_x86_64.deb
+  sudo dpkg -i vagrant_1.3.5_x86_64.deb
+
 
 Installation
 ---------------
