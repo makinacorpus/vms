@@ -16,6 +16,7 @@ UBUNTU_LTS_RELEASE="precise"
 UBUNTU_NEXT_RELEASE="saucy"
 CWD=File.dirname(__FILE__)
 VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
+VBOX_SUBNET_FILE=File.dirname(__FILE__) + "/.vb_subnet"
 
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
 MEMORY="1024"
@@ -24,12 +25,31 @@ CPUS="2"
 # LIMIT ON CPU USAGE
 MAX_CPU_USAGE_PERCENT="50"
 # Use this IP in your /etc/hosts for all names
+#
 # That you want to query this BOX with in your browser
 # The VirtualBox private network will
 # automatically be set to ensure private communications
 # between this VM and your host on this IP
 # (in VB's preferences network you can see it after first usage)
-BOX_PRIVATE_SUBNET="10.1."+ENV.fetch("MAKINA_DEVHOST_NUM", "42")
+#
+# You can change the subnet used via the MAKINA_DEVHOST_NUM
+# EG: export MAKINA_DEVHOST_NUM=44 will give an ip of 10.1.44.43 for this host
+# This setting is saved upon reboots, you need to set it only once
+#
+# Be sure to have only one unique subnet per devhost per physical host
+#
+devhost_num=ENV.fetch("MAKINA_DEVHOST_NUM", nil)
+if not devhost_num and File.exist?(VBOX_SUBNET_FILE)
+    devhost_num=File.open(VBOX_SUBNET_FILE, 'r').read()
+end
+devhost_num=devhost_num.strip()
+if devhost_num.empty?
+    devhost_num="42"
+end
+devhost_f = File.open(VBOX_SUBNET_FILE, 'w')
+devhost_f.write(devhost_num)
+devhost_f.close()
+BOX_PRIVATE_SUBNET="10.1."+devhost_num
 BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43"
 BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
 # 172.17.0.0 is the default, we use it with the raring image, 172.16.0.0 is enforced on this precise image
@@ -55,6 +75,7 @@ else
     md5_fo = File.open(VBOX_NAME_FILE, 'r')
     VIRTUALBOX_VM_NAME=md5_fo.read()
 end
+VIRTUALBOX_VM_NAME=VIRTUALBOX_VM_NAME.strip()
 printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 printf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
 printf(" [*] To have multiple hosts, you can change the last bits (default: 43) via the MAKINA_DEVHOST_NUM env variable)\n")
