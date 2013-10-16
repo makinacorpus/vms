@@ -29,7 +29,7 @@ MAX_CPU_USAGE_PERCENT="50"
 # automatically be set to ensure private communications
 # between this VM and your host on this IP
 # (in VB's preferences network you can see it after first usage)
-BOX_PRIVATE_IP="10.0.42.43"
+BOX_PRIVATE_IP="10.0.42."+ENV.fetch("MAKINA_DEVHOST_NUM", "43")
 BOX_PRIVATE_GW="10.0.42.1"
 # 172.17.0.0 is the default, we use it with the raring image, 172.16.0.0 is enforced on this precise image
 DOCKER_NETWORK_IF="docker0"
@@ -55,6 +55,7 @@ else
     VIRTUALBOX_VM_NAME=md5_fo.read()
 end
 printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
+printf(" [*] VB IP: '#{BOX_PRIVATE_IP}( (to have multiple hosts, you can change the last bits (default; 43) via the MAKINA_DEVHOST_NUM env variable)\n")
 printf(" [*] if you want to share this wm, dont forget to have ./.vb_name along\n")
 # Name inside the VM (as rendered by hostname command)
 VM_HOSTNAME="devhost.local"
