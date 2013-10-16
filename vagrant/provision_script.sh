@@ -15,17 +15,6 @@ die_if_error() {
         exit 1
     fi
 }
-ready_to_run() {
-    output " [*] VM is now ready for vagrant ssh or other usages..."
-    output " 'You can upgrade all your projects with \"salt '*' state.highstate\""
-    output " 'You can upgrade the base salt infrastructure with \"salt '*' state.sls setup\""
-}
-open_routes() {
-    output " [*] allow routing of traffic coming from dev host going to docker net"
-    sysctl -w net.ipv4.ip_forward=1
-    sysctl -w net.ipv4.conf.all.rp_filter=0
-    sysctl -w net.ipv4.conf.all.log_martians=1
-}
 output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
 output " [*] You can safely relaunch this script from within the vm"
 # source a maybe existing settings file
@@ -51,6 +40,9 @@ DOCKER_NETWORK_GATEWAY="${DOCKER_NETWORK_GATEWAY:-"172.17.42.1"}"
 DOCKER_NETWORK="${DOCKER_NETWORK:-"172.17.0.0"}"
 DOCKER_NETWORK_MASK="${DOCKER_NETWORK_MASK:-"255.255.0.0"}"
 DOCKER_NETWORK_MASK_NUM="${DOCKER_NETWORK_MASK_NUM:-"16"}"
+# disable some useless and harmfull services
+PLYMOUTH_SERVICES=$(find /etc/init -name 'plymouth*'|grep -v override|sed -re "s:/etc/init/(.*)\.conf:\1:g")
+UPSTART_DISABLED_SERVICES="$PLYMOUTH_SERVICES"
 CHRONO="$(date "+%F_%H-%M-%S")"
 # order is important
 LXC_PKGS="lxc apparmor apparmor-profiles"
@@ -72,7 +64,37 @@ RE_OFFICIAL_MIRROR="$(echo "${OFFICIAL_MIRROR}"                   | sed -re "s/(
 RE_LOCAL_MIRROR="$(echo "${LOCAL_MIRROR}"                         | sed -re "s/([.#/])/\\\\\1/g")"
 RE_UBUNTU_RELEASE="$(echo "${UBUNTU_RELEASE}"                     | sed -re "s/([.#/])/\\\\\1/g")"
 src_l="/etc/apt/sources.list"
-
+ready_to_run() {
+    output " [*] VM is now ready for vagrant ssh or other usages..."
+    output " 'You can upgrade all your projects with \"salt '*' state.highstate\""
+    output " 'You can upgrade the base salt infrastructure with \"salt '*' state.sls setup\""
+}
+deactivate_ifup_debugging() {
+    if [[ -f /root/ifup ]];then
+        cp /root/ifup /sbin/ifup
+        rm -rf /ifup.debug /root/ifup
+    fi
+}
+activate_ifup_debugging() {
+    if [[ ! -f /root/ifup ]];then
+        cp /sbin/ifup /root/ifup
+        cat > /sbin/ifup<<EOF
+#!/usr/bin/env bash
+echo \$(date) \$0 \$@>>/ifup.debug
+/root/ifup \$@
+ret=\$?
+echo \$(date) \$0 \$@ END >>/ifup.debug
+exit \$ret
+EOF
+        chmod +x /sbin/ifup
+    fi
+}
+open_routes() {
+    output " [*] allow routing of traffic coming from dev host going to docker net"
+    sysctl -w net.ipv4.ip_forward=1
+    sysctl -w net.ipv4.conf.all.rp_filter=0
+    sysctl -w net.ipv4.conf.all.log_martians=1
+}
 output " [*] Temporary DNs overrides in /etc/resolv.conf : ${DNS_SERVER}, 8.8.8.8 & 4.4.4.4"
 # DNS TMP OVERRIDE
 cat > /etc/resolv.conf << DNSEOF
@@ -97,6 +119,7 @@ done
 if_file="/etc/network/interfaces.${DOCKER_NETWORK_IF}"
 if_conf="$if_file.conf "
 NETWORK_RESTART=""
+activate_ifup_debugging
 if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];then
     apt-get install -y --force-yes bridge-utils
     echo>>/etc/network/interfaces
@@ -106,6 +129,9 @@ if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];th
     echo>>/etc/network/interfaces
     NETWORK_RESTART="1"
 fi
+# we control activation of main interface in docker conf
+# comment it in main file
+sed -re "s/^#*(.*${DOCKER_NETWORK_HOST_IF})/#\1/g" -i /etc/network/interfaces
 # configure bridge
 cat > $if_file.up <<EOF
 #!/usr/bin/env bash
@@ -117,6 +143,13 @@ iptables -t nat -F || true
 EOF
 chmod +x "/etc/network/interfaces.${DOCKER_NETWORK_IF}."{up,down}
     cat > $if_conf << EOF
+
+# for this to work, we need  ${DOCKER_NETWORK_HOST_IF} to be wired
+# we force so with a pre-up call
+auto ${DOCKER_NETWORK_HOST_IF}
+iface ${DOCKER_NETWORK_HOST_IF} inet dhcp
+    post-up ifup ${DOCKER_NETWORK_IF}
+
 auto ${DOCKER_NETWORK_IF}
 iface ${DOCKER_NETWORK_IF} inet static
     address ${DOCKER_NETWORK_GATEWAY}
@@ -139,9 +172,6 @@ fi
 # be sure to have routes forwarded on a network restart or at boot time
 # on a vagrant reload
 open_routes
-# disable some useless and harmfull services
-PLYMOUTH_SERVICES=$(find /etc/init -name 'plymouth*'|grep -v override|sed -re "s:/etc/init/(.*)\.conf:\1:g")
-UPSTART_DISABLED_SERVICES="$PLYMOUTH_SERVICES"
 for service in $UPSTART_DISABLED_SERVICES;do
     sf=/etc/init/$service.override
     if [[ "$(cat $sf 2>/dev/null)" != "manual" ]];then
@@ -320,6 +350,7 @@ fi
 if [[ $(find /var/cache/apt/archives/ -name *deb|wc -l) != "0" ]];then
     rm -rf /var/cache/apt/archives/*deb
 fi
+deactivate_ifup_debugging
 # Always start salt and docker AFTER /srv has been mounted on the VM
 output " [*] Manage Basic daemons using /srv"
 output " [*] /srv is mounted quite late so we must start some daemons later"

@@ -55,6 +55,7 @@ else
     VIRTUALBOX_VM_NAME=md5_fo.read()
 end
 printf(" [*] VB NAME: #{VIRTUALBOX_VM_NAME}\n")
+printf(" [*] if you want to share this wm, dont forget to have ./.vb_name along\n")
 # Name inside the VM (as rendered by hostname command)
 VM_HOSTNAME="devhost.local"
 # Set this to true ONLY if you have VirtualBox version > 4.2.12
