@@ -52,13 +52,14 @@ devhost_f.close()
 BOX_PRIVATE_SUBNET="10.1."+devhost_num
 BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43"
 BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
-# 172.17.0.0 is the default, we use it with the raring image, 172.16.0.0 is enforced on this precise image
+# To enable dockers to be interlinked between multiple virtuabox,
+# we also setup a specific docker network subnet per virtualbox host
 DOCKER_NETWORK_IF="docker0"
 DOCKER_NETWORK_HOST_IF="eth0"
-DOCKER_NETWORK_GATEWAY="172.17.42.1"
-DOCKER_NETWORK="172.17.0.0"
-DOCKER_NETWORK_MASK="255.255.0.0"
-DOCKER_NETWORK_MASK_NUM="16"
+DOCKER_NETWORK_GATEWAY="172.17."+devhost_num+".1"
+DOCKER_NETWORK="172.17."+devhost_num+".0"
+DOCKER_NETWORK_MASK="255.255.255.0"
+DOCKER_NETWORK_MASK_NUM="24"
 # Custom dns server
 DNS_SERVER="8.8.8.8"
 #BOX_PRIVATE_NETMASK="255.225.255.0"
