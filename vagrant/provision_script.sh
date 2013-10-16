@@ -100,10 +100,16 @@ EOF
 }
 
 initialize_devel_salt_grains() {
-    output " [*] Initialize salt grain makina.devhost=true to mark this host as a dev host for salt-stack"
-    salt-call --local grains.setval makina.devhost true
-    # sync grains right now, do not wait for reboot
-    salt-call saltutil.sync_grains
+    grain=makina.devhost
+    output " [*] Testing salt grain '$grain'"
+    if [[ "$(salt-call --local grains.get $grain --out=raw 2>/dev/null)" != *"True"* ]];then
+        output " [*] Setting salt grain $grain=true to mark this host as a dev host for salt-stack"
+        salt-call --local grains.setval $grain true
+        # sync grains right now, do not wait for reboot
+        salt-call saltutil.sync_grains
+    else
+        output " [*] Grain '$grain' already set"
+    fi
 }
 
 open_routes() {
