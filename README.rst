@@ -95,7 +95,7 @@ Now you can start the vm installation with vagrant. Note that this repository wi
 Daily usage
 ------------
 
-Now that vagrant as created a vistualbox image for you you should always manipulate this virtualbox VM with vagrant.
+Now that vagrant as created a virtualbox image for you, you should always manipulate this virtualbox VM with ``vagrant`` command.
 
 To launch a Vagrant command always ``cd`` to the VM base directory::
 
