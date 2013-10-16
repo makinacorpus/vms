@@ -54,7 +54,7 @@ else
     md5_fo = File.open(VBOX_NAME_FILE, 'r')
     VIRTUALBOX_VM_NAME=md5_fo.read()
 end
-printf(" [*] VB NAME: #{VIRTUALBOX_VM_NAME}\n")
+printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 printf(" [*] if you want to share this wm, dont forget to have ./.vb_name along\n")
 # Name inside the VM (as rendered by hostname command)
 VM_HOSTNAME="devhost.local"
