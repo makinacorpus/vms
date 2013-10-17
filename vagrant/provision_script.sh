@@ -392,6 +392,10 @@ else
       groupmod "$oldg" -n "$EDITOR_GROUP"
       NEED_REDO="y"
   fi
+  if [[ -e /srv/salt-venv ]];then
+      rm -rf /srv/salt-venv
+      NEED_REDO="y"
+  fi
   if [[ ! -e $VENV_PATH ]];then
       NEED_REDO="y"
   fi
