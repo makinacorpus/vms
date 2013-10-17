@@ -2,6 +2,11 @@
 # - Re configure some packages
 # - Disable some services at boot
 # - Configure locales
+#
+# Useful links:
+# http://linux-vserver.org/Upstart_issues
+# http://upstart.ubuntu.com/wiki/Debugging
+#
 FROM ubuntu:latest
 ENV DEBIAN_FRONTEND noninteractive
 #
@@ -77,6 +82,7 @@ RUN cd /;\
     /usr/sbin/update-rc.d -f ondemand remove;\
     for f in \
     $(find /etc/init -name console-setup.conf)\
+    $(find /etc/init -name dmesg.conf)\
     $(find /etc/init -name tty[2-9].conf)\
     $(find /etc/init -name plymouth*.conf)\
     $(find /etc/init -name hwclock*.conf)\
@@ -84,9 +90,27 @@ RUN cd /;\
     $(find /etc/init -name udev*.conf)\
     $(find /etc/init -name upstart*.conf)\
     $(find /etc/init -name ureadahead*.conf)\
+    $(find /etc/init -name hostname.conf)\
+    $(find /etc/init -name control-alt-delete.conf)\
+    $(find /etc/init -name networking.conf)\
+    $(find /etc/init -name mountall-net.conf )\
+    $(find /etc/init -name mountall-reboot.conf)\
+    $(find /etc/init -name mountall-shell.conf)\
+    $(find /etc/init -name mountall.conf)\
+    $(find /etc/init -name setvtrgb.conf)\
+    $(find /etc/init -name network-interface-security.conf)\
+    $(find /etc/init -name upstart-dbus-bridge.conf)\
     ;do \
         echo manual>$(basename $i .conf).override;\
         mv -f $f $f.orig;\
+    done;\
+    for i in \
+        vm.mmap_min_addr\
+        kernel.yama.ptrace_scope\
+        kernel.kptr_restrict\
+        kernel.printk;do \
+            sed -re "s/^($i)/#\1/g" -i \
+            /etc/sysctl*/*  /etc/sysctl.conf;\
     done;\
     useradd --create-home -s /bin/bash ubuntu;\
     sudo_version=$(dpkg-query -W -f='${Version}' sudo);\
@@ -114,5 +138,5 @@ RUN cd /;\
     /usr/sbin/locale-gen;\
     update-locale LANG=fr_FR.utf8;
 ADD console.conf /etc/init/console.conf
-ADD udev-fake.conf /etc/init/udev-fake.conf
+ADD lxc-fake.conf /etc/init/lxc-fake.conf
 CMD ["/sbin/init"]
