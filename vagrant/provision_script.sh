@@ -28,6 +28,7 @@ if [ -f $SETTINGS ];then
 fi
 PREFIX="${PREFIX:-"/srv"}"
 VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
+export SALT_BOOT='server'
 
 # Markers must not be on a shared folder for a new VM to be reprovisionned correctly
 MARKERS="${MARKERS:-"/root/vagrant/markers"}"
@@ -372,7 +373,6 @@ else
   fi
   if [[ ! -e $MARKERS/salt_bootstrap_done ]];then
     output " [ * ] Bootstrap Salt-Stack env..."
-    export SALT_BOOT='server'
     if [ -e /src/salt/makina-states/src/salt ];then
       sed -re "s/filemode = true/filemode = false/g" -i /src/salt/makina-states/src/*/.git/config
     fi
@@ -382,12 +382,33 @@ else
     touch $MARKERS/salt_bootstrap_done
   fi
   # migrate existing vms, be sure to have all files (pre-oct 2013)
+  NEED_REDO=""
+  EDITOR_GID="$(salt-call --local pillar.get salt.filesystem.gid 65753|grep -v 'local:'|sed -re 's/\s//g')"
+  EDITOR_GROUP="$(salt-call --local pillar.get salt.filesystem.group editor|grep -v 'local:'|sed -re 's/\s//g')"
+  oldg=$(getent group "$EDITOR_GID"|awk -F: '{print $1}')
+  if [[ "$oldg" != "$EDITOR_GROUP" ]];then
+      output " [*] Changing Editor Group from '$oldg' to '$EDITOR_GROUP'"
+      groupmod "$oldg" -n "$EDITOR_GROUP"
+      NEED_REDO="y"
+  fi
+  if [[ ! -e /srv/salt-venv ]];then
+      NEED_REDO="y"
+  fi
   if [[ ! -e /srv/salt/setup.sls ]] || [[ ! -e /srv/salt/top.sls ]];then
-      SALT_BOOT='server' /srv/salt/makina-states/_scripts/boot-salt.sh
+      NEED_REDO="y"
+  fi
+  if [[ -n "$NEED_REDO" ]];then
+      output " [*] Updating code"
+      cd /srv/salt/makina-states
+      git pull origin master
+      cd /srv/salt/makina-states/src/salt
+      git pull origin develop
+      output " [*] Running salt state setup"
+      /srv/salt/makina-states/_scripts/boot-salt.sh
   fi
 fi
 
-if [[ -n $NEED_RESTART ]];then
+if [[ -n "$NEED_RESTART" ]];then
     output "You need to reboot, issue 'vagrant reload'"
     exit $NEED_RESTART
 fi
