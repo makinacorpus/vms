@@ -178,10 +178,10 @@ Vagrant.configure("2") do |config|
   end
 
   # To manage edition rights sync between the VM and the local host
-  # we need to ensure the current user is member of a salt-admin-vm group (gid: 65753) and
+  # we need to ensure the current user is member of a group editor (gid: 65753) and
   # that this group exists
   newgid = 65753 # the most important
-  newgroup = 'salt-admin-vm'
+  newgroup = 'edtior'
   user = Etc.getlogin
 
   # detect current host OS
