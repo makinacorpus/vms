@@ -2,6 +2,7 @@
 # Ubuntu with a debuggable upstart
 #
 FROM makinacorpus/ubuntu
+#FROM 954a26f7ab7d
 ENV prefix /testing
 ADD postinst.sh /postinst.sh
 RUN apt-get install -y --force-yes autopoint gdb strace build-essential m4 libtool pkg-config autoconf gettext bzip2 groff man-db automake libsigc++-2.0-dev tcl8.5 git bzr;\
