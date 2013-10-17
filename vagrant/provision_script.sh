@@ -31,6 +31,7 @@ VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
 export SALT_BOOT='server'
 
 # Markers must not be on a shared folder for a new VM to be reprovisionned correctly
+VENV_PATH="/salt-venv"
 MARKERS="${MARKERS:-"/root/vagrant/markers"}"
 DNS_SERVER="${DNS_SERVER:-"8.8.8.8"}"
 PREVIOUS_OFFICIAL_MIRROR="${PREVIOUS_OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
@@ -391,7 +392,7 @@ else
       groupmod "$oldg" -n "$EDITOR_GROUP"
       NEED_REDO="y"
   fi
-  if [[ ! -e /srv/salt-venv ]];then
+  if [[ ! -e $VENV_PATH ]];then
       NEED_REDO="y"
   fi
   if [[ ! -e /srv/salt/setup.sls ]] || [[ ! -e /srv/salt/top.sls ]];then
