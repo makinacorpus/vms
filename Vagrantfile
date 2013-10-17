@@ -56,8 +56,8 @@ BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
 # we also setup a specific docker network subnet per virtualbox host
 DOCKER_NETWORK_IF="docker0"
 DOCKER_NETWORK_HOST_IF="eth0"
-DOCKER_NETWORK_GATEWAY="172.17."+devhost_num+".1"
-DOCKER_NETWORK="172.17."+devhost_num+".0"
+DOCKER_NETWORK_GATEWAY="172.31."+devhost_num+".1"
+DOCKER_NETWORK="172.31."+devhost_num+".0"
 DOCKER_NETWORK_MASK="255.255.255.0"
 DOCKER_NETWORK_MASK_NUM="24"
 # Custom dns server
