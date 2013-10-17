@@ -381,7 +381,7 @@ else
     . /etc/profile
     touch $MARKERS/salt_bootstrap_done
   fi
-  # migrate existing vms, be sure to have all files (pre-oct 2013)
+  # migrate existing vms, be sure to have everywhere the same setup
   NEED_REDO=""
   EDITOR_GID="$(salt-call --local pillar.get salt.filesystem.gid 65753|grep -v 'local:'|sed -re 's/\s//g')"
   EDITOR_GROUP="$(salt-call --local pillar.get salt.filesystem.group editor|grep -v 'local:'|sed -re 's/\s//g')"
