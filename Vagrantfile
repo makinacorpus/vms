@@ -181,7 +181,7 @@ Vagrant.configure("2") do |config|
   # we need to ensure the current user is member of a group editor (gid: 65753) and
   # that this group exists
   newgid = 65753 # the most important
-  newgroup = 'edtior'
+  newgroup = 'editor'
   user = Etc.getlogin
 
   # detect current host OS
