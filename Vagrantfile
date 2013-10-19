@@ -50,13 +50,13 @@ devhost_f = File.open(VBOX_SUBNET_FILE, 'w')
 devhost_f.write(devhost_num)
 devhost_f.close()
 BOX_PRIVATE_SUBNET="10.1."+devhost_num
-BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43"
+BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43" # so 10.1.42.43 by default
 BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
 # To enable dockers to be interlinked between multiple virtuabox,
 # we also setup a specific docker network subnet per virtualbox host
 DOCKER_NETWORK_IF="docker0"
 DOCKER_NETWORK_HOST_IF="eth0"
-DOCKER_NETWORK_GATEWAY="172.31."+devhost_num+".1"
+DOCKER_NETWORK_GATEWAY="172.31."+devhost_num+".1" # so 172.31.42.31 by default
 DOCKER_NETWORK="172.31."+devhost_num+".0"
 DOCKER_NETWORK_MASK="255.255.255.0"
 DOCKER_NETWORK_MASK_NUM="24"
@@ -82,7 +82,7 @@ printf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
 printf(" [*] To have multiple hosts, you can change the last bits (default: 43) via the MAKINA_DEVHOST_NUM env variable)\n")
 printf(" [*] if you want to share this wm, dont forget to have ./.vb_name along\n")
 # Name inside the VM (as rendered by hostname command)
-VM_HOSTNAME="devhost.local"
+VM_HOSTNAME="devhost"+devhost_num+".local" # so devhost42.local by default
 # Set this to true ONLY if you have VirtualBox version > 4.2.12
 # else the synced folder would not work.
 # When activated this would remove warnings about version mismatch of
