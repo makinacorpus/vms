@@ -65,7 +65,7 @@ DNS_SERVER="8.8.8.8"
 #BOX_PRIVATE_NETMASK="255.225.255.0"
 # md5 based on currentpath
 # Name on your VirtualBox panel
-VIRTUALBOX_BASE_VM_NAME="Docker DevHost Ubuntu "+UBUNTU_RELEASE+"64"
+VIRTUALBOX_BASE_VM_NAME="Docker DevHost "+devhost_num+" Ubuntu "+UBUNTU_RELEASE+"64"
 if (not File.exist?(VBOX_NAME_FILE))
     md5_fo = File.open(VBOX_NAME_FILE, 'w')
     MD5=Digest::MD5.hexdigest(CWD)
