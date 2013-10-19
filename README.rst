@@ -124,3 +124,22 @@ To remove an outdated or broken VM::
   vagrant destroy
 
 Note that all the files mounted on the ``/srv`` vm directory are in fact stored on the base directory of this project and will not be removed after a vagrant destroy. so you can easily destroy a VM without loosing really important files. Then redo a ``vagrant up`` to rebuild a new VM with all needed dependencies.
+
+Manage several Virtualboxes
+----------------------------
+
+The default install cloned the git repository in ~makina/vms. By cloning this same git repository on another place you can manage another vagrant virtualbox vm. So for example in a vm2 diectory::
+
+  mkdir -p ~/makina/
+  cd ~/makina/
+  # get this project in the vms subdirectory of this base place
+  git clone https://github.com/makinacorpus/vms.git vm2
+  cd vm2
+
+No do not forget to read the Vagrantfile, to alter MAX_CPU_USAGE_PERCENT,CPUS & MEMORY settings for example. And you will need another IP for this second VM, and another IP network for any docker network that you would run on it. This is all managed by a MAKINA_DEVHOST_NUM setting which is by default 42 (so it's 42 for your first VM and we need a new number). You have to ways to alter this number, by using an environment variable, or by pushing that in the local ``.vb_subnet`` file. By default this file is not yet created and will be created on first usage. But we can enforce it right before the first ``vagrant up``::
+
+  echo "22" > .vb_subnet
+  vagrant up
+
+This way the second vagrant VM is now using IP: 10.1.22.43 instead of 10.1.42.43 for the private network and the docker network on this host will be 172.31.22.0 and not 172.31.42.0. The box hostname will be devhost22.local instead of devhost42.local.
+
