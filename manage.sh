@@ -88,12 +88,11 @@ import() {
         log "Existing $c/package.box, if you want to re dearchive, delete it"
     fi
 
-    #log "Importing box" &&\
-        #vagrant box add -f devhost package.box &&\
-        log "Initialiasing host from package.box" &&\
-        sed -ire 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' \
-        Vagrantfile && up noreload && down && git checkout Vagrantfile &&\
-        log "Box imported !"
+    log "Importing box" && vagrant box add -f devhost package.box &&\
+    log "Initialiasing host from package.box" &&\
+    sed -ire 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' \
+    Vagrantfile && up noreload && down && git checkout Vagrantfile &&\
+    log "Box imported !"
     if [[ $? != 0 ]];then
         git checkout Vagrantfile
     fi
