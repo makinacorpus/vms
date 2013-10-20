@@ -16,7 +16,7 @@ As of now, we needed to backport those next-ubuntu stuff (saucy) for things to b
 
     - Lxc >= 1.0b
     - Kernel >= 3.11
-    - Virtualbox >= 4.2.15
+    - Virtualbox >= 4.2.16
 
 Docker VMs
 ==========
