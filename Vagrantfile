@@ -74,9 +74,8 @@ if (not File.exist?(VBOX_NAME_FILE))
     md5_fo.close()
 else
     md5_fo = File.open(VBOX_NAME_FILE, 'r')
-    VIRTUALBOX_VM_NAME=md5_fo.read()
+    VIRTUALBOX_VM_NAME=md5_fo.read().strip()
 end
-VIRTUALBOX_VM_NAME=VIRTUALBOX_VM_NAME.strip()
 printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 printf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
 printf(" [*] To have multiple hosts, you can change the last bits (default: 43) via the MAKINA_DEVHOST_NUM env variable)\n")
