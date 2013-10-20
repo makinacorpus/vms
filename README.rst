@@ -49,7 +49,7 @@ Debian
 Install
 =======
 
-Following theses instructions you can install this git repository on a directory of your local host, then start a Virtualbox vm from this directory. this virtualbox VM handled by vagrant will then run the docker VMs. All files used in the VirtualBox VM and in the docker mounts will be editable from your host as this VM will ensure your current user will be member of the right group, shared with the VM, and that all important files used by the vm are shared from your development host via nfs 
+Following theses instructions you can install this git repository on a directory of your local host, then start a Virtualbox vm from this directory. this virtualbox VM handled by vagrant will then run the docker VMs. All files used in the VirtualBox VM and in the docker mounts will be editable from your host as this VM will ensure your current user will be member of the right group, shared with the VM, and that all important files used by the vm are shared from your development host via nfs
 
 Prerequisitements
 -----------------
@@ -112,7 +112,7 @@ connecting to the VM in ssh with the ``vagrant`` user (sudoer) is::
 Stoping the VM can be done like that::
 
   ./manage.sh down # classical
-  ./manage.sh  suspend # faster on up, but requires disk space to store current state
+  ./manage.sh suspend # faster on up, but requires disk space to store current state
 
 Reloading the vm is::
 
@@ -121,6 +121,16 @@ Reloading the vm is::
 To remove an outdated or broken VM::
 
   ./manage.sh destroy
+
+
+To export in **package.tar.bz2**, to share this development host with someone::
+
+  ./manage.sh export
+
+To  import from a **package.tar.bz2** file, simply place the package in the working
+directory and issue::
+
+  ./manage.sh import
 
 Note that all the files mounted on the ``/srv`` vm directory are in fact stored on the base directory of this project and will not be removed after a vagrant destroy. so you can easily destroy a VM without loosing really important files. Then redo a ``vagrant up`` to rebuild a new VM with all needed dependencies.
 
