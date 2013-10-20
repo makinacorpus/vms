@@ -39,8 +39,8 @@ down() {
 }
 up() {
     cd $c
-    if [[ "$(not_created)" == "1" ]];then
-        log "First run, we issue an init first"
+    if [[ "$(not_created)" == "1" ]] || [[ "$1" != "noreload" ]];then
+        log "First run, we issue an up & reload first"
         vagrant up
         vagrant reload && no_up=1
     else
@@ -85,11 +85,18 @@ import() {
             exit -1
         fi
     else
-        log "Existing $c/package.box, to re dearchive, delete it"
+        log "Existing $c/package.box, if you want to re dearchive, delete it"
     fi
-    vagrant box add devhost package.box &&\
-        vagrant init devhost &&\
-        up
+
+    #log "Importing box" &&\
+        #vagrant box add -f devhost package.box &&\
+        log "Initialiasing host from package.box" &&\
+        sed -ire 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' \
+        Vagrantfile && up noreload && down && git checkout Vagrantfile &&\
+        log "Box imported !"
+    if [[ $? != 0 ]];then
+        git checkout Vagrantfile
+    fi
 }
 action=$1
 test="$(echo "$actions" | sed -re "s/.* $action .*/match/g")"
