@@ -29,6 +29,7 @@ fi
 PREFIX="${PREFIX:-"/srv"}"
 VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
 export SALT_BOOT='server'
+BOOT_GRAIN="makina.bootstrap.$SALT_BOOT"
 
 # Markers must not be on a shared folder for a new VM to be reprovisionned correctly
 VENV_PATH="/salt-venv"
@@ -101,10 +102,13 @@ EOF
     fi
 }
 
+
+get_grain() { salt-call --local grains.get $1 --out=raw 2>/dev/null ; }
+
 initialize_devel_salt_grains() {
     grain=makina.devhost
     output " [*] Testing salt grain '$grain'"
-    if [[ "$(salt-call --local grains.get $grain --out=raw 2>/dev/null)" != *"True"* ]];then
+    if [[ "$(get_grain $grain)" != *"True"* ]];then
         output " [*] Setting salt grain $grain=true to mark this host as a dev host for salt-stack"
         salt-call --local grains.setval $grain true
         # sync grains right now, do not wait for reboot
@@ -402,6 +406,13 @@ else
   if [[ ! -e /srv/salt/setup.sls ]] || [[ ! -e /srv/salt/top.sls ]];then
       NEED_REDO="y"
   fi
+  initialize_devel_salt_grains
+  vm_boot_mode=$(get_grain $BOOT_GRAIN)
+  echo $vm_boot_mode
+  if [[ "$vm_boot_mode" != *"True"* ]];then
+      output " [*] Old installation detected for boot grain, updating salt"
+      NEED_REDO=1
+  fi
   if [[ -n "$NEED_REDO" ]];then
       output " [*] Updating code"
       cd /srv/salt/makina-states
@@ -440,7 +451,6 @@ service docker start
 
 open_routes
 
-initialize_devel_salt_grains
 
 ready_to_run
 # vim:set et sts=4 ts=4 tw=0:
