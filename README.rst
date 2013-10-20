@@ -122,7 +122,6 @@ To remove an outdated or broken VM::
 
   ./manage.sh destroy
 
-
 To export in **package.tar.bz2**, to share this development host with someone::
 
   ./manage.sh export
