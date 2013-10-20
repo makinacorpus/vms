@@ -75,9 +75,11 @@ RE_UBUNTU_RELEASE="$(echo "${UBUNTU_RELEASE}"                     | sed -re "s/(
 src_l="/etc/apt/sources.list"
 
 ready_to_run() {
-    output " [*] VM is now ready for vagrant ssh or other usages..."
+    output " [*] VM is now ready for 'vagrant ssh' or other usages..."
+    output " ------------------------------- [ OK] -----------------------------------------"
     output " 'You can upgrade all your projects with \"salt '*' state.highstate\""
     output " 'You can upgrade the base salt infrastructure with \"salt '*' state.sls setup\""
+    output " 'Stop vm with 'vagrant [-f] halt', connect it with 'vagrant ssh'"
 }
 
 deactivate_ifup_debugging() {
