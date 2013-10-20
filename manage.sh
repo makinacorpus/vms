@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+actions="up reload destroy down export import suspend"
+RED="\\033[31m"
+CYAN="\\033[36m"
+NORMAL="\\033[0m"
+log(){
+    echo -e "${RED} [manage] ${@}${NORMAL}"
+}
+u=""
+if [[ "$(whoami)" != "root" ]];then
+    u=$(whoami)
+fi
+g=editor
+c=$(dirname $0)
+cd $c
+c=$PWD
+die() { echo $@; exit -1; }
+actions=" $actions "
+actions_main_usage="$actions"
+usage() {
+    for i in $actions_main_usage;do
+        echo "$0 $i"
+    done
+}
+destroy() {
+    cd $c
+    vagrant halt -f
+    vagrant destroy -y
+}
+suspend() {
+    cd $c
+    log "Suspend !"
+    vagrant suspend
+}
+down() {
+    cd $c
+    log "Down !"
+    vagrant halt -f
+}
+up() {
+    cd $c
+    if [[ "$(not_created)" == "1" ]];then
+        log "First run, we issue an init first"
+        vagrant up
+        vagrant reload && no_up=1
+    else
+        log "Up !"
+        vagrant up
+    fi
+}
+not_created() {
+    cd $c
+    vagrant status|grep "not created (virtualbox)" 2>/dev/null|wc -l
+}
+reload() {
+    cd $c
+    log "Reload!"
+    vagrant reload
+}
+export() {
+    cd $c
+    log "Exporting to $c/package.tar.bz2"
+    down &&\
+    vagrant package &&\
+        log "Compressing box and marker files in $c/package.tar.bz2" &&\
+        tar cjvf package.tar.bz2 package.box .vb_* &&\
+        rm -vf package.box &&\
+        log "package produced in $c/package.tar.bz2"
+}
+import() {
+    cd $c
+    log "Importing $c/package.tar.bz2"
+    if [[ ! -e package.tar.bz2 ]];then
+        log "Missing $c/package.tar.bz2"
+        exit -1
+    fi
+    if [[ ! -e package.box ]];then
+        log "Unarchiving package.tar.bz2"
+        tar xjvf "$c/package.tar.bz2"
+        if [[ $? != 0 ]];then
+            log "Error unarchiving package.tar.bz2"
+        fi
+        if [[ ! -e package.box ]];then
+            log "Missing $c/package.box"
+            exit -1
+        fi
+    fi
+    vagrant box add devhost package.box &&\
+        vagrant init devhost &&\
+        up
+}
+action=$1
+test="$(echo "$actions" | sed -re "s/.* $action .*/match/g")"
+if [[ "$test" == "match" ]];then
+    shift
+    $action $@
+    exit $?
+else
+    echo "invalid invocation: $0 $@"
+    usage;exit -1
+fi
+usage
+exit 0
+# vim:set et sts=4 ts=4 tw=0:
