@@ -1,6 +1,6 @@
 debian/cache/
 package.box
-package.tar.bzZ
+package.tar.bz2
 .vb_name
 .vb_subnet
 salt/

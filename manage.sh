@@ -84,6 +84,8 @@ import() {
             log "Missing $c/package.box"
             exit -1
         fi
+    else
+        log "Existing $c/package.box, to re dearchive, delete it"
     fi
     vagrant box add devhost package.box &&\
         vagrant init devhost &&\
