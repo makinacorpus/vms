@@ -93,8 +93,12 @@ import() {
     sed -ire 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' \
     Vagrantfile && up noreload && down && git checkout Vagrantfile &&\
     log "Box imported !"
-    if [[ $? != 0 ]];then
-        git checkout Vagrantfile
+    ret=$?
+    # reseting Vagrantfile in any case
+    git checkout Vagrantfile 2>/dev/null
+    if [[ $ret != 0 ]];then
+        log "Error while importing"
+        exit $ret
     fi
 }
 action=$1
