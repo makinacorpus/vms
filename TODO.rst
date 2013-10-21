@@ -27,3 +27,9 @@ TODO:
 
 * integrate a X11 display in dockers using fluxbox and tightvnserver
  
+
+DONE:
+
+* Vagrantfile initialisation for ubuntu raring & LTS
+* Multi Virtualbox with multi networks
+* saltstack state trees architecture
