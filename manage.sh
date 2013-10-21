@@ -162,8 +162,8 @@ import() {
     mode=""
     args=${@}
     for amode in $a_eximmodes;do
-        for arg in $@;do
-            if [[ $mode == $args ]] && [[ -z $mode ]];then
+        for arg in $args;do
+            if [[ "$amode" == "$arg" ]] && [[ -z $mode ]];then
                 mode=$arg
             fi
         done

@@ -86,8 +86,7 @@ Now you can start the vm installation with vagrant. Note that this repository wi
   # Optionnaly preload the base image
   vagrant box add raring64 http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
   # Optionnaly, read the Vagrantfile top section, containing VM cpu and memory settings
-  # if you want to alter theses settings create your vagrant_config.rb locally as described inside
-  more Vagrantfile
+  vi Vagrantfile
   # start the VM a first time, this will launch the VM creation and provisioning
   ./manage.sh
   # you will certainly need one or to reload to finish the provision steps (normally the first time, the script do it for you)
@@ -123,30 +122,23 @@ To remove an outdated or broken VM::
 
   ./manage.sh destroy
 
-Note that all the files mounted on the ``/srv`` vm directory are in fact stored on the base directory of this project and will not be removed after a vagrant destroy. so you can easily destroy a VM without loosing really important files. Then redo a ``vagrant up`` to rebuild a new VM with all needed dependencies.
-
-Export/Import
---------------
-
-the 'nude' import/export does not include salt, pillar and project data whereas
-normal import include them all.
-
-To export in **package-full.tar.bz2** or **package-nude.tar.bz2**, to share this development host with someone::
+To export in **package.tar.bz2**, to share this development host with someone::
 
   ./manage.sh export
-  or ./manage.sh export_nude
 
-To import from a **package.tar.bz2** or **package-nude.tar.bz2**, simply place the package in the working
+To  import from a **package.tar.bz2** file, simply place the package in the working
 directory and issue::
 
   ./manage.sh import
-  or ./manage.sh import_nude
 
+Note that all the files mounted on the ``/srv`` vm directory are in fact stored on the base directory of this project and will not be removed after a vagrant destroy. so you can easily destroy a VM without loosing really important files. Then redo a ``vagrant up`` to rebuild a new VM with all needed dependencies.
 
 Manage several Virtualboxes
 ----------------------------
 
-The default install cloned the git repository in ~makina/vms. By cloning this same git repository on another place you can manage another vagrant virtualbox vm. So for example in a vm2 diectory::
+The default install cloned the git repository in ~makina/vms.
+By cloning this same git repository on another place you can manage another vagrant based virtualbox vm.
+So for example in a vm2 diectory::
 
   mkdir -p ~/makina/
   cd ~/makina/
@@ -154,18 +146,20 @@ The default install cloned the git repository in ~makina/vms. By cloning this sa
   git clone https://github.com/makinacorpus/vms.git vm2
   cd vm2
 
-No do not forget to read the Vagrantfile, to alter MAX_CPU_USAGE_PERCENT,CPUS & MEMORY settings for example. And you will need another IP for this second VM, and another IP network for any docker network that you would run on it. This is all managed by a MAKINA_DEVHOST_NUM setting which is by default 42 (so it's 42 for your first VM and we need a new number). You have to ways to alter this number, by using an environment variable, or by pushing that in the local ``.vb_subnet`` file. By default this file is not yet created and will be created on first usage. But we can enforce it right before the first ``vagrant up`` by altering the DEVHOST_NUM constant in our local untracked vagrant_config.rb::
+You must read at least once the Vagrantfile, it will be easier for you to know how to alter MAX_CPU_USAGE_PERCENT,CPUS & MEMORY settings for example. or more useful, change this second vm IP and Subnet.
 
-  vi ./vagrant_config.rb
-  module MyConfig
-     DEVHOST_NUM="22" # <---------- HERE
-     # MEMORY="512"
-     # CPUS="1"
-     # MAX_CPU_USAGE_PERCENT="25"
-     # DNS_SERVER="8.8.8.8"
-  end
-  # then :
-  vagrant up
+You will indeed realise that there is a magic DEVHOST_NUM setting which is by default 42 (so it's 42 for your first VM and we need a new number).
 
-This way the second vagrant VM is now using IP: 10.1.22.43 instead of 10.1.42.43 for the private network and the docker network on this host will be 172.31.22.0 and not 172.31.42.0. The box hostname will be devhost22.local instead of devhost42.local.
+You can then this settings, along with the other settings in **vagrant_config.rb** .
+By default this file is not yet created and will be created on first usage. But we can enforce it right before the first ``vagrant up``::
+
+    cat  > vagrant_config.rb << EOF
+    module MyConfig
+      DEVHOST_NUM="22"
+    end
+    EOF
+
+This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1.42.43** for the private network
+and the docker network on this host will be **172.31.22.0** and not **172.31.42.0**.
+The box hostname will be **devhost22.local** instead of devhost42.local.
 

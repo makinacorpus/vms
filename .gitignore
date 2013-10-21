@@ -3,7 +3,6 @@ package.box
 package.tar.bz2
 .vb_name
 .vb_subnet
-vagrant_config.rb
 salt/
 projects/
 pillar/
