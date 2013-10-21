@@ -8,7 +8,7 @@
 # as it backport a lot of saucy packages, see ../backport-pgks.sh
 # for backporting things on a bare metal machine
 #
-output() { echo "$@" >&2; }
+output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
 
 die_if_error() {
     if [[ "$?" != "0" ]];then
@@ -16,6 +16,13 @@ die_if_error() {
         exit 1
     fi
 }
+
+YELLOW='\e[1;33m'
+RED="\\033[31m"
+CYAN="\\033[36m"
+NORMAL="\\033[0m"
+DEBUG=${BOOT_SALT_DEBUG:-}
+
 
 output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
 output " [*] You can safely relaunch this script from within the vm"
@@ -29,6 +36,7 @@ fi
 PREFIX="${PREFIX:-"/srv"}"
 VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
 export SALT_BOOT='server'
+BOOT_GRAIN="makina.bootstrap.$SALT_BOOT"
 
 # Markers must not be on a shared folder for a new VM to be reprovisionned correctly
 VENV_PATH="/salt-venv"
@@ -103,10 +111,13 @@ EOF
     fi
 }
 
+
+get_grain() { salt-call --local grains.get $1 --out=raw 2>/dev/null ; }
+
 initialize_devel_salt_grains() {
     grain=makina.devhost
     output " [*] Testing salt grain '$grain'"
-    if [[ "$(salt-call --local grains.get $grain --out=raw 2>/dev/null)" != *"True"* ]];then
+    if [[ "$(get_grain $grain)" != *"True"* ]];then
         output " [*] Setting salt grain $grain=true to mark this host as a dev host for salt-stack"
         salt-call --local grains.setval $grain true
         # sync grains right now, do not wait for reboot
@@ -151,7 +162,7 @@ if_file="/etc/network/interfaces.${DOCKER_NETWORK_IF}"
 if_conf="$if_file.conf "
 NETWORK_RESTART=""
 
-activate_ifup_debugging
+#activate_ifup_debugging
 
 if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];then
     apt-get install -y --force-yes bridge-utils
@@ -379,7 +390,19 @@ else
     if [ -e /src/salt/makina-states/src/salt ];then
       sed -re "s/filemode = true/filemode = false/g" -i /src/salt/makina-states/src/*/.git/config
     fi
-    wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
+    ms_updated=""
+    if [[ -e /srv/salt/makina-states/.git ]];then
+        output " [ * ] Bootstrap mode update in makina-states.."
+        cd /srv/salt/makina-states
+        git pull && ms_updated="1"
+    fi
+    if [[ -z $ms_updated ]];then
+        output " [ * ] Running makina-states bootstrap directly from github"
+        wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
+    else
+        output " [ * ] Running makina-states bootstrap"
+        /srv/salt/makina-states/_scripts/boot-salt.sh
+    fi
     die_if_error
     . /etc/profile
     touch $MARKERS/salt_bootstrap_done
@@ -404,6 +427,16 @@ else
   if [[ ! -e /srv/salt/setup.sls ]] || [[ ! -e /srv/salt/top.sls ]];then
       NEED_REDO="y"
   fi
+  initialize_devel_salt_grains
+  vm_boot_mode=$(get_grain $BOOT_GRAIN)
+  if [[ $(grep -- "- makina-states\.dev" /srv/pillar/top.sls|wc -l) == "0" ]];then
+      output " [*] Old installation detected for makina-stes.dev top file"
+      NEED_REDO=1
+  fi
+  if [[ "$vm_boot_mode" != *"True"* ]];then
+      output " [*] Old installation detected for boot grain, updating salt"
+      NEED_REDO=1
+  fi
   if [[ -n "$NEED_REDO" ]];then
       output " [*] Updating code"
       cd /srv/salt/makina-states
@@ -425,7 +458,7 @@ if [[ $(find /var/cache/apt/archives/ -name *deb|wc -l) != "0" ]];then
     rm -rf /var/cache/apt/archives/*deb
 fi
 
-deactivate_ifup_debugging
+#deactivate_ifup_debugging
 
 # Always start salt and docker AFTER /srv has been mounted on the VM
 output " [*] Manage Basic daemons using /srv"
@@ -442,7 +475,6 @@ service docker start
 
 open_routes
 
-initialize_devel_salt_grains
 
 ready_to_run
 # vim:set et sts=4 ts=4 tw=0:
