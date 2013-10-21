@@ -293,6 +293,17 @@ fi
 # on a vagrant reload
 open_routes
 
+if [[ "$DISTRIB_CODENAME" == "lucid" ]] \
+    || [[ "$DISTRIB_CODENAME" == "maverick" ]] \
+    || [[ "$DISTRIB_CODENAME" == "natty" ]] \
+    || [[ "$DISTRIB_CODENAME" == "oneiric" ]] \
+    || [[ "$DISTRIB_CODENAME" == "precise" ]] \
+    || [[ "$DISTRIB_CODENAME" == "quantal" ]] \
+    ;then
+    EARLY_UBUNTU=y
+fi
+
+
 for service in $UPSTART_DISABLED_SERVICES;do
     sf=/etc/init/$service.override
     if [[ "$(cat $sf 2>/dev/null)" != "manual" ]];then
@@ -307,6 +318,10 @@ if [ ! -e "$mirror_marker" ];then
     if [ ! -e "$MARKERS/vbox_pkg_1_initial_update" ];then
         # generate a proper commented /etc/apt/source.list
         output " [*] Initial upgrade with cloud-init"
+        if [[ -n $EARLY_UBUNTU ]];then
+            apt-get install -y --force-yes cloud-init
+            cloud-init start
+        fi
         /usr/bin/cloud-init init
         /usr/bin/cloud-init modules --mode=config
         /usr/bin/cloud-init modules --mode=final
@@ -354,14 +369,7 @@ if [ ! -e "$MARKERS/vbox_init_global_upgrade" ];then
     touch "$MARKERS/vbox_init_global_upgrade"
 fi
 
-if     [[ "$DISTRIB_CODENAME" == "raring" ]] \
-    || [[ "$DISTRIB_CODENAME" == "lucid" ]] \
-    || [[ "$DISTRIB_CODENAME" == "maverick" ]] \
-    || [[ "$DISTRIB_CODENAME" == "natty" ]] \
-    || [[ "$DISTRIB_CODENAME" == "oneiric" ]] \
-    || [[ "$DISTRIB_CODENAME" == "precise" ]] \
-    || [[ "$DISTRIB_CODENAME" == "quantal" ]] \
-    ;then
+if [[ "$DISTRIB_CODENAME" == "raring" ]] || [[ -n "$EARLY_UBUNTU" ]];then
     backport_saucy
 fi
 
