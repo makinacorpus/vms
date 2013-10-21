@@ -20,7 +20,7 @@ IN PROGRESS
 TODO
 ====
 
-* Reduce the space used on the VM
+* Reduce the space used on the VM (at least add a call to apt-clean)
 
 * Automate a zerofree call on the vm with the manage script
 
