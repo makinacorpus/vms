@@ -16,7 +16,7 @@ As of now, we needed to backport those next-ubuntu stuff (saucy) for things to b
 
     - Lxc >= 1.0b
     - Kernel >= 3.11
-    - Virtualbox >= 4.2.15
+    - Virtualbox >= 4.2.16
 
 Docker VMs
 ==========
@@ -49,7 +49,7 @@ Debian
 Install
 =======
 
-Following theses instructions you can install this git repository on a directory of your local host, then start a Virtualbox vm from this directory. this virtualbox VM handled by vagrant will then run the docker VMs. All files used in the VirtualBox VM and in the docker mounts will be editable from your host as this VM will ensure your current user will be member of the right group, shared with the VM, and that all important files used by the vm are shared from your development host via nfs 
+Following theses instructions you can install this git repository on a directory of your local host, then start a Virtualbox vm from this directory. this virtualbox VM handled by vagrant will then run the docker VMs. All files used in the VirtualBox VM and in the docker mounts will be editable from your host as this VM will ensure your current user will be member of the right group, shared with the VM, and that all important files used by the vm are shared from your development host via nfs
 
 Prerequisitements
 -----------------
@@ -88,8 +88,8 @@ Now you can start the vm installation with vagrant. Note that this repository wi
   # Optionnaly, read the Vagrantfile top section, containing VM cpu and memory settings
   vi Vagrantfile
   # start the VM a first time, this will launch the VM creation and provisioning
-  vagrant up
-  # you will certainly need one or to reload to finish the provision steps
+  ./manage.sh
+  # you will certainly need one or to reload to finish the provision steps (normally the first time, the script do it for you)
   vagrant reload
 
 Daily usage
@@ -103,25 +103,33 @@ To launch a Vagrant command always ``cd`` to the VM base directory::
 
 Starting the VM is simple::
 
-  vagrant up
+  ./manage.sh up
 
 connecting to the VM in ssh with the ``vagrant`` user (sudoer) is::
 
-  vagrant ssh
+  ./manage.sh down
 
 Stoping the VM can be done like that::
 
-  vagrant halt # classical
-  vagrant -f halt # try to enforce it
-  vagrant suspend # faster on up, but requires disk space to store current state
+  ./manage.sh down # classical
+  ./manage.sh suspend # faster on up, but requires disk space to store current state
 
 Reloading the vm is::
 
-  vagrant reload # with sometimes tiemout problems on stop, redo-it.
+  ./manage.sh reload # with sometimes tiemout problems on stop, redo-it.
 
 To remove an outdated or broken VM::
 
-  vagrant destroy
+  ./manage.sh destroy
+
+To export in **package.tar.bz2**, to share this development host with someone::
+
+  ./manage.sh export
+
+To  import from a **package.tar.bz2** file, simply place the package in the working
+directory and issue::
+
+  ./manage.sh import
 
 Note that all the files mounted on the ``/srv`` vm directory are in fact stored on the base directory of this project and will not be removed after a vagrant destroy. so you can easily destroy a VM without loosing really important files. Then redo a ``vagrant up`` to rebuild a new VM with all needed dependencies.
 
