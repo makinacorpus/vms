@@ -60,33 +60,46 @@ reload() {
 export() {
     cd $c
     log "Exporting to $c/package.tar.bz2"
-    down &&\
-    vagrant package &&\
-        log "Compressing box and marker files in $c/package.tar.bz2" &&\
-        tar cjvf package.tar.bz2 package.box .vb_* &&\
-        rm -vf package.box &&\
-        log "package produced in $c/package.tar.bz2"
+    up &&\
+        vagrant ssh &&\
+        sed -ire "s/^SUBSYSTEM/#SUBSYSTEM/g" \
+            /etc/udev/rules.d/70-persistent-net.rules &&\
+        down &&\
+        sed -ire 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
+        vagrant package --include .vb_* pillar projects salt --vagrantfile Vagrantfile
+        #log "package produced in $c/package.box"
+        #log "Compressing box and marker files in $c/package.tar.bz2" &&\
+        #tar cjvf package.tar.bz2 package.box  &&\
+        #rm -vf package.box &&\
+        #log "package produced in $c/package.tar.bz2"
+    ret=$?
+    # reseting Vagrantfile in any case
+    git checkout Vagrantfile 2>/dev/null
+    if [[ $ret != 0 ]];then
+        log "Error while exporting"
+        exit $ret
+    fi
 }
 import() {
     cd $c
     log "Importing $c/package.tar.bz2"
-    if [[ ! -e package.tar.bz2 ]];then
-        log "Missing $c/package.tar.bz2"
-        exit -1
-    fi
-    if [[ ! -e package.box ]];then
-        log "Unarchiving package.tar.bz2"
-        tar xjvf "$c/package.tar.bz2"
-        if [[ $? != 0 ]];then
-            log "Error unarchiving package.tar.bz2"
-        fi
-        if [[ ! -e package.box ]];then
-            log "Missing $c/package.box"
-            exit -1
-        fi
-    else
-        log "Existing $c/package.box, if you want to re dearchive, delete it"
-    fi
+    #if [[ ! -e package.tar.bz2 ]];then
+    #    log "Missing $c/package.tar.bz2"
+    #    exit -1
+    #fi
+    #if [[ ! -e package.box ]];then
+    #    log "Unarchiving package.tar.bz2"
+    #    tar xjvf "$c/package.tar.bz2"
+    #    if [[ $? != 0 ]];then
+    #        log "Error unarchiving package.tar.bz2"
+    #    fi
+    #    if [[ ! -e package.box ]];then
+    #        log "Missing $c/package.box"
+    #        exit -1
+    #    fi
+    #else
+    #    log "Existing $c/package.box, if you want to re dearchive, delete it"
+    #fi
 
     log "Importing box" && vagrant box add -f devhost package.box &&\
     log "Initialiasing host from package.box" &&\
