@@ -1,4 +1,5 @@
 debian/cache/
+vagrant_config.rb
 package.box
 package.tar.bz2
 .vb_name
