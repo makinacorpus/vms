@@ -1,14 +1,13 @@
-
 IN PROGRESS:
 
-* docker support: kiorky
+* docker support: **kiorky**
 
-* salt + docker managment kiorky
+* salt + docker managment **kiorky**
 
 
-* export / import: kiorky
+* export / import: **kiorky**
 
-* dev env: regilero
+* dev env: **regilero**
 
   * postfix
   * dev.sls
