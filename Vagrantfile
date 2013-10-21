@@ -11,22 +11,23 @@ require 'etc'
 require 'rbconfig'
 
 CWD=File.dirname(__FILE__)
-VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
-VBOX_SUBNET_FILE=File.dirname(__FILE__) + "/.vb_subnet"
 
 # --------------------- CONFIGURATION ZONE ----------------------------------
 #
 # If you want to alter any configuration setting, put theses settings in a ./vagrant_config.rb file
 # This way you will be able to "git up" the project more easily and get this Vagrantfile updated
 #
-# This file would contain something like:
+# This file would contain a combinaison of those settings
 # -------------o<---------------
 # module MyConfig
+#    BOX_NAME="saucy64"
+#    BOX_URI="http://foo/saucy64.img
 #    MEMORY="512"
 #    CPUS="1"
 #    MAX_CPU_USAGE_PERCENT="25"
-#    DEVHOST_NUM="3"
 #    DNS_SERVER="8.8.8.8"
+#    DEVHOST_NUM="3"
+#    VIRTUALBOX_VM_NAME="Super devhost Vm"
 # end
 # -------------o<---------------
 # Check entries in the configuration zone for variables available.
@@ -53,7 +54,7 @@ MAX_CPU_USAGE_PERCENT="50" unless defined?(MAX_CPU_USAGE_PERCENT)
 # The box used a default NAT private IP, defined automatically by vagrant and virtualbox
 # It also use a private deticated network (automatically created in virtualbox on a vmX network)
 # By default the private IP will be 10.1.42.43/24. This is used for NFS shre, but, as you will have a fixed
-# IP for this VM it could be used in your /etc/host file to reference any name on this vm 
+# IP for this VM it could be used in your /etc/host file to reference any name on this vm
 # (the default devhost42.local or devhotsXX.local entry is managed by salt).
 # If you have several VMs you may need to alter at least the MAKINA_DEVHOST_NUM to obtain a different
 # IP network and docker IP network on this VM
@@ -67,14 +68,17 @@ MAX_CPU_USAGE_PERCENT="50" unless defined?(MAX_CPU_USAGE_PERCENT)
 #
 # Be sure to have only one unique subnet per devhost per physical host
 #
-devhost_num=ENV.fetch("MAKINA_DEVHOST_NUM", "").strip()
-if devhost_num.empty? and File.exist?(VBOX_SUBNET_FILE)
-    devhost_num=File.open(VBOX_SUBNET_FILE, 'r').read().strip()
+if not defined?(DEVHOST_NUM)
+    devhost_num=ENV.fetch("MAKINA_DEVHOST_NUM", "").strip()
+    VBOX_SUBNET_FILE=File.dirname(__FILE__) + "/.vb_subnet"
+    if devhost_num.empty? and File.exist?(VBOX_SUBNET_FILE)
+        devhost_num=File.open(VBOX_SUBNET_FILE, 'r').read().strip()
+    end
+    if devhost_num.empty?
+      devhost_num="42"
+    end
+    DEVHOST_NUM=devhost_num
 end
-if devhost_num.empty?
-  devhost_num="42"
-end
-DEVHOST_NUM=devhost_num unless defined?(DEVHOST_NUM)
 BOX_PRIVATE_SUBNET_BASE="10.1." unless defined?(BOX_PRIVATE_SUBNET_BASE)
 DOCKER_NETWORK_BASE="172.31." unless defined?(DOCKER_NETWORK_BASE)
 
@@ -124,21 +128,23 @@ DOCKER_NETWORK_MASK_NUM="24"
 # md5 based on currentpath
 # Name on your VirtualBox panel
 VIRTUALBOX_BASE_VM_NAME="Docker DevHost "+DEVHOST_NUM+" Ubuntu "+UBUNTU_RELEASE+"64"
-if (not File.exist?(VBOX_NAME_FILE))
-    md5_fo = File.open(VBOX_NAME_FILE, 'w')
-    MD5=Digest::MD5.hexdigest(CWD)
-    VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME} (#{MD5})"
-    md5_fo.write(VIRTUALBOX_VM_NAME)
-    md5_fo.close()
-else
-    md5_fo = File.open(VBOX_NAME_FILE, 'r')
-    VIRTUALBOX_VM_NAME=md5_fo.read().strip()
+if not defined?(VIRTUALBOX_VM_NAME)
+    # old system file support
+    VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
+    if not File.exist?(VBOX_NAME_FILE)
+        MD5=Digest::MD5.hexdigest(CWD)
+        VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME} (#{MD5})"
+    else
+        md5_fo = File.open(VBOX_NAME_FILE, 'r')
+        VIRTUALBOX_VM_NAME=md5_fo.read().strip()
+    end
 end
 printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 printf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
 printf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
 printf(" [*] To have multiple hosts, you can change the third bits of IP (default: 42) via the MAKINA_DEVHOST_NUM env variable)\n")
 printf(" [*] if you want to share this wm, dont forget to have ./.vb_name and ./vagrant_config.rb along\n")
+printf(" [*] if you want to share this wm, use manage.sh export | import\n")
 # Name inside the VM (as rendered by hostname command)
 VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost42.local by default
 
@@ -146,8 +152,8 @@ VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost42.local by default
 # ------------- BASE IMAGE UBUNTU 13.04 (raring) -----------------------
 # You can pre-download this image with
 # vagrant box add raring64 http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
-BOX_NAME=ENV['BOX_NAME'] || UBUNTU_RELEASE+"64"
-BOX_URI=ENV['BOX_URI'] || "http://cloud-images.ubuntu.com/vagrant/"+UBUNTU_RELEASE+"/current/"+UBUNTU_RELEASE+"-server-cloudimg-amd64-vagrant-disk1.box"
+BOX_NAME=UBUNTU_RELEASE+"64" unless defined?(BOX_NAME)
+BOX_URI="http://cloud-images.ubuntu.com/vagrant/"+UBUNTU_RELEASE+"/current/"+UBUNTU_RELEASE+"-server-cloudimg-amd64-vagrant-disk1.box" unless defined?(BOX_URI)
 
 
 # -- Other things ----------------------------------------------------------
