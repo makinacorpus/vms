@@ -111,6 +111,22 @@ EOF
     fi
 }
 
+write_zerofree() {
+    cat > /root/zerofree.sh << EOF
+#!/usr/bin/env bash
+echo " [*] Zerofreeing"
+apt-get install -y --force-yes zerofree
+echo s > /proc/sysrq-trigger
+echo s > /proc/sysrq-trigger
+echo u > /proc/sysrq-trigger
+mount -o remount,ro /
+zerofree -v /dev/sda1
+mount -o remount,rw /
+EOF
+    chmod +x /root/zerofree.sh
+}
+write_zerofree
+
 
 get_grain() { salt-call --local grains.get $1 --out=raw 2>/dev/null ; }
 
@@ -452,17 +468,6 @@ if [[ -n "$NEED_RESTART" ]];then
     output "You need to reboot, issue 'vagrant reload'"
     exit $NEED_RESTART
 fi
-
-cat > /root/zerofree.sh << EOF
-#!/usr/bin/env bash
-telinit 1
-echo " [*] Zerofreeing"
-mount -o remount,ro /
-zerofree -v /dev/sda1
-mount -o remount,rw /
-poweroff
-EOF
-chmod +x /root/zerofree.sh
 
 #deactivate_ifup_debugging
 cleanup_space() {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-actions="up reload destroy down export export_nude import import_nude suspend"
+actions="up reload destroy down export export_nude import import_nude suspend do_zerofree"
 a_eximmodes="full nude"
 RED="\\033[31m"
 CYAN="\\033[36m"
@@ -97,6 +97,7 @@ export() {
     if [[ $(uname) != "Darwin" ]];then
         tar_preopts="${tar_preopts}p"
     fi
+    do_zerofree &&\
     if [[ "$mode" == "full" ]];then \
         if [[ ! -f package-full.box ]];then
             if [[ -z $nosed ]];then \
@@ -231,6 +232,12 @@ import() {
     else
         log "Box $box imported !"
     fi
+}
+do_zerofree() {
+    log "Zerofreing" &&\
+    up noreload      &&\
+    vagrant ssh -c "sudo /root/zerofree.sh" &&\
+    log " [*] WM Zerofreed"
 }
 action=$1
 test="$(echo "$actions" | sed -e "s/.* $action .*/match/g")"
