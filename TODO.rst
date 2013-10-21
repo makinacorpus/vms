@@ -1,3 +1,7 @@
+* Make saucy the master
+
+* Make lucid work again
+
 * integrate Virtualbox Extension pack
 
   * btw: integrate rdesktop bridge to the host in the vagrantfile
