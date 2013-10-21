@@ -128,7 +128,7 @@ end
 # else the synced folder would not work.
 # When activated this would remove warnings about version mismatch of
 # VirtualBox Guest additions, but we need at least the 4.2.12 version,
-# v 4.2.0 is present in the default precise ubuntu kernel and 4.2.10 on
+# v 4.2.0 is present in the default raring ubuntu kernel and 4.2.10 on
 # raring and we add the 4.2.12 in this script
 # even if your host is on a lower version. If you have something greater than
 # 4.2.12 set this to true, comment the 4.2.12 install below and install vbguest
@@ -159,7 +159,7 @@ end
 if defined?(PREVIOUS_OFFICIAL_MIRROR)
     vagrant_config_lines << "PREVIOUS_OFFICIAL_MIRROR=\"#{PREVIOUS_OFFICIAL_MIRROR}\""
 else
-    PREVIOUS_OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu"
+    PREVIOUS_OFFICIAL_MIRROR="http://us.archive.ubuntu.com/ubuntu"
 end
 
 # ----------------- END CONFIGURATION ZONE ----------------------------------
@@ -210,7 +210,7 @@ VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost42.local by default
 
 # ------------- BASE IMAGE UBUNTU  -----------------------
 # You can pre-download this image with
-# vagrant box add raring64 http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
+# vagrant box add raring64 http://cloud-images.ubuntu.com/raring/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
 
 if defined?(BOX_NAME)
     vagrant_config_lines << "BOX_NAME=\"#{BOX_NAME}\""
