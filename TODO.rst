@@ -33,8 +33,8 @@ TODO
 
 DONE
 ====
-* handle correctly dev.sls & core.sls: **kiorky**
-* export / import: **kiorky**
+* handle correctly dev.sls & core.sls
+* export / import
 * Vagrantfile initialisation for ubuntu raring & LTS
 * Multi Virtualbox with multi networks
 * Saltack based base system configuration & organisation
