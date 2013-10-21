@@ -153,7 +153,7 @@ open_routes() {
 }
 
 backport_saucy() {
-    if [ ! -e "$lxc_marker" ];then
+    if [[ ! -e "$lxc_marker" ]];then
         output " [*] Backporting Saucy LXC packages: adding repository"
         sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i "${src_l}" && \
         apt-get update -qq && \
@@ -165,10 +165,10 @@ backport_saucy() {
         sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i "${src_l}" && apt-get update -qq
         die_if_error
         touch "$lxc_marker"
-        NEED_RESTART=1
+        NEED_RESTART="1"
     fi
 
-    if [ ! -e "$vbox_marker" ];then
+    if [[ ! -e "$vbox_marker" ]];then
         output " [*] Backporting Saucy Virtualbox packages:"
         output " [*]   $VB_PKGS"
         sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
@@ -178,10 +178,10 @@ backport_saucy() {
         sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
         die_if_error
         touch "$vbox_marker"
-        NEED_RESTART=1
+        NEED_RESTART="1"
     fi
 
-    if [ ! -e "${kernel_marker}" ]; then
+    if [[ ! -e "${kernel_marker}" ]]; then
         output " [*] Backporting Saucy kernel ($KERNEL_PKGS)"
         sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
         apt-get update -qq && apt-get install -y --force-yes $KERNEL_PKGS
@@ -189,10 +189,10 @@ backport_saucy() {
         sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
         die_if_error
         touch "$kernel_marker"
-        NEED_RESTART=1
+        NEED_RESTART="1"
     fi
 
-    if [ ! -e "${kernel_marker}" ]; then
+    if [[ ! -e "${kernel_marker}" ]]; then
         output " [*] Backporting Saucy kernel ($KERNEL_PKGS)"
         sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
         apt-get update -qq && apt-get install -y --force-yes $KERNEL_PKGS
@@ -200,7 +200,7 @@ backport_saucy() {
         sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
         die_if_error
         touch "$kernel_marker"
-        NEED_RESTART=1
+        NEED_RESTART="1"
     fi
 }
 
@@ -293,12 +293,12 @@ fi
 # on a vagrant reload
 open_routes
 
-if [[ "$DISTRIB_CODENAME" == "lucid" ]] \
-    || [[ "$DISTRIB_CODENAME" == "maverick" ]] \
-    || [[ "$DISTRIB_CODENAME" == "natty" ]] \
-    || [[ "$DISTRIB_CODENAME" == "oneiric" ]] \
-    || [[ "$DISTRIB_CODENAME" == "precise" ]] \
-    || [[ "$DISTRIB_CODENAME" == "quantal" ]] \
+if [[ "$DISTRIB_CODENAME" == "lucid" ]]\
+    || [[ "$DISTRIB_CODENAME" == "maverick" ]]\
+    || [[ "$DISTRIB_CODENAME" == "natty" ]]\
+    || [[ "$DISTRIB_CODENAME" == "oneiric" ]]\
+    || [[ "$DISTRIB_CODENAME" == "precise" ]]\
+    || [[ "$DISTRIB_CODENAME" == "quantal" ]]\
     ;then
     EARLY_UBUNTU=y
 fi
@@ -310,7 +310,7 @@ for service in $UPSTART_DISABLED_SERVICES;do
         output " [*] Disable $service upstart service"
         echo "manual" > "$sf"
         service $service stop
-        NEED_RESTART=1
+        NEED_RESTART="1"
     fi
 done
 
@@ -369,122 +369,123 @@ if [ ! -e "$MARKERS/vbox_init_global_upgrade" ];then
     touch "$MARKERS/vbox_init_global_upgrade"
 fi
 
+use_backports=""
 if [[ "$DISTRIB_CODENAME" == "raring" ]] || [[ -n "$EARLY_UBUNTU" ]];then
     backport_saucy
+    use_backports="y"
 fi
 
-if [[ -n $NEED_RESTART ]];then
+if [[ -n "$NEED_RESTART" ]];then
+    output " [*] The first time, you need to reload the new kernel and reprovision the box."
+    output " [*] For that, issue now 'vagrant reload'"
+    exit -1
+fi
+
+if [[ -n "$use_backports" ]] &&  [[ ! -e "$kernel_marker" ]];then
     output " [*] The first time, you need to reload the new kernel and reprovision."
     output " [*] For that, issue now 'vagrant reload'"
-    exit $NEED_RESTART
+    exit -1
 fi
-
-if [[ ! -e "$kernel_marker" ]];then
-  output " [*] The first time, you need to reload the new kernel and reprovision."
-  output " [*] For that, issue now 'vagrant reload'"
-  exit 1
-else
-  if [ ! -e $MARKERS/provision_step_nfs_done ]; then
-    output " [*] Install nfs support on guest"
-    apt-get install -q -y --force-yes nfs-common portmap || die_if_error
-    touch $MARKERS/provision_step_nfs_done
+if [ ! -e $MARKERS/provision_step_nfs_done ]; then
+  output " [*] Install nfs support on guest"
+  apt-get install -q -y --force-yes nfs-common portmap || die_if_error
+  touch $MARKERS/provision_step_nfs_done
+fi
+if [ ! -e $MARKERS/provision_step_lxc_done ]; then
+  output " [*] Install lxc-docker support"
+  # Add lxc-docker package
+  wget -c -q -O - https://get.docker.io/gpg | apt-key add -
+  echo deb http://get.docker.io/ubuntu docker main > ${src_l}.d/docker.list
+  output " [*] Install lxc-docker support: refresh packages list"
+  apt-get update -qq || die_if_error
+  output " [*] Install lxc-docker support: install lxc-docker package"
+  apt-get install -q -y --force-yes lxc-docker || die_if_error
+  # autorestart dockers on boot
+  sed -re "s/docker -d/docker -r -d/g" -e /etc/init/docker.conf
+  service docker restart
+  die_if_error
+  touch $MARKERS/provision_step_lxc_done
+  # since apparmor backport, seem we have not to reboot anymore
+  # NEED_RESTART="1"
+fi
+if [ ! -e $MARKERS/provision_step_lang_done ]; then
+  output " [*] Fix French language"
+  apt-get install -q -y --force-yes language-pack-fr
+  echo>/etc/locale.gen
+  echo "en_US.UTF-8 UTF-8">>/etc/locale.gen
+  echo "en_US ISO-8859-1">>/etc/locale.gen
+  echo "de_DE.UTF-8 UTF-8">>/etc/locale.gen
+  echo "de_DE ISO-8859-1">>/etc/locale.gen
+  echo "de_DE@euro ISO-8859-15">>/etc/locale.gen
+  echo "fr_FR.UTF-8 UTF-8">>/etc/locale.gen
+  echo "fr_FR ISO-8859-1">>/etc/locale.gen
+  echo "fr_FR@euro ISO-8859-15">>/etc/locale.gen
+  echo 'LANG="fr_FR.utf8"'>/etc/default/locale
+  echo "export LANG=\${LANG:-fr_FR.UTF-8}">>/etc/profile.d/0_lang.sh
+  /usr/sbin/locale-gen || die_if_error
+  update-locale LANG=fr_FR.utf8 || die_if_error
+  if [ "0" == "$?" ];then touch $MARKERS/provision_step_lang_done; fi;
+fi
+if [[ ! -e $MARKERS/salt_bootstrap_done ]];then
+  output " [ * ] Bootstrap Salt-Stack env..."
+  if [ -e /src/salt/makina-states/src/salt ];then
+    sed -re "s/filemode = true/filemode = false/g" -i /src/salt/makina-states/src/*/.git/config
   fi
-  if [ ! -e $MARKERS/provision_step_lxc_done ]; then
-    output " [*] Install lxc-docker support"
-    # Add lxc-docker package
-    wget -c -q -O - https://get.docker.io/gpg | apt-key add -
-    echo deb http://get.docker.io/ubuntu docker main > ${src_l}.d/docker.list
-    output " [*] Install lxc-docker support: refresh packages list"
-    apt-get update -qq || die_if_error
-    output " [*] Install lxc-docker support: install lxc-docker package"
-    apt-get install -q -y --force-yes lxc-docker || die_if_error
-    # autorestart dockers on boot
-    sed -re "s/docker -d/docker -r -d/g" -e /etc/init/docker.conf
-    service docker restart
-    die_if_error
-    touch $MARKERS/provision_step_lxc_done
-    # since apparmor backport, seem we have not to reboot anymore
-    # NEED_RESTART=1
-  fi
-  if [ ! -e $MARKERS/provision_step_lang_done ]; then
-    output " [*] Fix French language"
-    apt-get install -q -y --force-yes language-pack-fr
-    echo>/etc/locale.gen
-    echo "en_US.UTF-8 UTF-8">>/etc/locale.gen
-    echo "en_US ISO-8859-1">>/etc/locale.gen
-    echo "de_DE.UTF-8 UTF-8">>/etc/locale.gen
-    echo "de_DE ISO-8859-1">>/etc/locale.gen
-    echo "de_DE@euro ISO-8859-15">>/etc/locale.gen
-    echo "fr_FR.UTF-8 UTF-8">>/etc/locale.gen
-    echo "fr_FR ISO-8859-1">>/etc/locale.gen
-    echo "fr_FR@euro ISO-8859-15">>/etc/locale.gen
-    echo 'LANG="fr_FR.utf8"'>/etc/default/locale
-    echo "export LANG=\${LANG:-fr_FR.UTF-8}">>/etc/profile.d/0_lang.sh
-    /usr/sbin/locale-gen || die_if_error
-    update-locale LANG=fr_FR.utf8 || die_if_error
-    if [ "0" == "$?" ];then touch $MARKERS/provision_step_lang_done; fi;
-  fi
-  if [[ ! -e $MARKERS/salt_bootstrap_done ]];then
-    output " [ * ] Bootstrap Salt-Stack env..."
-    if [ -e /src/salt/makina-states/src/salt ];then
-      sed -re "s/filemode = true/filemode = false/g" -i /src/salt/makina-states/src/*/.git/config
-    fi
-    ms_updated=""
-    if [[ -e /srv/salt/makina-states/.git ]];then
-        output " [ * ] Bootstrap mode update in makina-states.."
-        cd /srv/salt/makina-states
-        git pull && ms_updated="1"
-    fi
-    if [[ -z $ms_updated ]];then
-        output " [ * ] Running makina-states bootstrap directly from github"
-        wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
-    else
-        output " [ * ] Running makina-states bootstrap"
-        /srv/salt/makina-states/_scripts/boot-salt.sh
-    fi
-    die_if_error
-    . /etc/profile
-    touch $MARKERS/salt_bootstrap_done
-  fi
-  # migrate existing vms, be sure to have everywhere the same setup
-  NEED_REDO=""
-  EDITOR_GID="$(salt-call --local pillar.get salt.filesystem.gid 65753|grep -v 'local:'|sed -re 's/\s//g')"
-  EDITOR_GROUP="$(salt-call --local pillar.get salt.filesystem.group editor|grep -v 'local:'|sed -re 's/\s//g')"
-  oldg=$(getent group "$EDITOR_GID"|awk -F: '{print $1}')
-  if [[ "$oldg" != "$EDITOR_GROUP" ]];then
-      output " [*] Changing Editor Group from '$oldg' to '$EDITOR_GROUP'"
-      groupmod "$oldg" -n "$EDITOR_GROUP"
-      NEED_REDO="y"
-  fi
-  if [[ -e /srv/salt-venv ]];then
-      rm -rf /srv/salt-venv
-      NEED_REDO="y"
-  fi
-  if [[ ! -e $VENV_PATH ]];then
-      NEED_REDO="y"
-  fi
-  if [[ ! -e /srv/salt/setup.sls ]] || [[ ! -e /srv/salt/top.sls ]];then
-      NEED_REDO="y"
-  fi
-  initialize_devel_salt_grains
-  vm_boot_mode=$(get_grain $BOOT_GRAIN)
-  if [[ $(egrep -- "- makina-states\.dev\s*" /srv/salt/top.sls|wc -l) == "0" ]];then
-      output " [*] Old installation detected for makina-stes.dev top file"
-      NEED_REDO=1
-  fi
-  if [[ "$vm_boot_mode" != *"True"* ]];then
-      output " [*] Old installation detected for boot grain, updating salt"
-      NEED_REDO=1
-  fi
-  if [[ -n "$NEED_REDO" ]];then
-      output " [*] Updating code"
+  ms_updated=""
+  if [[ -e /srv/salt/makina-states/.git ]];then
+      output " [ * ] Bootstrap mode update in makina-states.."
       cd /srv/salt/makina-states
-      git pull origin master
-      cd /srv/salt/makina-states/src/salt
-      git pull origin develop
-      output " [*] Running salt state setup"
+      git pull && ms_updated="1"
+  fi
+  if [[ -z $ms_updated ]];then
+      output " [ * ] Running makina-states bootstrap directly from github"
+      wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
+  else
+      output " [ * ] Running makina-states bootstrap"
       /srv/salt/makina-states/_scripts/boot-salt.sh
   fi
+  die_if_error
+  . /etc/profile
+  touch $MARKERS/salt_bootstrap_done
+fi
+# migrate existing vms, be sure to have everywhere the same setup
+NEED_REDO=""
+EDITOR_GID="$(salt-call --local pillar.get salt.filesystem.gid 65753|grep -v 'local:'|sed -re 's/\s//g')"
+EDITOR_GROUP="$(salt-call --local pillar.get salt.filesystem.group editor|grep -v 'local:'|sed -re 's/\s//g')"
+oldg=$(getent group "$EDITOR_GID"|awk -F: '{print $1}')
+if [[ "$oldg" != "$EDITOR_GROUP" ]];then
+    output " [*] Changing Editor Group from '$oldg' to '$EDITOR_GROUP'"
+    groupmod "$oldg" -n "$EDITOR_GROUP"
+    NEED_REDO="y"
+fi
+if [[ -e /srv/salt-venv ]];then
+    rm -rf /srv/salt-venv
+    NEED_REDO="y"
+fi
+if [[ ! -e $VENV_PATH ]];then
+    NEED_REDO="y"
+fi
+if [[ ! -e /srv/salt/setup.sls ]] || [[ ! -e /srv/salt/top.sls ]];then
+    NEED_REDO="y"
+fi
+initialize_devel_salt_grains
+vm_boot_mode=$(get_grain $BOOT_GRAIN)
+if [[ $(egrep -- "- makina-states\.dev\s*" /srv/salt/top.sls|wc -l) == "0" ]];then
+    output " [*] Old installation detected for makina-stes.dev top file"
+    NEED_REDO=1
+fi
+if [[ "$vm_boot_mode" != *"True"* ]];then
+    output " [*] Old installation detected for boot grain, updating salt"
+    NEED_REDO=1
+fi
+if [[ -n "$NEED_REDO" ]];then
+    output " [*] Updating code"
+    cd /srv/salt/makina-states
+    git pull origin master
+    cd /srv/salt/makina-states/src/salt
+    git pull origin develop
+    output " [*] Running salt state setup"
+    /srv/salt/makina-states/_scripts/boot-salt.sh
 fi
 
 if [[ -n "$NEED_RESTART" ]];then
