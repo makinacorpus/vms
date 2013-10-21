@@ -159,8 +159,6 @@ import_nude() {
 import() {
     cd $c
     local gtouched=""
-    tar="sudo tar xjvpf --numeric-owner"
-    tar="sudo tar xjvpf"
     mode=""
     args=${@}
     for amode in $a_eximmodes;do
