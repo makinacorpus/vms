@@ -11,6 +11,9 @@ require 'etc'
 require 'rbconfig'
 
 CWD=File.dirname(__FILE__)
+VSETTINGS_N="vagrant_config"
+VSETTINGS_P=File.dirname(__FILE__)+"/"+VSETTINGS_N+".rb"
+vagrant_config_lines = []
 
 # --------------------- CONFIGURATION ZONE ----------------------------------
 #
@@ -18,37 +21,68 @@ CWD=File.dirname(__FILE__)
 # This way you will be able to "git up" the project more easily and get this Vagrantfile updated
 #
 # This file would contain a combinaison of those settings
+#
+# The most importants are:
+#    DEVHOST_NUM (network subnet related)
+#    VIRTUALBOX_VM_NAME (name of the virtualbox vm)
+#
 # -------------o<---------------
 # module MyConfig
+#    DEVHOST_NUM="3"
+#    VIRTUALBOX_VM_NAME="Super devhost Vm"
 #    BOX_NAME="saucy64"
 #    BOX_URI="http://foo/saucy64.img
 #    MEMORY="512"
 #    CPUS="1"
 #    MAX_CPU_USAGE_PERCENT="25"
 #    DNS_SERVER="8.8.8.8"
-#    DEVHOST_NUM="3"
-#    VIRTUALBOX_VM_NAME="Super devhost Vm"
 # end
 # -------------o<---------------
+
+
 # Check entries in the configuration zone for variables available.
 # --- Start Load optional config file ---------------
 begin
-  require_relative 'vagrant_config'
+  require_relative VSETTINGS_N
   include MyConfig
 rescue LoadError
 end
 # --- End Load optional config file -----------------
 
-UBUNTU_RELEASE="raring" unless defined?(UBUNTU_RELEASE)
-UBUNTU_LTS_RELEASE="precise" unless defined?(UBUNTU_LTS_RELEASE)
-UBUNTU_NEXT_RELEASE="saucy" unless defined?(UBUNTU_NEXT_RELEASE)
+if defined?(UBUNTU_RELEASE)
+    vagrant_config_lines << "UBUNTU_RELEASE=\"#{UBUNTU_RELEASE}\""
+else
+    UBUNTU_RELEASE="raring"
+end
+if defined?(UBUNTU_LTS_RELEASE)
+    vagrant_config_lines << "UBUNTU_LTS_RELEASE=\"#{UBUNTU_LTS_RELEASE}\""
+else
+    UBUNTU_LTS_RELEASE="precise"
+end
+if defined?(UBUNTU_NEXT_RELEASE)
+    vagrant_config_lines << "UBUNTU_NEXT_RELEASE=\"#{UBUNTU_NEXT_RELEASE}\""
+else
+    UBUNTU_NEXT_RELEASE="saucy"
+end
 
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
-MEMORY="1024" unless defined?(MEMORY)
+if defined?(MEMORY)
+    vagrant_config_lines << "MEMORY=\"#{MEMORY}\""
+else
+    MEMORY="1024"
+end
+if defined?(CPUS)
+    vagrant_config_lines << "CPUS=\"#{CPUS}\""
+else
+    CPUS="2"
+end
 # Number of available CPU for this VM
-CPUS="2" unless defined?(CPUS)
 # LIMIT ON CPU USAGE
-MAX_CPU_USAGE_PERCENT="50" unless defined?(MAX_CPU_USAGE_PERCENT)
+if defined?(MAX_CPU_USAGE_PERCENT)
+    vagrant_config_lines << "MAX_CPU_USAGE_PERCENT=\"#{MAX_CPU_USAGE_PERCENT}\""
+else
+    MAX_CPU_USAGE_PERCENT="50"
+end
 
 # IP managment
 # The box used a default NAT private IP, defined automatically by vagrant and virtualbox
@@ -68,9 +102,9 @@ MAX_CPU_USAGE_PERCENT="50" unless defined?(MAX_CPU_USAGE_PERCENT)
 #
 # Be sure to have only one unique subnet per devhost per physical host
 #
+VBOX_SUBNET_FILE=File.dirname(__FILE__) + "/.vb_subnet"
 if not defined?(DEVHOST_NUM)
     devhost_num=ENV.fetch("MAKINA_DEVHOST_NUM", "").strip()
-    VBOX_SUBNET_FILE=File.dirname(__FILE__) + "/.vb_subnet"
     if devhost_num.empty? and File.exist?(VBOX_SUBNET_FILE)
         devhost_num=File.open(VBOX_SUBNET_FILE, 'r').read().strip()
     end
@@ -79,11 +113,16 @@ if not defined?(DEVHOST_NUM)
     end
     DEVHOST_NUM=devhost_num
 end
+vagrant_config_lines << "DEVHOST_NUM=\"#{DEVHOST_NUM}\""
 BOX_PRIVATE_SUBNET_BASE="10.1." unless defined?(BOX_PRIVATE_SUBNET_BASE)
 DOCKER_NETWORK_BASE="172.31." unless defined?(DOCKER_NETWORK_BASE)
 
 # Custom dns server
-DNS_SERVER="8.8.8.8" unless defined?(DNS_SERVER)
+if defined?(DNS_SERVER)
+    vagrant_config_lines << "DNS_SERVER=\"#{DNS_SERVER}\""
+else
+    DNS_SERVER="8.8.8.8"
+end
 
 # Set this to true ONLY if you have VirtualBox version > 4.2.12
 # else the synced folder would not work.
@@ -94,15 +133,34 @@ DNS_SERVER="8.8.8.8" unless defined?(DNS_SERVER)
 # even if your host is on a lower version. If you have something greater than
 # 4.2.12 set this to true, comment the 4.2.12 install below and install vbguest
 # vagrant plugin with this command : "vagrant plugin install vagrant-vbguest"
-AUTO_UPDATE_VBOXGUEST_ADD=false unless defined?(AUTO_UPDATE_VBOXGUEST_ADD)
-
+if defined?(AUTO_UPDATE_VBOXGUEST_ADD)
+    vagrant_config_lines << "AUTO_UPDATE_VBOXGUEST_ADD=\"#{AUTO_UPDATE_VBOXGUEST_ADD}\""
+else
+    AUTO_UPDATE_VBOXGUEST_ADD=false
+end
 
 # ------------- Mirror to download packages -----------------------
-LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu" unless defined?(LOCAL_MIRROR)
-OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu" unless defined?(OFFICIAL_MIRROR)
+if defined?(LOCAL_MIRROR)
+    vagrant_config_lines << "LOCAL_MIRROR=\"#{LOCAL_MIRROR}\""
+else
+    LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
+end
+if defined?(OFFICIAL_MIRROR)
+    vagrant_config_lines << "OFFICIAL_MIRROR=\"#{OFFICIAL_MIRROR}\""
+else
+    OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu"
+end
 # let this one to the previous mirror for it to be automaticly replaced
-PREVIOUS_LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu" unless defined?(PREVIOUS_LOCAL_MIRROR)
-PREVIOUS_OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu" unless defined?(PREVIOUS_OFFICIAL_MIRROR)
+if defined?(PREVIOUS_LOCAL_MIRROR)
+    vagrant_config_lines << "PREVIOUS_LOCAL_MIRROR=\"#{PREVIOUS_LOCAL_MIRROR}\""
+else
+    PREVIOUS_LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
+end
+if defined?(PREVIOUS_OFFICIAL_MIRROR)
+    vagrant_config_lines << "PREVIOUS_OFFICIAL_MIRROR=\"#{PREVIOUS_OFFICIAL_MIRROR}\""
+else
+    PREVIOUS_OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu"
+end
 
 # ----------------- END CONFIGURATION ZONE ----------------------------------
 
@@ -128,9 +186,9 @@ DOCKER_NETWORK_MASK_NUM="24"
 # md5 based on currentpath
 # Name on your VirtualBox panel
 VIRTUALBOX_BASE_VM_NAME="Docker DevHost "+DEVHOST_NUM+" Ubuntu "+UBUNTU_RELEASE+"64"
+VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
 if not defined?(VIRTUALBOX_VM_NAME)
     # old system file support
-    VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
     if not File.exist?(VBOX_NAME_FILE)
         MD5=Digest::MD5.hexdigest(CWD)
         VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME} (#{MD5})"
@@ -139,11 +197,12 @@ if not defined?(VIRTUALBOX_VM_NAME)
         VIRTUALBOX_VM_NAME=md5_fo.read().strip()
     end
 end
+vagrant_config_lines << "VIRTUALBOX_VM_NAME=\"#{VIRTUALBOX_VM_NAME}\""
 printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 printf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
 printf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
 printf(" [*] To have multiple hosts, you can change the third bits of IP (default: 42) via the MAKINA_DEVHOST_NUM env variable)\n")
-printf(" [*] if you want to share this wm, dont forget to have ./.vb_name and ./vagrant_config.rb along\n")
+printf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
 printf(" [*] if you want to share this wm, use manage.sh export | import\n")
 # Name inside the VM (as rendered by hostname command)
 VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost42.local by default
@@ -152,9 +211,17 @@ VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost42.local by default
 # ------------- BASE IMAGE UBUNTU 13.04 (raring) -----------------------
 # You can pre-download this image with
 # vagrant box add raring64 http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
-BOX_NAME=UBUNTU_RELEASE+"64" unless defined?(BOX_NAME)
-BOX_URI="http://cloud-images.ubuntu.com/vagrant/"+UBUNTU_RELEASE+"/current/"+UBUNTU_RELEASE+"-server-cloudimg-amd64-vagrant-disk1.box" unless defined?(BOX_URI)
 
+if defined?(BOX_NAME)
+    vagrant_config_lines << "BOX_NAME=\"#{BOX_NAME}\""
+else
+    BOX_NAME=UBUNTU_RELEASE+"64"
+end
+if defined?(BOX_URI)
+    vagrant_config_lines << "BOX_URI=\"#{BOX_URI}\""
+else
+    BOX_URI="http://cloud-images.ubuntu.com/vagrant/"+UBUNTU_RELEASE+"/current/"+UBUNTU_RELEASE+"-server-cloudimg-amd64-vagrant-disk1.box"
+end
 
 # -- Other things ----------------------------------------------------------
 
@@ -296,13 +363,25 @@ Vagrant.configure("2") do |config|
     #Mac
     `if netstat -rn|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo route -n add -host #{BOX_PRIVATE_IP} #{BOX_PRIVATE_GW};sudo route -n add -net #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} #{BOX_PRIVATE_IP};fi;`
   end
-  printf(" [*] local routes ok, check it on your guest host with 'ip route show'\n\n")
+  printf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
 
-  # Now generate the provision script, put it inside /root VM's directory and launch it
-  # provision script has been moved to a bash script as it growned too much see ./provision_script.sh
-  # the only thing we cant move is to test for NFS to be there as the shared file system relies on it
-  pkg_cmd = [
-      %{cat > /root/provision_nfs.sh  << EOF
+# SAVING CUSTOM CONFIGURATION TO A FILE (AND ONLY CUSTOMIZED ONE)
+vagrant_config = ""
+vagrant_config_lines_s = ""
+["", "module MyConfig"].each{ |s| vagrant_config += s + "\n" }
+vagrant_config_lines.each{ |s| vagrant_config_lines_s += "    "+ s + "\n" }
+vagrant_config += vagrant_config_lines_s
+["end", ""].each{ |s| vagrant_config += s + "\n" }
+printf(" [*] Saving vagrant settings:\n#{vagrant_config_lines_s}")
+vsettings_f=File.open(VSETTINGS_P, "w")
+vsettings_f.write(vagrant_config)
+vsettings_f.close()
+
+# Now generate the provision script, put it inside /root VM's directory and launch it
+# provision script has been moved to a bash script as it growned too much see ./provision_script.sh
+# the only thing we cant move is to test for NFS to be there as the shared file system relies on it
+pkg_cmd = [
+    %{cat > /root/provision_nfs.sh  << EOF
 #!/usr/bin/env bash
 MARKERS="/srv/root/vagrant/markers"
 die_if_error() { if [[ "\\$?" != "0" ]];then output "There were errors";exit 1;fi; };
