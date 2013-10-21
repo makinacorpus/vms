@@ -1,0 +1,45 @@
+.. contents::
+
+IN PROGRESS
+===========
+* docker support: **kiorky**
+
+* salt + docker managment **kiorky**
+
+
+* dev env: **regilero**
+
+  * postfix
+  * dev.sls
+    
+
+TODO
+====
+* Make saucy the master
+
+* Make lucid work again
+
+* integrate Virtualbox Extension pack
+
+  * btw: integrate rdesktop bridge to the host in the vagrantfile
+
+* integrate a X11 display in dockers using fluxbox and tightvnserver
+
+* Fix /etc/hosts editing to not have the first 127.0.0.1 appended at the end of file but at the init.
+ 
+
+DONE
+====
+* Reduce the space used on the VM (at least add a call to apt-clean)
+* Automate a zerofree call on the vm with the manage script
+* handle correctly dev.sls & core.sls
+* export / import
+* Vagrantfile initialisation for ubuntu raring & LTS
+* Multi Virtualbox with multi networks
+* Saltack based base system configuration & organisation
+* Mastersalt base states & integration
+* saltstack state trees architecture
+* SaltStack from scratch install script
+* Vagrant vm provision script
+* Docker base images for debian & ubuntu (ubuntu! from official docker images or from a debootstrap)
+* Developpement scripts for debugging lxc & docker from sources with gdb
