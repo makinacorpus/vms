@@ -159,7 +159,7 @@ end
 if defined?(PREVIOUS_OFFICIAL_MIRROR)
     vagrant_config_lines << "PREVIOUS_OFFICIAL_MIRROR=\"#{PREVIOUS_OFFICIAL_MIRROR}\""
 else
-    PREVIOUS_OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu"
+    PREVIOUS_OFFICIAL_MIRROR="http://us.archive.ubuntu.com/ubuntu"
 end
 
 # ----------------- END CONFIGURATION ZONE ----------------------------------
