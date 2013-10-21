@@ -231,7 +231,7 @@ VAGRANTFILE_API_VERSION = "2"
 #Vagrant::Config.run do |config|
 Vagrant.configure("2") do |config|
   # Setup virtual machine box. This VM configuration code is always executed.
-  config.vm.box = "devhost"
+  config.vm.box = BOX_NAME
   config.vm.box_url = BOX_URI
   #config.ssh.username = "ubuntu"
   #config.ssh.username = "vagrant"
