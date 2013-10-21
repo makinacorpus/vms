@@ -88,7 +88,6 @@ export() {
             includes="$i $includes"
         fi
     done
-    log "Exporting to $c/package.box"
     tar_preopts="cjvf"
     tar_postopts="--numeric-owner"
     if [[ $(uname) == "Darwin" ]];then
