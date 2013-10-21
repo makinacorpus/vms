@@ -1,4 +1,7 @@
-IN PROGRESS:
+.. contents::
+
+IN PROGRESS
+===========
 
 * docker support: **kiorky**
 
@@ -14,8 +17,8 @@ IN PROGRESS:
     
 
 
-TODO:
-
+TODO
+====
 
 * Make saucy the master
 
@@ -28,7 +31,8 @@ TODO:
 * integrate a X11 display in dockers using fluxbox and tightvnserver
  
 
-DONE:
+DONE
+====
 
 * Vagrantfile initialisation for ubuntu raring & LTS
 * Multi Virtualbox with multi networks
