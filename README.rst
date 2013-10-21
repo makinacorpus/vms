@@ -123,16 +123,25 @@ To remove an outdated or broken VM::
 
   ./manage.sh destroy
 
-To export in **package.tar.bz2**, to share this development host with someone::
+Note that all the files mounted on the ``/srv`` vm directory are in fact stored on the base directory of this project and will not be removed after a vagrant destroy. so you can easily destroy a VM without loosing really important files. Then redo a ``vagrant up`` to rebuild a new VM with all needed dependencies.
+
+Export/Import
+--------------
+
+the 'nude' import/export does not include salt, pillar and project data whereas
+normal import include them all.
+
+To export in **package-full.tar.bz2** or **package-nude.tar.bz2**, to share this development host with someone::
 
   ./manage.sh export
+  or ./manage.sh export_nude
 
-To  import from a **package.tar.bz2** file, simply place the package in the working
+To import from a **package.tar.bz2** or **package-nude.tar.bz2**, simply place the package in the working
 directory and issue::
 
   ./manage.sh import
+  or ./manage.sh import_nude
 
-Note that all the files mounted on the ``/srv`` vm directory are in fact stored on the base directory of this project and will not be removed after a vagrant destroy. so you can easily destroy a VM without loosing really important files. Then redo a ``vagrant up`` to rebuild a new VM with all needed dependencies.
 
 Manage several Virtualboxes
 ----------------------------

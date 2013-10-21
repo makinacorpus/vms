@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-actions="up reload destroy down export import import_nude suspend"
+actions="up reload destroy down export export_nude import import_nude suspend"
+a_eximmodes="full nude"
 RED="\\033[31m"
 CYAN="\\033[36m"
 NORMAL="\\033[0m"
@@ -66,7 +67,11 @@ export() {
     local nincludes=""
     local includes=""
     local gtouched=""
+    mode="full"
     for i in $@;do
+        if [[ $i == "nude" ]];then
+            mode="nude"
+        fi
         if [[ $i == "nosed" ]];then
             nosed=y
         fi
@@ -92,39 +97,46 @@ export() {
     if [[ $(uname) != "Darwin" ]];then
         tar_preopts="${tar_preopts}p"
     fi
-    if [[ ! -f package-full.box ]];then
-        if [[ -z $nosed ]];then \
-            up noreload &&\
-            vagrant ssh \
-               -c 'sudo sed -ire "s/^SUBSYSTEM/#SUBSYSTEM/g" /etc/udev/rules.d/70-persistent-net.rules';\
-        fi &&\
-        down;\
-        sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
-        log "Be patient, exporting now the full box" &&\
-        vagrant package --vagrantfile Vagrantfile --output package-full.box
-    else
-        log "$c/package-full.box exists, delete it to redo"
+    if [[ "$mode" == "full" ]];then \
+        if [[ ! -f package-full.box ]];then
+            if [[ -z $nosed ]];then \
+                up noreload &&\
+                vagrant ssh \
+                   -c 'sudo sed -ire "s/^SUBSYSTEM/#SUBSYSTEM/g" /etc/udev/rules.d/70-persistent-net.rules';\
+            fi &&\
+            down;\
+            sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
+            log "Be patient, exporting now the full box" &&\
+            vagrant package --vagrantfile Vagrantfile --output package-full.box
+        else
+            log "$c/package-full.box exists, delete it to redo"
+        fi\
     fi &&\
     gtouched="1" &&\
-    if [[ ! -f package-full.tar.bz2 ]];then
-        log "Be patient, archiving now the whole full box package" &&\
-        tar $tar_preopts package-full.tar.bz2 package-full.box $includes $tar_postopts &&\
-        log "Export done of full box: $c/package-full.tar.bz2"
-    else
-        log "$c/package-full.tar.bz2 exists, delete it to redo"
+    if [[ "$mode" == "full" ]];then \
+        if [[ ! -f package-full.tar.bz2 ]];then
+            log "Be patient, archiving now the whole full box package" &&\
+            tar $tar_preopts package-full.tar.bz2 package-full.box $includes $tar_postopts &&\
+            log "Export done of full box: $c/package-full.tar.bz2"
+        else
+            log "$c/package-full.tar.bz2 exists, delete it to redo"
+        fi \
     fi &&\
-    if [[ ! -f package-nude.box ]];then
-        log "Be patient, exporting now the nude box" &&\
-        vagran package --vagrantfile Vagrantfile --output package-nude.box
-    else
-        log "$c/package-nude.box exists, delete it to redo"
-    fi &&\
-    if [[ ! -f package-nude.tar.bz2 ]];then
-        log "Be patient, archiving now the whole nude box package" &&\
-        tar $tar_preopts package-nude.tar.bz2 package-nude.box $nincludes $tar_postopts  &&\
-        log "Export done of nude box: $c/package-nude.tar.bz2"
-    else
-        log "$c/package-nude.tar.bz2 exists, delete it to redo"
+    if [[ "$mode" == "nude" ]];then \
+        if [[ ! -f package-nude.box ]];then
+            log "Be patient, exporting now the nude box" &&\
+            sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
+            vagran package --vagrantfile Vagrantfile --output package-nude.box
+        else
+            log "$c/package-nude.box exists, delete it to redo"
+        fi &&\
+        if [[ ! -f package-nude.tar.bz2 ]];then
+            log "Be patient, archiving now the whole nude box package" &&\
+            tar $tar_preopts package-nude.tar.bz2 package-nude.box $nincludes $tar_postopts  &&\
+            log "Export done of nude box: $c/package-nude.tar.bz2"
+        else
+            log "$c/package-nude.tar.bz2 exists, delete it to redo"
+        fi
     fi
     ret=$?
     # reseting Vagrantfile in any case
@@ -135,8 +147,11 @@ export() {
         log "Error while exporting"
         exit $ret
     else
-        log "package produced in $c/package.box"
+        log "End of export"
     fi
+}
+export_nude() {
+    export nude
 }
 import_nude() {
     import nude
@@ -148,8 +163,7 @@ import() {
     tar="sudo tar xjvpf"
     mode=""
     args=${@}
-    amodes="full nude"
-    for amode in $amodes;do
+    for amode in $a_eximmodes;do
         for arg in $@;do
             if [[ $mode == $args ]] && [[ -z $mode ]];then
                 mode=$arg
@@ -157,7 +171,7 @@ import() {
         done
     done
     if [[ -z $mode ]];then
-        for i in $amodes;do
+        for i in $a_eximmodes;do
             if [[ -e package-$i.tar.bz2 ]];then
                 mode=$i
                 log "No specified mode, defaulting to $mode"
