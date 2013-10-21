@@ -26,7 +26,7 @@ usage() {
 destroy() {
     cd $c
     vagrant halt -f
-    vagrant destroy -y
+    vagrant destroy -f
 }
 suspend() {
     cd $c
