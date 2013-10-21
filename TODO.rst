@@ -29,6 +29,8 @@ TODO
   * btw: integrate rdesktop bridge to the host in the vagrantfile
 
 * integrate a X11 display in dockers using fluxbox and tightvnserver
+
+* Fix /etc/hosts editing to not have the first 127.0.0.1 appended at the end of file but at the init.
  
 
 DONE
