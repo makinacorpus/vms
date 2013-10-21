@@ -72,6 +72,9 @@ export() {
         if [[ $i == "nude" ]];then
             mode="nude"
         fi
+        if [[ $i == "nozerofree" ]];then
+            nozerofree=y
+        fi
         if [[ $i == "nosed" ]];then
             nosed=y
         fi
@@ -96,7 +99,11 @@ export() {
     if [[ $(uname) != "Darwin" ]];then
         tar_preopts="${tar_preopts}p"
     fi
-    do_zerofree &&\
+    if [[ -z "$nozerofree" ]];then
+        do_zerofree
+    else
+        log "Skip zerofree on export"
+    fi &&\
     if [[ "$mode" == "full" ]];then \
         if [[ ! -f package-full.box ]];then
             if [[ -z $nosed ]];then \
