@@ -155,7 +155,7 @@ if_file="/etc/network/interfaces.${DOCKER_NETWORK_IF}"
 if_conf="$if_file.conf "
 NETWORK_RESTART=""
 
-activate_ifup_debugging
+#activate_ifup_debugging
 
 if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];then
     apt-get install -y --force-yes bridge-utils
@@ -436,7 +436,7 @@ if [[ $(find /var/cache/apt/archives/ -name *deb|wc -l) != "0" ]];then
     rm -rf /var/cache/apt/archives/*deb
 fi
 
-deactivate_ifup_debugging
+#deactivate_ifup_debugging
 
 # Always start salt and docker AFTER /srv has been mounted on the VM
 output " [*] Manage Basic daemons using /srv"
