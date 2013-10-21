@@ -32,6 +32,8 @@ DONE:
 
 * Vagrantfile initialisation for ubuntu raring & LTS
 * Multi Virtualbox with multi networks
+* Saltack based base system configuration & organisation
+* Mastersalt base states & integration
 * saltstack state trees architecture
 * SaltStack from scratch install script
 * Vagrant vm provision script
