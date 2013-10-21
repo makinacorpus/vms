@@ -3,12 +3,13 @@
 IN PROGRESS
 ===========
 
+* Reduce the space used on the VM (at least add a call to apt-clean): **kiorky**
+* Automate a zerofree call on the vm with the manage script: **kiorky**
+
 * docker support: **kiorky**
 
 * salt + docker managment **kiorky**
 
-
-* export / import: **kiorky**
 
 * dev env: **regilero**
 
@@ -19,11 +20,6 @@ IN PROGRESS
 
 TODO
 ====
-
-* Reduce the space used on the VM (at least add a call to apt-clean)
-
-* Automate a zerofree call on the vm with the manage script
-
 * Make saucy the master
 
 * Make lucid work again
@@ -37,7 +33,8 @@ TODO
 
 DONE
 ====
-
+* handle correctly dev.sls & core.sls: **kiorky**
+* export / import: **kiorky**
 * Vagrantfile initialisation for ubuntu raring & LTS
 * Multi Virtualbox with multi networks
 * Saltack based base system configuration & organisation
