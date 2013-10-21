@@ -5,67 +5,125 @@
 # !!! IMPORTANT !!!
 # !!!!!!!!!!!!!!!!!
 # If you want to improve perfomances specially network related, please read the end of this file
-# --------------------- CONFIGURATION ZONE ----------------------------------
 
 require 'digest/md5'
 require 'etc'
 require 'rbconfig'
 
-UBUNTU_RELEASE="raring"
-UBUNTU_LTS_RELEASE="precise"
-UBUNTU_NEXT_RELEASE="saucy"
 CWD=File.dirname(__FILE__)
 VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
 VBOX_SUBNET_FILE=File.dirname(__FILE__) + "/.vb_subnet"
 
-# MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
-MEMORY="1024"
-# Number of available CPU for this VM
-CPUS="2"
-# LIMIT ON CPU USAGE
-MAX_CPU_USAGE_PERCENT="50"
-# Use this IP in your /etc/hosts for all names
+# --------------------- CONFIGURATION ZONE ----------------------------------
 #
-# That you want to query this BOX with in your browser
-# The VirtualBox private network will
-# automatically be set to ensure private communications
-# between this VM and your host on this IP
-# (in VB's preferences network you can see it after first usage)
+# If you want to alter any configuration setting, put theses settings in a ./vagrant_config.rb file
+# This way you will be able to "git up" the project more easily and get this Vagrantfile updated
+#
+# This file would contain something like:
+# -------------o<---------------
+# module MyConfig
+#    MEMORY="512"
+#    CPUS="1"
+#    MAX_CPU_USAGE_PERCENT="25"
+#    DEVHOST_NUM="3"
+#    DNS_SERVER="8.8.8.8"
+# end
+# -------------o<---------------
+# Check entries in the configuration zone for variables available.
+# --- Start Load optional config file ---------------
+begin
+  require_relative 'vagrant_config'
+  include MyConfig
+rescue LoadError
+end
+# --- End Load optional config file -----------------
+
+UBUNTU_RELEASE="raring" unless defined?(UBUNTU_RELEASE)
+UBUNTU_LTS_RELEASE="precise" unless defined?(UBUNTU_LTS_RELEASE)
+UBUNTU_NEXT_RELEASE="saucy" unless defined?(UBUNTU_NEXT_RELEASE)
+
+# MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
+MEMORY="1024" unless defined?(MEMORY)
+# Number of available CPU for this VM
+CPUS="2" unless defined?(CPUS)
+# LIMIT ON CPU USAGE
+MAX_CPU_USAGE_PERCENT="50" unless defined?(MAX_CPU_USAGE_PERCENT)
+
+# IP managment
+# The box used a default NAT private IP, defined automatically by vagrant and virtualbox
+# It also use a private deticated network (automatically created in virtualbox on a vmX network)
+# By default the private IP will be 10.1.42.43/24. This is used for NFS shre, but, as you will have a fixed
+# IP for this VM it could be used in your /etc/host file to reference any name on this vm 
+# (the default devhost42.local or devhotsXX.local entry is managed by salt).
+# If you have several VMs you may need to alter at least the MAKINA_DEVHOST_NUM to obtain a different
+# IP network and docker IP network on this VM
 #
 # You can change the subnet used via the MAKINA_DEVHOST_NUM
 # EG: export MAKINA_DEVHOST_NUM=44 will give an ip of 10.1.44.43 for this host
-# This setting is saved upon reboots, you need to set it only once
+# This setting is saved upon reboots, you need to set it only once.
+# (be careful with env variable if you run several vms)
+# You could also set it in the ./vagrant_config.rb to get it fixed at any time
+# and specified for each vm
 #
 # Be sure to have only one unique subnet per devhost per physical host
 #
-devhost_num=ENV.fetch("MAKINA_DEVHOST_NUM", "")
+devhost_num=ENV.fetch("MAKINA_DEVHOST_NUM", "").strip()
 if devhost_num.empty? and File.exist?(VBOX_SUBNET_FILE)
-    devhost_num=File.open(VBOX_SUBNET_FILE, 'r').read()
+    devhost_num=File.open(VBOX_SUBNET_FILE, 'r').read().strip()
 end
-devhost_num=devhost_num.strip()
 if devhost_num.empty?
-    devhost_num="42"
+  devhost_num="42"
 end
+DEVHOST_NUM=devhost_num unless defined?(DEVHOST_NUM)
+BOX_PRIVATE_SUBNET_BASE="10.1." unless defined?(BOX_PRIVATE_SUBNET_BASE)
+DOCKER_NETWORK_BASE="172.31." unless defined?(DOCKER_NETWORK_BASE)
+
+# Custom dns server
+DNS_SERVER="8.8.8.8" unless defined?(DNS_SERVER)
+
+# Set this to true ONLY if you have VirtualBox version > 4.2.12
+# else the synced folder would not work.
+# When activated this would remove warnings about version mismatch of
+# VirtualBox Guest additions, but we need at least the 4.2.12 version,
+# v 4.2.0 is present in the default precise ubuntu kernel and 4.2.10 on
+# raring and we add the 4.2.12 in this script
+# even if your host is on a lower version. If you have something greater than
+# 4.2.12 set this to true, comment the 4.2.12 install below and install vbguest
+# vagrant plugin with this command : "vagrant plugin install vagrant-vbguest"
+AUTO_UPDATE_VBOXGUEST_ADD=false unless defined?(AUTO_UPDATE_VBOXGUEST_ADD)
+
+
+# ------------- Mirror to download packages -----------------------
+LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu" unless defined?(LOCAL_MIRROR)
+OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu" unless defined?(OFFICIAL_MIRROR)
+# let this one to the previous mirror for it to be automaticly replaced
+PREVIOUS_LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu" unless defined?(PREVIOUS_LOCAL_MIRROR)
+PREVIOUS_OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu" unless defined?(PREVIOUS_OFFICIAL_MIRROR)
+
+# ----------------- END CONFIGURATION ZONE ----------------------------------
+
+# ------ Init based on configuration values ---------------------------------
+# Chances are you do not want to alter that.
+
 devhost_f = File.open(VBOX_SUBNET_FILE, 'w')
-devhost_f.write(devhost_num)
+devhost_f.write(DEVHOST_NUM)
 devhost_f.close()
-BOX_PRIVATE_SUBNET="10.1."+devhost_num
+
+BOX_PRIVATE_SUBNET=BOX_PRIVATE_SUBNET_BASE+DEVHOST_NUM
 BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43" # so 10.1.42.43 by default
 BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
 # To enable dockers to be interlinked between multiple virtuabox,
 # we also setup a specific docker network subnet per virtualbox host
 DOCKER_NETWORK_IF="docker0"
 DOCKER_NETWORK_HOST_IF="eth0"
-DOCKER_NETWORK_GATEWAY="172.31."+devhost_num+".1"
-DOCKER_NETWORK="172.31."+devhost_num+".0"  # so 172.31.42.0 by default
+DOCKER_NETWORK_GATEWAY=DOCKER_NETWORK_BASE+DEVHOST_NUM+".1"
+DOCKER_NETWORK=DOCKER_NETWORK_BASE+DEVHOST_NUM+".0"  # so 172.31.42.0 by default
 DOCKER_NETWORK_MASK="255.255.255.0"
 DOCKER_NETWORK_MASK_NUM="24"
-# Custom dns server
-DNS_SERVER="8.8.8.8"
-#BOX_PRIVATE_NETMASK="255.225.255.0"
+
 # md5 based on currentpath
 # Name on your VirtualBox panel
-VIRTUALBOX_BASE_VM_NAME="Docker DevHost "+devhost_num+" Ubuntu "+UBUNTU_RELEASE+"64"
+VIRTUALBOX_BASE_VM_NAME="Docker DevHost "+DEVHOST_NUM+" Ubuntu "+UBUNTU_RELEASE+"64"
 if (not File.exist?(VBOX_NAME_FILE))
     md5_fo = File.open(VBOX_NAME_FILE, 'w')
     MD5=Digest::MD5.hexdigest(CWD)
@@ -78,21 +136,12 @@ else
 end
 printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 printf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
-printf(" [*] To have multiple hosts, you can change the last bits (default: 43) via the MAKINA_DEVHOST_NUM env variable)\n")
-printf(" [*] if you want to share this wm, dont forget to have ./.vb_name along\n")
+printf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
+printf(" [*] To have multiple hosts, you can change the third bits of IP (default: 42) via the MAKINA_DEVHOST_NUM env variable)\n")
+printf(" [*] if you want to share this wm, dont forget to have ./.vb_name and ./vagrant_config.rb along\n")
 # Name inside the VM (as rendered by hostname command)
-VM_HOSTNAME="devhost"+devhost_num+".local" # so devhost42.local by default
-# Set this to true ONLY if you have VirtualBox version > 4.2.12
-# else the synced folder would not work.
-# When activated this would remove warnings about version mismatch of
-# VirtualBox Guest additions, but we need at least the 4.2.12 version,
-# v 4.2.0 is present in the default precise ubuntu kernel and 4.2.10 on
-# raring and we add the 4.2.12 in this script
-# even if your host is on a lower version. If you have something greater than
-# 4.2.12 set this to true, comment the 4.2.12 install below and install vbguest
-# vagrant plugin with this command : "vagrant plugin install vagrant-vbguest"
-AUTO_UPDATE_VBOXGUEST_ADD=false
-# ----------------- END CONFIGURATION ZONE ----------------------------------
+VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost42.local by default
+
 
 # ------------- BASE IMAGE UBUNTU 13.04 (raring) -----------------------
 # You can pre-download this image with
@@ -100,13 +149,6 @@ AUTO_UPDATE_VBOXGUEST_ADD=false
 BOX_NAME=ENV['BOX_NAME'] || UBUNTU_RELEASE+"64"
 BOX_URI=ENV['BOX_URI'] || "http://cloud-images.ubuntu.com/vagrant/"+UBUNTU_RELEASE+"/current/"+UBUNTU_RELEASE+"-server-cloudimg-amd64-vagrant-disk1.box"
 
-
-# ------------- Mirror to download packages -----------------------
-LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
-OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu"
-# let this one to the previous mirror for it to be automaticly replaced
-PREVIOUS_LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
-PREVIOUS_OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu"
 
 # -- Other things ----------------------------------------------------------
 
@@ -141,7 +183,6 @@ Vagrant.configure("2") do |config|
   # 1st network is bridging (public DHCP) on eth0 of yout machine
   # If you do not have an eth0 Vagrant will ask you for an interface
   #config.vm.network "public_network", :bridge => 'eth0'
-  #config.vm.network "private_network", ip: BOX_PRIVATE_IP, netmask: BOX_PRIVATE_NETMASK
   config.vm.network "private_network", ip: BOX_PRIVATE_IP
   # NAT PORTS, if you want...
   #config.vm.network "forwarded_port", guest: 80, host: 8080
