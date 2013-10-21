@@ -100,6 +100,11 @@ export() {
         tar_preopts="${tar_preopts}p"
     fi
     if [[ -z "$nozerofree" ]];then
+        log "Zerofree starting in 20 seconds, you can control C before the next log"
+        log "and relaunch with the same cmdline with nozerofree appended: eg ./manage.sh export nozerofree"
+        sleep 15
+        log "Zerofree starting ! DO NOT INTERRUPT ANYMORE"
+        sleep 5
         do_zerofree
     else
         log "Skip zerofree on export"
