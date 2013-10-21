@@ -20,6 +20,10 @@ IN PROGRESS
 TODO
 ====
 
+* Reduce the space used on the VM
+
+* Automate a zerofree call on the vm with the manage script
+
 * Make saucy the master
 
 * Make lucid work again
