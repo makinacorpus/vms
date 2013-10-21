@@ -1,3 +1,23 @@
+
+IN PROGRESS:
+
+* docker support: kiorky
+
+* salt + docker managment kiorky
+
+
+* export / import: kiorky
+
+* dev env: regilero
+
+  * postfix
+  * dev.sls
+    
+
+
+TODO:
+
+
 * Make saucy the master
 
 * Make lucid work again
