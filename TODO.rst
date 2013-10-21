@@ -2,10 +2,6 @@
 
 IN PROGRESS
 ===========
-
-* Reduce the space used on the VM (at least add a call to apt-clean): **kiorky**
-* Automate a zerofree call on the vm with the manage script: **kiorky**
-
 * docker support: **kiorky**
 
 * salt + docker managment **kiorky**
@@ -16,7 +12,6 @@ IN PROGRESS
   * postfix
   * dev.sls
     
-
 
 TODO
 ====
@@ -35,6 +30,8 @@ TODO
 
 DONE
 ====
+* Reduce the space used on the VM (at least add a call to apt-clean)
+* Automate a zerofree call on the vm with the manage script
 * handle correctly dev.sls & core.sls
 * export / import
 * Vagrantfile initialisation for ubuntu raring & LTS
