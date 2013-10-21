@@ -8,21 +8,23 @@
 # as it backport a lot of saucy packages, see ../backport-pgks.sh
 # for backporting things on a bare metal machine
 #
-output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
-
-die_if_error() {
-    if [[ "$?" != "0" ]];then
-        output "There were errors"
-        exit 1
-    fi
-}
-
 YELLOW='\e[1;33m'
 RED="\\033[31m"
 CYAN="\\033[36m"
 NORMAL="\\033[0m"
 DEBUG=${BOOT_SALT_DEBUG:-}
 
+if [[ -e /etc/lsb-release ]];then
+    . /etc/lsb-release
+fi
+
+output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
+die_if_error() {
+    if [[ "$?" != "0" ]];then
+        output "There were errors"
+        exit 1
+    fi
+}
 
 output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
 output " [*] You can safely relaunch this script from within the vm"
@@ -148,6 +150,58 @@ open_routes() {
     sysctl -w net.ipv4.ip_forward=1
     sysctl -w net.ipv4.conf.all.rp_filter=0
     sysctl -w net.ipv4.conf.all.log_martians=1
+}
+
+backport_saucy() {
+    if [ ! -e "$lxc_marker" ];then
+        output " [*] Backporting Saucy LXC packages: adding repository"
+        sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i "${src_l}" && \
+        apt-get update -qq && \
+        output " [*] Backporting Saucy LXC packages:"
+        output " [*]   ${LXC_PKGS}"
+        apt-get install -y --force-yes ${LXC_PKGS}
+        die_if_error
+        output " [*] cleanup of apt, removing backports from sources"
+        sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i "${src_l}" && apt-get update -qq
+        die_if_error
+        touch "$lxc_marker"
+        NEED_RESTART=1
+    fi
+
+    if [ ! -e "$vbox_marker" ];then
+        output " [*] Backporting Saucy Virtualbox packages:"
+        output " [*]   $VB_PKGS"
+        sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
+        apt-get update -qq && apt-get install -y --force-yes $VB_PKGS
+        die_if_error
+        output " [*] Backporting Saucy Virtualbox packages: cleanup repository"
+        sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
+        die_if_error
+        touch "$vbox_marker"
+        NEED_RESTART=1
+    fi
+
+    if [ ! -e "${kernel_marker}" ]; then
+        output " [*] Backporting Saucy kernel ($KERNEL_PKGS)"
+        sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
+        apt-get update -qq && apt-get install -y --force-yes $KERNEL_PKGS
+        die_if_error
+        sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
+        die_if_error
+        touch "$kernel_marker"
+        NEED_RESTART=1
+    fi
+
+    if [ ! -e "${kernel_marker}" ]; then
+        output " [*] Backporting Saucy kernel ($KERNEL_PKGS)"
+        sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
+        apt-get update -qq && apt-get install -y --force-yes $KERNEL_PKGS
+        die_if_error
+        sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
+        die_if_error
+        touch "$kernel_marker"
+        NEED_RESTART=1
+    fi
 }
 
 output " [*] Temporary DNs overrides in /etc/resolv.conf : ${DNS_SERVER}, 8.8.8.8 & 4.4.4.4"
@@ -300,54 +354,15 @@ if [ ! -e "$MARKERS/vbox_init_global_upgrade" ];then
     touch "$MARKERS/vbox_init_global_upgrade"
 fi
 
-if [ ! -e "$lxc_marker" ];then
-    output " [*] Backporting Saucy LXC packages: adding repository"
-    sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i "${src_l}" && \
-    apt-get update -qq && \
-    output " [*] Backporting Saucy LXC packages:"
-    output " [*]   ${LXC_PKGS}"
-    apt-get install -y --force-yes ${LXC_PKGS}
-    die_if_error
-    output " [*] cleanup of apt, removing backports from sources"
-    sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i "${src_l}" && apt-get update -qq
-    die_if_error
-    touch "$lxc_marker"
-    NEED_RESTART=1
-fi
-
-if [ ! -e "$vbox_marker" ];then
-    output " [*] Backporting Saucy Virtualbox packages:"
-    output " [*]   $VB_PKGS"
-    sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
-    apt-get update -qq && apt-get install -y --force-yes $VB_PKGS
-    die_if_error
-    output " [*] Backporting Saucy Virtualbox packages: cleanup repository"
-    sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
-    die_if_error
-    touch "$vbox_marker"
-    NEED_RESTART=1
-fi
-
-if [ ! -e "${kernel_marker}" ]; then
-    output " [*] Backporting Saucy kernel ($KERNEL_PKGS)"
-    sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
-    apt-get update -qq && apt-get install -y --force-yes $KERNEL_PKGS
-    die_if_error
-    sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
-    die_if_error
-    touch "$kernel_marker"
-    NEED_RESTART=1
-fi
-
-if [ ! -e "${kernel_marker}" ]; then
-    output " [*] Backporting Saucy kernel ($KERNEL_PKGS)"
-    sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
-    apt-get update -qq && apt-get install -y --force-yes $KERNEL_PKGS
-    die_if_error
-    sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
-    die_if_error
-    touch "$kernel_marker"
-    NEED_RESTART=1
+if     [[ "$DISTRIB_CODENAME" == "raring" ]] \
+    || [[ "$DISTRIB_CODENAME" == "lucid" ]] \
+    || [[ "$DISTRIB_CODENAME" == "maverick" ]] \
+    || [[ "$DISTRIB_CODENAME" == "natty" ]] \
+    || [[ "$DISTRIB_CODENAME" == "oneiric" ]] \
+    || [[ "$DISTRIB_CODENAME" == "precise" ]] \
+    || [[ "$DISTRIB_CODENAME" == "quantal" ]] \
+    ;then
+    backport_saucy
 fi
 
 if [[ -n $NEED_RESTART ]];then
