@@ -208,7 +208,7 @@ printf(" [*] if you want to share this wm, use manage.sh export | import\n")
 VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost42.local by default
 
 
-# ------------- BASE IMAGE UBUNTU 13.04 (raring) -----------------------
+# ------------- BASE IMAGE UBUNTU  -----------------------
 # You can pre-download this image with
 # vagrant box add raring64 http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
 
