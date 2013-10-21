@@ -33,5 +33,5 @@ DONE:
 * Vagrantfile initialisation for ubuntu raring & LTS
 * Multi Virtualbox with multi networks
 * saltstack state trees architecture
-* Docker base images for debian & ubuntu
+* Docker base images for debian & ubuntu (ubuntu! from official docker images or from a debootstrap)
 * Developpement script for debugging lxc & docker from sources with gdb
