@@ -429,7 +429,7 @@ else
   fi
   initialize_devel_salt_grains
   vm_boot_mode=$(get_grain $BOOT_GRAIN)
-  if [[ $(grep -- "- makina-states\.dev" /srv/pillar/top.sls|wc -l) == "0" ]];then
+  if [[ $(egrep -- "- makina-states\.dev\s*" /srv/salt/top.sls|wc -l) == "0" ]];then
       output " [*] Old installation detected for makina-stes.dev top file"
       NEED_REDO=1
   fi
@@ -453,12 +453,30 @@ if [[ -n "$NEED_RESTART" ]];then
     exit $NEED_RESTART
 fi
 
-# cleanup archives to preserve vm SPACE
-if [[ $(find /var/cache/apt/archives/ -name *deb|wc -l) != "0" ]];then
-    rm -rf /var/cache/apt/archives/*deb
-fi
+cat > /root/zerofree.sh << EOF
+#!/usr/bin/env bash
+telinit 1
+echo " [*] Zerofreeing"
+mount -o remount,ro /
+zerofree -v /dev/sda1
+mount -o remount,rw /
+poweroff
+EOF
+chmod +x /root/zerofree.sh
 
 #deactivate_ifup_debugging
+cleanup_space() {
+    output " [*] Cleaning vm to reduce disk space usage"
+    output " [*] Cleaning apt"
+    apt-get clean -y
+    apt-get autoclean -y
+    # cleanup archives to preserve vm SPACE
+    if [[ $(find /var/cache/apt/archives/ -name *deb|wc -l) != "0" ]];then
+        rm -rf /var/cache/apt/archives/*deb
+    fi
+}
+
+cleanup_space
 
 # Always start salt and docker AFTER /srv has been mounted on the VM
 output " [*] Manage Basic daemons using /srv"
@@ -474,7 +492,6 @@ service docker stop
 service docker start
 
 open_routes
-
 
 ready_to_run
 # vim:set et sts=4 ts=4 tw=0:
