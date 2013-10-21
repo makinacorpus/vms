@@ -301,8 +301,12 @@ if [[ "$DISTRIB_CODENAME" == "lucid" ]]\
     || [[ "$DISTRIB_CODENAME" == "quantal" ]]\
     ;then
     EARLY_UBUNTU=y
+    BEFORE_RARING=y
 fi
 
+if [[ "$DISTRIB_CODENAME" == "raring" ]] || [[ -n "$EARLY_UBUNTU" ]];then
+    BEFORE_SAUCY=y
+fi
 
 for service in $UPSTART_DISABLED_SERVICES;do
     sf=/etc/init/$service.override
@@ -310,7 +314,9 @@ for service in $UPSTART_DISABLED_SERVICES;do
         output " [*] Disable $service upstart service"
         echo "manual" > "$sf"
         service $service stop
-        NEED_RESTART="1"
+        if [[ -n "$BEFORE_SAUCY" ]];then
+            NEED_RESTART="1"
+        fi
     fi
 done
 
@@ -370,7 +376,7 @@ if [ ! -e "$MARKERS/vbox_init_global_upgrade" ];then
 fi
 
 use_backports=""
-if [[ "$DISTRIB_CODENAME" == "raring" ]] || [[ -n "$EARLY_UBUNTU" ]];then
+if [[ -n "$BEFORE_SAUCY" ]];then
     backport_saucy
     use_backports="y"
 fi
@@ -401,8 +407,10 @@ if [ ! -e $MARKERS/provision_step_lxc_done ]; then
   output " [*] Install lxc-docker support: install lxc-docker package"
   apt-get install -q -y --force-yes lxc-docker || die_if_error
   # autorestart dockers on boot
+  killall -9 docker
+  service docker stop
   sed -re "s/docker -d/docker -r -d/g" -e /etc/init/docker.conf
-  service docker restart
+  service docker start
   die_if_error
   touch $MARKERS/provision_step_lxc_done
   # since apparmor backport, seem we have not to reboot anymore
