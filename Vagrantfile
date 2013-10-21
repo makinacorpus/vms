@@ -25,7 +25,7 @@ VBOX_SUBNET_FILE=File.dirname(__FILE__) + "/.vb_subnet"
 #    MEMORY="512"
 #    CPUS="1"
 #    MAX_CPU_USAGE_PERCENT="25"
-#    DEVHOST_NUM=3
+#    DEVHOST_NUM="3"
 #    DNS_SERVER="8.8.8.8"
 # end
 # -------------o<---------------

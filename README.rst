@@ -149,7 +149,7 @@ No do not forget to read the Vagrantfile, to alter MAX_CPU_USAGE_PERCENT,CPUS & 
 
   vi ./vagrant_config.rb
   module MyConfig
-     DEVHOST_NUM=22 # <---------- HERE
+     DEVHOST_NUM="22" # <---------- HERE
      # MEMORY="512"
      # CPUS="1"
      # MAX_CPU_USAGE_PERCENT="25"
