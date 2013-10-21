@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-actions="up reload destroy down export export_nude import import_nude suspend do_zerofree"
+actions="up reload destroy down export export_nude import import_nude suspend do_zerofree ssh"
 a_eximmodes="full nude"
 RED="\\033[31m"
 CYAN="\\033[36m"
@@ -26,12 +26,16 @@ usage() {
 destroy() {
     cd $c
     vagrant halt -f
-    vagrant destroy -y
+    vagrant destroy -f
 }
 suspend() {
     cd $c
     log "Suspend !"
     vagrant suspend
+}
+ssh() {
+    cd $c
+    exec vagrant ssh $@
 }
 down() {
     cd $c
