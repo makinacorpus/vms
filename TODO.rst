@@ -42,4 +42,4 @@ DONE
 * SaltStack from scratch install script
 * Vagrant vm provision script
 * Docker base images for debian & ubuntu (ubuntu! from official docker images or from a debootstrap)
-* Developpement script for debugging lxc & docker from sources with gdb
+* Developpement scripts for debugging lxc & docker from sources with gdb
