@@ -124,15 +124,8 @@ else
     DNS_SERVER="8.8.8.8"
 end
 
-# Set this to true ONLY if you have VirtualBox version > 4.2.12
-# else the synced folder would not work.
-# When activated this would remove warnings about version mismatch of
-# VirtualBox Guest additions, but we need at least the 4.2.12 version,
-# v 4.2.0 is present in the default saucy ubuntu kernel and 4.2.10 on
-# saucy and we add the 4.2.12 in this script
-# even if your host is on a lower version. If you have something greater than
-# 4.2.12 set this to true, comment the 4.2.12 install below and install vbguest
-# vagrant plugin with this command : "vagrant plugin install vagrant-vbguest"
+# This is the case on ubuntu <= 13.10
+# on ubuntu < 13.04 else the synced folder would not work.
 if defined?(AUTO_UPDATE_VBOXGUEST_ADD)
     vagrant_config_lines << "AUTO_UPDATE_VBOXGUEST_ADD=\"#{AUTO_UPDATE_VBOXGUEST_ADD}\""
 else
@@ -166,10 +159,6 @@ end
 
 # ------ Init based on configuration values ---------------------------------
 # Chances are you do not want to alter that.
-
-devhost_f = File.open(VBOX_SUBNET_FILE, 'w')
-devhost_f.write(DEVHOST_NUM)
-devhost_f.close()
 
 BOX_PRIVATE_SUBNET=BOX_PRIVATE_SUBNET_BASE+DEVHOST_NUM
 BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43" # so 10.1.42.43 by default
@@ -210,7 +199,7 @@ VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost42.local by default
 
 # ------------- BASE IMAGE UBUNTU  -----------------------
 # You can pre-download this image with
-# vagrant box add saucy64 http://cloud-images.ubuntu.com/saucy/saucy/current/saucy-server-cloudimg-amd64-vagrant-disk1.box
+# vagrant box add precise64 http://cloud-images.ubuntu.com/precise/precise/current/precise-server-cloudimg-amd64-vagrant-disk1.box
 
 if defined?(BOX_NAME)
     vagrant_config_lines << "BOX_NAME=\"#{BOX_NAME}\""
@@ -381,7 +370,8 @@ vsettings_f.close()
 # provision script has been moved to a bash script as it growned too much see ./provision_script.sh
 # the only thing we cant move is to test for NFS to be there as the shared file system relies on it
 pkg_cmd = [
-    %{cat > /root/provision_nfs.sh  << EOF
+    "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
+    %{cat > /root/vagrant/provision_nfs.sh  << EOF
 #!/usr/bin/env bash
 MARKERS="/srv/root/vagrant/markers"
 die_if_error() { if [[ "\\$?" != "0" ]];then output "There were errors";exit 1;fi; };
@@ -401,7 +391,7 @@ if [[ ! -f /srv/Vagrantfile ]];then
     exit 1
 fi
 EOF},
-    %{cat > /root/vagrant_provision_settings.sh  << EOF
+    %{cat > /root/vagrant/provision_settings.sh  << EOF
 DNS_SERVER="#{DNS_SERVER}"
 PREVIOUS_OFFICIAL_MIRROR="#{PREVIOUS_OFFICIAL_MIRROR}"
 PREVIOUS_LOCAL_MIRROR="#{PREVIOUS_LOCAL_MIRROR}"
@@ -417,8 +407,8 @@ DOCKER_NETWORK_MASK="#{DOCKER_NETWORK_MASK}"
 DOCKER_NETWORK_MASK_NUM="#{DOCKER_NETWORK_MASK_NUM}"
 VB_NAME="#{VIRTUALBOX_VM_NAME}"
 EOF},
-      "chmod 700 /root/provision_nfs.sh /srv/vagrant/provision_script.sh;",
-      "/root/provision_nfs.sh;",
+      "chmod 700 /root/vagrant/provision_nfs.sh /srv/vagrant/provision_script.sh;",
+      "/root/vagrant/provision_nfs.sh;",
       "/srv/vagrant/provision_script.sh",
   ]
   config.vm.provision :shell, :inline => pkg_cmd.join("\n")
