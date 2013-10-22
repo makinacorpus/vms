@@ -167,10 +167,6 @@ end
 # ------ Init based on configuration values ---------------------------------
 # Chances are you do not want to alter that.
 
-devhost_f = File.open(VBOX_SUBNET_FILE, 'w')
-devhost_f.write(DEVHOST_NUM)
-devhost_f.close()
-
 BOX_PRIVATE_SUBNET=BOX_PRIVATE_SUBNET_BASE+DEVHOST_NUM
 BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43" # so 10.1.42.43 by default
 BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
@@ -381,7 +377,8 @@ vsettings_f.close()
 # provision script has been moved to a bash script as it growned too much see ./provision_script.sh
 # the only thing we cant move is to test for NFS to be there as the shared file system relies on it
 pkg_cmd = [
-    %{cat > /root/provision_nfs.sh  << EOF
+    "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
+    %{cat > /root/vagrant/provision_nfs.sh  << EOF
 #!/usr/bin/env bash
 MARKERS="/srv/root/vagrant/markers"
 die_if_error() { if [[ "\\$?" != "0" ]];then output "There were errors";exit 1;fi; };
@@ -401,7 +398,7 @@ if [[ ! -f /srv/Vagrantfile ]];then
     exit 1
 fi
 EOF},
-    %{cat > /root/vagrant_provision_settings.sh  << EOF
+    %{cat > /root/vagrant/provision_settings.sh  << EOF
 DNS_SERVER="#{DNS_SERVER}"
 PREVIOUS_OFFICIAL_MIRROR="#{PREVIOUS_OFFICIAL_MIRROR}"
 PREVIOUS_LOCAL_MIRROR="#{PREVIOUS_LOCAL_MIRROR}"
@@ -417,8 +414,8 @@ DOCKER_NETWORK_MASK="#{DOCKER_NETWORK_MASK}"
 DOCKER_NETWORK_MASK_NUM="#{DOCKER_NETWORK_MASK_NUM}"
 VB_NAME="#{VIRTUALBOX_VM_NAME}"
 EOF},
-      "chmod 700 /root/provision_nfs.sh /srv/vagrant/provision_script.sh;",
-      "/root/provision_nfs.sh;",
+      "chmod 700 /root/vagrant/provision_nfs.sh /srv/vagrant/provision_script.sh;",
+      "/root/vagrant/provision_nfs.sh;",
       "/srv/vagrant/provision_script.sh",
   ]
   config.vm.provision :shell, :inline => pkg_cmd.join("\n")
