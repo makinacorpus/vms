@@ -27,6 +27,10 @@ TODO
 * integrate a X11 display in dockers using fluxbox and tightvnserver
 
 * Fix /etc/hosts editing to not have the first 127.0.0.1 appended at the end of file but at the init.
+
+* Integrate a state for apt-cahe-ng-and similar
+
+* In devhost, configure the host itself & dockers to use apt-cacher on the host
  
 
 DONE
