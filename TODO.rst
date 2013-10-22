@@ -32,6 +32,7 @@ TODO
 
 * In devhost, configure the host itself & dockers to use apt-cacher on the host
  
+* make makina-states less ubuntu specific, and make debian a first class citizen
 
 DONE
 ====
