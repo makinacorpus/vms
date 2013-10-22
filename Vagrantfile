@@ -124,15 +124,8 @@ else
     DNS_SERVER="8.8.8.8"
 end
 
-# Set this to true ONLY if you have VirtualBox version > 4.2.12
-# else the synced folder would not work.
-# When activated this would remove warnings about version mismatch of
-# VirtualBox Guest additions, but we need at least the 4.2.12 version,
-# v 4.2.0 is present in the default raring ubuntu kernel and 4.2.10 on
-# raring and we add the 4.2.12 in this script
-# even if your host is on a lower version. If you have something greater than
-# 4.2.12 set this to true, comment the 4.2.12 install below and install vbguest
-# vagrant plugin with this command : "vagrant plugin install vagrant-vbguest"
+# This is the case on ubuntu <= 13.10
+# on ubuntu < 13.04 else the synced folder would not work.
 if defined?(AUTO_UPDATE_VBOXGUEST_ADD)
     vagrant_config_lines << "AUTO_UPDATE_VBOXGUEST_ADD=\"#{AUTO_UPDATE_VBOXGUEST_ADD}\""
 else
