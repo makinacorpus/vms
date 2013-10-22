@@ -3,31 +3,35 @@ READ THE TODO ON THE MASTER BRANCH
 
 IN PROGRESS
 ===========
+* Make saucy the master: **kiorky**
+
+* Make lucid work again: **kiorky**
+
 * docker support: **kiorky**
 
 * salt + docker managment **kiorky**
-
 
 * dev env: **regilero**
 
   * postfix
   * dev.sls
-    
+
 
 TODO
 ====
-* Make saucy the master
+* Fix /etc/hosts editing to not have the first 127.0.0.1 appended at the end of file but at the init.
 
-* Make lucid work again
+* Integrate a state for apt-cahe-ng-and similar
+
+* In devhost, configure the host itself & dockers to use apt-cacher on the host
+
+* make makina-states less ubuntu specific, and make debian a first class citizen
+
+* integrate a X11 display in dockers using fluxbox and tightvnserver
 
 * integrate Virtualbox Extension pack
 
   * btw: integrate rdesktop bridge to the host in the vagrantfile
-
-* integrate a X11 display in dockers using fluxbox and tightvnserver
-
-* Fix /etc/hosts editing to not have the first 127.0.0.1 appended at the end of file but at the init.
- 
 
 DONE
 ====
