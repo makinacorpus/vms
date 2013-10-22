@@ -163,3 +163,4 @@ This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1
 and the docker network on this host will be **172.31.22.0** and not **172.31.42.0**.
 The box hostname will be **devhost22.local** instead of devhost42.local.
 
+
