@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#
+
 # This script is ubuntu specific for the moment.
 # Script is supposed to be run on development VMs (Virtualbox)
 # This will install correctly NFS client, salt, makina-states, docker & virtualbox extensions
@@ -29,12 +29,23 @@ die_if_error() {
 output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
 output " [*] You can safely relaunch this script from within the vm"
 
-# source a maybe existing settings file
-SETTINGS="${SETTINGS:-"/root/vagrant_provision_settings.sh"}"
-if [ -f $SETTINGS ];then
-    output " [*] Loading custom settings in $SETTINGS"
-    . $SETTINGS
+# migrate old settings location
+if [[ ! -e /root/vagrant/provision_settings.sh ]];then
+    cp -f /root/vagrant_provision_settings.sh /root/vagrant/provision_settings.sh
 fi
+
+# source a maybe existing settings file
+SETTINGS="${SETTINGS:-"/root/vagrant/provision_settings.sh"}"
+if [[ -f "$SETTINGS" ]];then
+    output " [*] Loading custom settings in $SETTINGS"
+    . "$SETTINGS"
+fi
+# delete old generated scripts
+for old in /root/provision_nfs.sh /root/zerofree.sh /root/vagrant_provision_settings.sh;do
+    if [[ -e "$old" ]];then
+        rm -f "$old"
+    fi
+done
 PREFIX="${PREFIX:-"/srv"}"
 VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
 export SALT_BOOT='server'
@@ -114,7 +125,7 @@ EOF
 }
 
 write_zerofree() {
-    cat > /root/zerofree.sh << EOF
+    cat > /root/vagrant/zerofree.sh << EOF
 #!/usr/bin/env bash
 echo " [*] Zerofreeing"
 apt-get install -y --force-yes zerofree
@@ -321,11 +332,24 @@ for service in $UPSTART_DISABLED_SERVICES;do
 done
 
 if [ ! -e "$mirror_marker" ];then
+    if [[ -n $EARLY_UBUNTU ]];then
+        m="$MARKERS/vbox_pkg_1_initial_update_core_pkgs"
+        if [ ! -e $m ];then
+            apt-get update -qq &&\
+                apt-get install -y --force-yes\
+                cloud-init\
+                ubuntu-cloudimage-keyring ubuntu-cloud-keyring\
+                debian-keyring debian-archive-keyring ubuntu-extras-keyring ubuntu-keyring
+            cloud-init start
+        fi
+        touch $m
+    fi
     if [ ! -e "$MARKERS/vbox_pkg_1_initial_update" ];then
         # generate a proper commented /etc/apt/source.list
         output " [*] Initial upgrade with cloud-init"
         if [[ -n $EARLY_UBUNTU ]];then
-            apt-get install -y --force-yes cloud-init
+            apt-get update -qq &&\
+                apt-get install -y --force-yes cloud-init ubuntu-cloudimage-keyring ubuntu-cloud-keyring
             cloud-init start
         fi
         /usr/bin/cloud-init init
@@ -347,10 +371,10 @@ if [ ! -e "$mirror_marker" ];then
                     ADD_DEB=""
                 fi
             fi
-            if [[ ! "$(egrep "^deb\s+.*\s${rel}\s*$i" ${src_l}|wc -l)" == "0" ]];then
+            if [[ ! "$(egrep "^deb\s+.*\s${rel}\s+.*$i(\s+|$)" ${src_l}|wc -l)" == "0" ]];then
                 ADD_DEB=""
             fi
-            if [[ ! "$(egrep "^deb-src\s+.*\s${rel}\s*$i" ${src_l}|wc -l)" == "0" ]];then
+            if [[ ! "$(egrep "^deb-src\s+.*\s${rel}\s+.*$i(\s+|$)" ${src_l}|wc -l)" == "0" ]];then
                 ADD_DEBSRC=""
             fi
             if [[ -n "$ADD_DEB" ]];then

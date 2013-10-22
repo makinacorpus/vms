@@ -48,13 +48,14 @@ up() {
     if [[ "$1" == "noreload" ]];then
         noreload=y
     fi
-    if [[ "$(not_created)" == "1" ]] || [[ -z $noreload ]];then
-        log "First run, we issue an up & reload first"
-        vagrant up
-        vagrant reload && no_up=1
-    else
-        log "Up !"
-        vagrant up
+    not_created="$(not_created)"
+    log "Up !"
+    vagrant up
+    if [[ "$not_created" == "1" ]];then
+        if [[ -z $noreload ]];then
+            log "First run, we issue a reload after the first up"
+            vagrant reload
+        fi
     fi
 }
 not_created() {
@@ -251,7 +252,7 @@ import() {
 do_zerofree() {
     log "Zerofreing" &&\
     up noreload      &&\
-    vagrant ssh -c "sudo /root/zerofree.sh" &&\
+    vagrant ssh -c "sudo /root/vagrant/zerofree.sh" &&\
     log " [*] WM Zerofreed"
 }
 action=$1
