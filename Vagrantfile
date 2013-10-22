@@ -124,7 +124,6 @@ else
     DNS_SERVER="8.8.8.8"
 end
 
-
 # This is the case on ubuntu <= 13.10
 # on ubuntu < 13.04 else the synced folder would not work.
 if defined?(AUTO_UPDATE_VBOXGUEST_ADD)
