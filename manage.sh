@@ -75,7 +75,7 @@ maybe_finish_creation() {
             if [[ "$marker" == "0" ]];then
                 log "First runs, we issue a scheduled reload after the first up(s)"
                 vagrant reload
-                marker="$($vagrant ssh -c 'test -e /tmp/vagrant42';echo $?)"
+                marker="$(vagrant ssh -c 'test -e /tmp/vagrant42';echo $?)"
                 ret="$?"
             elif [[ "$ret" != "0" ]];then
                 log "Error in vagrant up/reload"
