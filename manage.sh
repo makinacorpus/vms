@@ -29,7 +29,7 @@ test() {
     name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|sed -re 's/.*="//' -e 's/"//g')
     echo $name
     d="$c-test"
-    sudo rsync -azv $c/ $d/ --delete-excluded --exclude=salt/ --exclude=pillar --exclude=projects --exclude=.vagrant --exclude=vagrant_config.rb
+    sudo rsync -azv $c/ $d/ --exclude=salt/ --exclude=pillar --exclude=projects --exclude=.vagrant --exclude=vagrant_config.rb
     cd ${d} || exit -1
     ./manage.sh destroy
     rm -rf salt projects pillar .vagrant
