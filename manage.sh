@@ -35,6 +35,10 @@ test() {
     rm -rf salt projects pillar .vagrant
     if [[ "$name" == "saucy" ]];then
         num="52"
+    elif [[ "$name" == "raring" ]];then
+        num="53"
+    elif [[ "$name" == "precise" ]];then
+        num="54"
     fi
     cat > vagrant_config.rb << EOF
 module MyConfig
