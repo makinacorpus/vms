@@ -43,7 +43,7 @@ test() {
     cat > vagrant_config.rb << EOF
 module MyConfig
     DEVHOST_NUM="$num"
-    VIRTUALBOX_VM_NAME="Docker DevHost $num Ubuntu saucy64"
+    VIRTUALBOX_VM_NAME="Docker DevHost $num Ubuntu ${name}64"
 end
 EOF
     ./manage.sh up
