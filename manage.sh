@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-actions="up reload destroy down export export_nude import import_nude suspend do_zerofree ssh"
+actions="up reload destroy down export export_nude import import_nude suspend do_zerofree ssh test"
 a_eximmodes="full nude"
 RED="\\033[31m"
 CYAN="\\033[36m"
@@ -22,6 +22,27 @@ usage() {
     for i in $actions_main_usage;do
         echo "$0 $i"
     done
+}
+test() {
+    cd $(dirname $0)
+    c=$PWD
+    name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|sed -re 's/.*="//' -e 's/"//g')
+    echo $name
+    d="$c-test"
+    sudo rsync -azv $c/ $d/ --delete-excluded --exclude=salt/ --exclude=pillar --exclude=projects --exclude=.vagrant --exclude=vagrant_config.rb
+    cd ${d} || exit -1
+    ./manage.sh destroy
+    rm -rf salt projects pillar .vagrant
+    if [[ "$name" == "saucy" ]];then
+        num="52"
+    fi
+    cat > vagrant_config.rb << EOF
+module MyConfig
+    DEVHOST_NUM="$num"
+    VIRTUALBOX_VM_NAME="Docker DevHost $num Ubuntu saucy64"
+end
+EOF
+    ./manage.sh up
 }
 destroy() {
     cd $c
