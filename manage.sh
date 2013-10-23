@@ -67,21 +67,29 @@ down() {
     log "Down !"
     vagrant halt -f
 }
+maybe_finish_creation() {
+    ret=$?
+    marker="$(vagrant ssh -c 'test -e /tmp/vagrant42'>/dev/null;echo $?)"
+    if [[ "$ret" != "0" ]] || [[ "$marker" == "0" ]];then
+        for i in $(seq 3);do
+            if [[ "$marker" == "0" ]];then
+                log "First runs, we issue a scheduled reload after the first up(s)"
+                vagrant reload
+                marker="$($vagrant ssh -c 'test -e /tmp/vagrant42';echo $?)"
+                ret="$?"
+            elif [[ "$ret" != "0" ]];then
+                log "Error in vagrant up/reload"
+                exit 1
+            fi
+        done
+    fi
+}
 up() {
     cd $c
-    local noreload=""
-    if [[ "$1" == "noreload" ]];then
-        noreload=y
-    fi
     not_created="$(not_created)"
     log "Up !"
     vagrant up
-    if [[ "$not_created" == "1" ]];then
-        if [[ -z $noreload ]];then
-            log "First run, we issue a reload after the first up"
-            vagrant reload
-        fi
-    fi
+    maybe_finish_creation
 }
 not_created() {
     cd $c
@@ -91,6 +99,7 @@ reload() {
     cd $c
     log "Reload!"
     vagrant reload
+    maybe_finish_creation
 }
 export() {
     cd $c
@@ -142,7 +151,7 @@ export() {
     if [[ "$mode" == "full" ]];then \
         if [[ ! -f package-full.box ]];then
             if [[ -z $nosed ]];then \
-                up noreload &&\
+                up &&\
                 vagrant ssh \
                    -c 'sudo sed -ire "s/^SUBSYSTEM/#SUBSYSTEM/g" /etc/udev/rules.d/70-persistent-net.rules';\
             fi &&\
@@ -261,7 +270,7 @@ import() {
     vagrant box add -f devhost "$box" &&\
     log "Initialiasing host from $box" &&\
     sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' \
-    Vagrantfile;gtouched="1" && up noreload && down
+    Vagrantfile;gtouched="1" && up && down
     ret=$?
     # reseting Vagrantfile in any case
     if [[ -n $gtouched ]];then
@@ -276,7 +285,7 @@ import() {
 }
 do_zerofree() {
     log "Zerofreing" &&\
-    up noreload      &&\
+    up &&\
     vagrant ssh -c "sudo /root/vagrant/zerofree.sh" &&\
     log " [*] WM Zerofreed"
 }
