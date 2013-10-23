@@ -12,11 +12,24 @@ Check other branches to find LTS precise versions.
 
 check the Install part on this documentation for installation instructions
 
+Notes for specific ubuntu release packages:
+Precise (LTS)
+--------------
+- Recent Virtualbox
+- Linux hardware enablement stack kernel (3.8)
+
+Raring
+-------
 As of now, we needed to backport those next-ubuntu stuff (saucy) for things to behave correctly and efficiently:
 
     - Lxc >= 1.0b
     - Kernel >= 3.11
     - Virtualbox >= 4.2.16
+
+Saucy
+---------
+Mainline packages
+
 
 Docker VMs
 ==========
