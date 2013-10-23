@@ -136,12 +136,20 @@ mount -o remount,ro /
 zerofree -v /dev/sda1
 mount -o remount,rw /
 EOF
-    chmod +x /root/zerofree.sh
+    chmod +x /root/vagrant/zerofree.sh
 }
 write_zerofree
 
 
 get_grain() { salt-call --local grains.get $1 --out=raw 2>/dev/null ; }
+
+lazy_apt_get_install() {
+    for i in $@;do
+         if [[ $(dpkg-query -s $i 2>/dev/null|egrep "^Status:"|grep installed|wc -l)  == "0" ]];then
+             apt-get install -y --force-yes $i
+         fi
+    done
+}
 
 initialize_devel_salt_grains() {
     grain=makina.devhost
@@ -165,10 +173,10 @@ open_routes() {
 
 backport_saucy() {
     if [[ ! -e "$lxc_marker" ]];then
-        output " [*] Backporting Saucy LXC packages: adding repository"
+        output " [*] Backporting $UBUNTU_NEXT_RELEASE LXC packages: adding repository"
         sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i "${src_l}" && \
         apt-get update -qq && \
-        output " [*] Backporting Saucy LXC packages:"
+        output " [*] Backporting $UBUNTU_NEXT_RELEASE LXC packages:"
         output " [*]   ${LXC_PKGS}"
         apt-get install -y --force-yes ${LXC_PKGS}
         die_if_error
@@ -180,7 +188,7 @@ backport_saucy() {
     fi
 
     if [[ ! -e "$vbox_marker" ]];then
-        output " [*] Backporting Saucy Virtualbox packages:"
+        output " [*] Backporting $UBUNTU_NEXT_RELEASE Virtualbox packages:"
         output " [*]   $VB_PKGS"
         sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
         apt-get update -qq && apt-get install -y --force-yes $VB_PKGS
@@ -193,18 +201,7 @@ backport_saucy() {
     fi
 
     if [[ ! -e "${kernel_marker}" ]]; then
-        output " [*] Backporting Saucy kernel ($KERNEL_PKGS)"
-        sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
-        apt-get update -qq && apt-get install -y --force-yes $KERNEL_PKGS
-        die_if_error
-        sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
-        die_if_error
-        touch "$kernel_marker"
-        NEED_RESTART="1"
-    fi
-
-    if [[ ! -e "${kernel_marker}" ]]; then
-        output " [*] Backporting Saucy kernel ($KERNEL_PKGS)"
+        output " [*] Backporting $UBUNTU_NEXT_RELEASE kernel ($KERNEL_PKGS)"
         sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
         apt-get update -qq && apt-get install -y --force-yes $KERNEL_PKGS
         die_if_error
@@ -244,9 +241,9 @@ if_conf="$if_file.conf "
 NETWORK_RESTART=""
 
 #activate_ifup_debugging
+lazy_apt_get_install git git-core bridge-utils
 
 if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];then
-    apt-get install -y --force-yes bridge-utils
     echo>>/etc/network/interfaces
     touch $if_conf
     echo "# configure dockers">>/etc/network/interfaces
@@ -349,7 +346,7 @@ if [ ! -e "$mirror_marker" ];then
         output " [*] Initial upgrade with cloud-init"
         if [[ -n $EARLY_UBUNTU ]];then
             apt-get update -qq &&\
-                apt-get install -y --force-yes cloud-init ubuntu-cloudimage-keyring ubuntu-cloud-keyring
+                lazy_apt_get_install cloud-init ubuntu-cloudimage-keyring ubuntu-cloud-keyring git git-core
             cloud-init start
         fi
         /usr/bin/cloud-init init
@@ -418,7 +415,7 @@ if [[ -n "$use_backports" ]] &&  [[ ! -e "$kernel_marker" ]];then
 fi
 if [ ! -e $MARKERS/provision_step_nfs_done ]; then
   output " [*] Install nfs support on guest"
-  apt-get install -q -y --force-yes nfs-common portmap || die_if_error
+  apt-get install -y --force-yes nfs-common portmap || die_if_error
   touch $MARKERS/provision_step_nfs_done
 fi
 if [ ! -e $MARKERS/provision_step_lxc_done ]; then
@@ -429,7 +426,7 @@ if [ ! -e $MARKERS/provision_step_lxc_done ]; then
   output " [*] Install lxc-docker support: refresh packages list"
   apt-get update -qq || die_if_error
   output " [*] Install lxc-docker support: install lxc-docker package"
-  apt-get install -q -y --force-yes lxc-docker || die_if_error
+  apt-get install -y --force-yes lxc-docker || die_if_error
   # autorestart dockers on boot
   killall -9 docker
   service docker stop
@@ -442,7 +439,7 @@ if [ ! -e $MARKERS/provision_step_lxc_done ]; then
 fi
 if [ ! -e $MARKERS/provision_step_lang_done ]; then
   output " [*] Fix French language"
-  apt-get install -q -y --force-yes language-pack-fr
+  apt-get install -y --force-yes language-pack-fr
   echo>/etc/locale.gen
   echo "en_US.UTF-8 UTF-8">>/etc/locale.gen
   echo "en_US ISO-8859-1">>/etc/locale.gen
