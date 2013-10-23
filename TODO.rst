@@ -15,7 +15,7 @@ IN PROGRESS
 
   * postfix
   * dev.sls
-
+    
 
 TODO
 ====
@@ -24,7 +24,7 @@ TODO
 * Integrate a state for apt-cahe-ng-and similar
 
 * In devhost, configure the host itself & dockers to use apt-cacher on the host
-
+ 
 * make makina-states less ubuntu specific, and make debian a first class citizen
 
 * integrate a X11 display in dockers using fluxbox and tightvnserver
