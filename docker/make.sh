@@ -77,7 +77,7 @@ build_docker() {
     sudo service docker start
     sleep 2
     cd $c/docker || die "docker src not there"
-    if [[ $(docker images|awk '{print $2}'|egrep '^docker$'|wc -l) == "0" ]];then
+    if [[ $(docker images|awk '{print $1}'|egrep '^docker$'|wc -l) == "0" ]];then
         docker build -t docker .
         if [[ $? != 0 ]];then
             die "Docker build-init failed"
