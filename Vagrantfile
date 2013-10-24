@@ -167,8 +167,9 @@ BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
 # we also setup a specific docker network subnet per virtualbox host
 DOCKER_NETWORK_IF="docker0"
 DOCKER_NETWORK_HOST_IF="eth0"
-DOCKER_NETWORK_GATEWAY=DOCKER_NETWORK_BASE+DEVHOST_NUM+".1"
-DOCKER_NETWORK=DOCKER_NETWORK_BASE+DEVHOST_NUM+".0"  # so 172.31.42.0 by default
+DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.42.0 by default
+DOCKER_NETWORK=DOCKER_NETWORK_SUBNET+".0"
+DOCKER_NETWORK_GATEWAY=DOCKER_NETWORK_SUBNET+".254"
 DOCKER_NETWORK_MASK="255.255.255.0"
 DOCKER_NETWORK_MASK_NUM="24"
 
@@ -199,7 +200,7 @@ VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost42.local by default
 
 # ------------- BASE IMAGE UBUNTU  -----------------------
 # You can pre-download this image with
-# vagrant box add raring64 http://cloud-images.ubuntu.com/raring/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
+# vagrant box add precise64 http://cloud-images.ubuntu.com/precise/precise/current/precise-server-cloudimg-amd64-vagrant-disk1.box
 
 if defined?(BOX_NAME)
     vagrant_config_lines << "BOX_NAME=\"#{BOX_NAME}\""
@@ -257,10 +258,10 @@ Vagrant.configure("2") do |config|
   # and the "sendfile" bugs with nginx and apache
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
-  config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check"]
+  config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check"], bsd__nfs_options: ["maproot=root:wheel", "alldirs"]
   #disabling default vagrant mount on /vagrant as we mount it on /srv
   config.vm.synced_folder ".", "/vagrant", disabled: true
-  # dev: mount of etc, so we can alter current host /etc/hosts fromm the guest (insecure by defintion)
+  # dev: mount of etc, so we can alter current host /etc/hosts from the guest (insecure by definition)
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
 
   #------------- PROVISIONING ------------------------------
@@ -350,7 +351,7 @@ Vagrant.configure("2") do |config|
     `if ip route show|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo ip route replace #{BOX_PRIVATE_IP} via #{BOX_PRIVATE_GW}; sudo ip route replace #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} via #{BOX_PRIVATE_IP}; fi;`
   else
     #Mac
-    `if netstat -rn|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo route -n add -host #{BOX_PRIVATE_IP} #{BOX_PRIVATE_GW};sudo route -n add -net #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} #{BOX_PRIVATE_IP};fi;`
+    `if netstat -rn|grep "#{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo route -n add -host #{BOX_PRIVATE_IP} #{BOX_PRIVATE_GW};sudo route -n add -net #{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK_NUM} #{BOX_PRIVATE_IP};fi;`
   end
   printf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
 
@@ -401,6 +402,8 @@ UBUNTU_RELEASE="#{UBUNTU_RELEASE}"
 UBUNTU_NEXT_RELEASE="#{UBUNTU_NEXT_RELEASE}"
 DOCKER_NETWORK_HOST_IF="#{DOCKER_NETWORK_HOST_IF}"
 DOCKER_NETWORK_IF="#{DOCKER_NETWORK_IF}"
+DOCKER_NETWORK_BASE="#{DOCKER_NETWORK_IF}"
+DOCKER_NETWORK_SUBNET="#{DOCKER_NETWORK_SUBNET}"
 DOCKER_NETWORK_GATEWAY="#{DOCKER_NETWORK_GATEWAY}"
 DOCKER_NETWORK="#{DOCKER_NETWORK}"
 DOCKER_NETWORK_MASK="#{DOCKER_NETWORK_MASK}"
