@@ -227,9 +227,9 @@ make_image_from_path() {
 
 make_image_from_deboostrap() {
     debootstrap="$1";tag="$2";dst="$c/$tag/deboostrap"
-    if [[ -e $deboostrap ]];then chmod +x $deboostrap;fi
+    if [[ -e $debootstrap ]];then chmod +x $debootstrap;fi
     log "Using $debootstrap for building $tag"
-    cook $deboostrap -p $dst
+    cook $debootstrap -p $dst
     make_image_from_path $dst $c/$tag
 }
 
