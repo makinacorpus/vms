@@ -26,7 +26,7 @@ usage() {
 test() {
     cd $(dirname $0)
     c=$PWD
-    name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|sed -re 's/.*="//' -e 's/"//g')
+    name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
     echo $name
     d="$c-test"
     sudo rsync -azv $c/ $d/ --exclude=salt/ --exclude=pillar --exclude=projects --exclude=.vagrant --exclude=vagrant_config.rb
