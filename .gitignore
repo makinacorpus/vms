@@ -1,4 +1,7 @@
 debian/cache/
+makinacorpus/ubuntu_template/Dockerfile
+docker/docker/
+docker/lxc/
 vagrant_config.rb
 package.box
 package.tar.bz2
@@ -25,3 +28,6 @@ debian/debian-base.tgz
 cache/
 deboostrap/
 *~
+docker/ubuntu-12.04-server-cloudimg-amd64-root.tar.gz
+docker/ubuntu-13.10-server-cloudimg-amd64-root.tar.gz
+
