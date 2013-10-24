@@ -1,50 +1,121 @@
 #!/usr/bin/env bash
-actions="rm_all build_docker fix_perms restart_dockers init_src"
+#
+# not really safe to use on a real system, you may better run that on a vm
+# was tested with the vagrantfile of this repository
+#
+actions="rm_all build_docker fix_perms restart_dockers init_src build_lxc"
 u=""
 if [[ "$(whoami)" != "root" ]];then
     u=$(whoami)
 fi
 g=editor
+lxc_bins="lxc-stop lxc-start lxc-attach lxc-kill lxc-restart lxc-execute"
 c=$(dirname $0)
 cd $c
 c=$PWD
-die() { echo $@; exit -1; }
-build_docker() {
-    init_src
-    cd $0/docker || die "docker src not there"
-    if [ ! -f /usr/bin/docker.ubundu ];then
-        sudo cp /usr/bin/docker /usr/bin/docker.ubundu
+RED="\\033[31m"
+CYAN="\\033[36m"
+NORMAL="\\033[0m"
+YELLOW='\e[1;33m'
+lazy_apt_get_install() {
+    to_install=""
+    for i in $@;do
+         if [[ $(dpkg-query -s $i 2>/dev/null|egrep "^Status:"|grep installed|wc -l)  == "0" ]];then
+             to_install="$to_install $i"
+         fi
+    done
+    if [[ -n "$to_install" ]];then
+        log " [*] Installing $to_install"
+        sudo apt-get install -y --force-yes $to_install
     fi
-    for binary in lxc-start docker;do
-        if [ ! -f /usr/bin/${binary} ];then
-            sudo cp -v /usr/bin/${binary} /usr/bin/${binary}.ubuntu
+}
+log(){ echo -e "${RED} [docker make] ${@}${NORMAL}"; }
+warn(){ echo -e "${YELLOW} [docker make] ${@}${NORMAL}"; }
+die() { echo -e "${CYAN}$@${NOMAL}"; exit -1; }
+build_lxc() {
+    log "Bootstrapping sources"
+    init_src
+    save_bins
+    cd $c/lxc || die "docker src not there"
+    lazy_apt_get_install autopoint
+    sudo apt-get build-dep -y --force-yes lxc
+    ./autogen.sh -ifv && ./configure --with-distro=ubuntu --prefix=/lxc/ && make && sudo make install &&\
+        for i in $lxc_bins;do sudo ln -svf /lxc/bin/$i /usr/bin/$i;done
+    post_build $@
+}
+save_bins() {
+    for binary in $lxc_bins docker ;do
+        mybin="$(which $binary)"
+        if [ ! -f "${mybin}.ubuntu" ] && [ -f "${mybin}" ];then
+            warn "Saving $binary in ${mybin}.ubuntu"
+            sudo cp "${mybin}" "${mybin}.ubuntu"
         fi
     done
+}
+post_build() {
+    for i in $@;do
+        if [[ $i == "fix_perms" ]];then
+            fix_perms
+        fi
+    done
+}
+build_docker() {
+    nopull="nopull"
+    for i in $@;do
+        if [[ $i == "pull" ]];then
+            nopull="pull"
+        fi
+    done
+    log "Bootstrapping sources"
+    init_src $nopull
+    cd $c/docker || die "docker src not there"
+    save_bins
     sudo service docker stop
     sudo rm -rf /var/run/docker.sock
     sudo rm -f  /usr/bin/docker
-    sudo ln -sf /usr/bin/docker.ubundu /usr/bin/docker
+    sudo ln -sf /usr/bin/docker.ubuntu /usr/bin/docker
     sudo service docker start
     sleep 2
+    cd $c/docker || die "docker src not there"
+    if [[ $(docker images|awk '{print $2}'|egrep '^docker$'|wc -l) == "0" ]];then
+        docker build -t docker .
+        if [[ $? != 0 ]];then
+            die "Docker build-init failed"
+        fi
+    fi
     sudo /usr/bin/docker run -lxc-conf=lxc.aa_profile=unconfined -privileged -v `pwd`:/go/src/github.com/dotcloud/docker docker hack/make.sh binary
     bin="$(ls -r1t $PWD/bundles/*/binary/docker-*|tail -n1)"
     sudo service docker stop
     sudo rm -rf /var/run/docker.sock
     sudo ln -fs  $bin /usr/bin/docker
     sudo service docker start
+    post_build $@
 }
 init_src() {
+    log "Getting sources"
     if [ ! -d lxc ];then
+        warn "Getting lxc"
         git clone https://github.com/lxc/lxc.git
     fi
     if [ ! -d docker ];then
+        warn "Getting docker"
         git clone https://github.com/dotcloud/docker.git
     fi
-    cd $c/lxc && git pull
-    cd $c/docker && git remote add k https://github.com/kiorky/docker.git
-    cd $c/docker && git pull
+    nopull="nopull"
+    for i in $@;do
+        if [[ $i == "pull" ]];then
+            nopull="pull"
+        fi
+    done
+    if [[ $nopull != "nopull" ]];then
+        warn "Upgrading lxc"
+        cd $c/lxc && git pull
+        warn "Upgrading sources"
+        cd $c/docker && git remote add k https://github.com/kiorky/docker.git
+        warn "Upgrading docker"
+        cd $c/docker && git pull
+    fi
     sed -re "s/filemode.*/filemode=false/g" -i $c/*/.git/config
-    sudo fix_perms
 }
 restart_dockers() {
     case $1 in
