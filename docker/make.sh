@@ -9,7 +9,7 @@ if [[ "$(whoami)" != "root" ]];then
     u=$(whoami)
 fi
 g=editor
-lxc_bins="lxc-stop lxc-start lxc-attach lxc-kill lxc-restart lxc-execute"
+lxc_bins="lxc-stop lxc-start lxc-info lxc-attach lxc-kill lxc-restart lxc-execute"
 c=$(dirname $0)
 cd $c
 c=$PWD
