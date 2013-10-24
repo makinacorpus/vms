@@ -14,6 +14,7 @@ CYAN="\\033[36m"
 NORMAL="\\033[0m"
 DEBUG=${BOOT_SALT_DEBUG:-}
 output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
+log() { output "$@"; }
 die_if_error() { if [[ "$?" != "0" ]];then output "There were errors";exit 1;fi; }
 
 output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
@@ -156,15 +157,23 @@ get_grain() {
     salt-call --local grains.get $1 --out=raw 2>/dev/null
 }
 
+is_apt_installed() {
+    if [[ $(dpkg-query -s $@ 2>/dev/null|egrep "^Status:"|grep installed|wc -l)  == "0" ]];then
+        echo "no"
+    else
+        echo "yes"
+    fi
+}
+
 lazy_apt_get_install() {
     to_install=""
     for i in $@;do
-         if [[ $(dpkg-query -s $i 2>/dev/null|egrep "^Status:"|grep installed|wc -l)  == "0" ]];then
+         if [[ $(is_apt_installed $i)  != "yes" ]];then
              to_install="$to_install $i"
          fi
     done
     if [[ -n "$to_install" ]];then
-        output " [*] Installing $to_install"
+        log " [*] Installing $to_install"
         apt-get install -y --force-yes $to_install
     fi
 }
@@ -482,6 +491,11 @@ install_backports() {
     if [[ "$DISTRIB_CODENAME" == "raring" ]]\
         || [[ "$DISTRIB_CODENAME" == "precise" ]];then
         backport_for_${DISTRIB_CODENAME}
+    fi
+    if [[ $(is_apt_installed linux-image-extra-virtual) != "yes" ]];then
+        log " [*] Installing linux-image-extra-virtual for AUFS support"
+        lazy_apt_get_install linux-image-extra-virtual
+        touch $restart_marker
     fi
     check_restart
 }
