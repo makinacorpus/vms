@@ -167,8 +167,9 @@ BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
 # we also setup a specific docker network subnet per virtualbox host
 DOCKER_NETWORK_IF="docker0"
 DOCKER_NETWORK_HOST_IF="eth0"
-DOCKER_NETWORK_GATEWAY=DOCKER_NETWORK_BASE+DEVHOST_NUM+".1"
-DOCKER_NETWORK=DOCKER_NETWORK_BASE+DEVHOST_NUM+".0"  # so 172.31.42.0 by default
+DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.42.0 by default
+DOCKER_NETWORK=DOCKER_NETWORK_SUBNET+".0"
+DOCKER_NETWORK_GATEWAY=DOCKER_NETWORK_SUBNET+".254"
 DOCKER_NETWORK_MASK="255.255.255.0"
 DOCKER_NETWORK_MASK_NUM="24"
 
@@ -350,7 +351,7 @@ Vagrant.configure("2") do |config|
     `if ip route show|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo ip route replace #{BOX_PRIVATE_IP} via #{BOX_PRIVATE_GW}; sudo ip route replace #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} via #{BOX_PRIVATE_IP}; fi;`
   else
     #Mac
-    `if netstat -rn|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo route -n add -host #{BOX_PRIVATE_IP} #{BOX_PRIVATE_GW};sudo route -n add -net #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} #{BOX_PRIVATE_IP};fi;`
+    `if netstat -rn|grep "#{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo route -n add -host #{BOX_PRIVATE_IP} #{BOX_PRIVATE_GW};sudo route -n add -net #{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK_NUM} #{BOX_PRIVATE_IP};fi;`
   end
   printf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
 
@@ -401,6 +402,8 @@ UBUNTU_RELEASE="#{UBUNTU_RELEASE}"
 UBUNTU_NEXT_RELEASE="#{UBUNTU_NEXT_RELEASE}"
 DOCKER_NETWORK_HOST_IF="#{DOCKER_NETWORK_HOST_IF}"
 DOCKER_NETWORK_IF="#{DOCKER_NETWORK_IF}"
+DOCKER_NETWORK_BASE="#{DOCKER_NETWORK_IF}"
+DOCKER_NETWORK_SUBNET="#{DOCKER_NETWORK_SUBNET}"
 DOCKER_NETWORK_GATEWAY="#{DOCKER_NETWORK_GATEWAY}"
 DOCKER_NETWORK="#{DOCKER_NETWORK}"
 DOCKER_NETWORK_MASK="#{DOCKER_NETWORK_MASK}"
