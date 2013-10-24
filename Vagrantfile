@@ -258,10 +258,10 @@ Vagrant.configure("2") do |config|
   # and the "sendfile" bugs with nginx and apache
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
-  config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check"]
+  config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check"], bsd__nfs_options: ["maproot=root:wheel", "alldirs"]
   #disabling default vagrant mount on /vagrant as we mount it on /srv
   config.vm.synced_folder ".", "/vagrant", disabled: true
-  # dev: mount of etc, so we can alter current host /etc/hosts fromm the guest (insecure by defintion)
+  # dev: mount of etc, so we can alter current host /etc/hosts from the guest (insecure by definition)
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
 
   #------------- PROVISIONING ------------------------------
