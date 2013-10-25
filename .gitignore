@@ -1,4 +1,5 @@
 debian/cache/
+docker/makinacorpus/*/deboostrap.tar.gz
 docker/makinacorpus/ubuntu_template/Dockerfile
 docker/docker/
 docker/lxc/

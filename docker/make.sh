@@ -213,7 +213,7 @@ cook() {
 tar_image() {
     w=$PWD
     src="$1";tar="${2:-${1}.tar.gz}";
-    echo "Tarballing $src to $tar"
+    log "Tarballing $src to $tar"
     cd $src && tar czfp "$tar" . --numeric-owner
     cd $w
 }
@@ -222,7 +222,7 @@ make_image_from_path() {
     src="$1";tag="$2"
     log "Building docker $tag from path: $src"
     tar_image $src ${src}.tar.gz
-    make_image_from_tarball ${src}.tar.gz $c/$tag
+    make_image_from_tarball ${src}.tar.gz $tag
 }
 
 make_image_from_deboostrap() {
@@ -230,7 +230,7 @@ make_image_from_deboostrap() {
     if [[ -e $debootstrap ]];then chmod +x $debootstrap;fi
     log "Using $debootstrap for building $tag"
     cook $debootstrap -p $dst
-    make_image_from_path $dst $c/$tag
+    make_image_from_path $dst $tag
 }
 
 import_image() {
@@ -264,8 +264,9 @@ ubuntu_dockerfile() {
 make_image_with_postinst() {
     tag="$1";postinst="${2:-/etc/docker-postinst.sh}"
     log "Building image $tag with postinst: $postinst"
-    docker build -rm=true -t ${tag}_tmp ${tag}
-    if [[ $ret != 0 ]];then log "failed tmp build $tag";exit -1;fi
+    docker build -rm=true -t ${tag}_tmp $c/${tag}
+    ret="$?"
+    if [[ "$ret" != "0" ]];then die "failed tmp build $tag";fi
     MID=$(docker run -d -privileged ${tag}_tmp)
     LID=$(docker inspect $MID|grep ID|awk '{print $2}'|sed -re 's/\"//g' -e 's/\,//g')
     log "Running $postinst from $MID( $LID )"
@@ -278,12 +279,12 @@ make_image_with_postinst() {
 
 make_image_ubuntu_salt() {
     make_image ubuntu
-    cook make_image_with_postinst makinacorpus/salt
+    cook make_image_with_postinst makinacorpus/ubuntu_salt
 }
 
 make_image_ubuntu_mastersalt() {
     make_image ubuntu
-    cook make_image_with_postinst makinacorpus/mastersalt
+    cook make_image_with_postinst makinacorpus/ubuntu_mastersalt
 }
 
 make_image_ubuntu_upstart() {
