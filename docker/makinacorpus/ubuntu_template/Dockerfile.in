@@ -9,8 +9,8 @@
 # http://linux-vserver.org/Upstart_issues
 # http://upstart.ubuntu.com/wiki/Debugging
 #
-MAINTAINER Mathieu Le Marec Pasquet <kiorky@cryptelium.net>
 FROM ubuntu:latest
+MAINTAINER Mathieu Le Marec Pasquet <kiorky@cryptelium.net>
 ENV DEBIAN_FRONTEND noninteractive
 #
 # resolvconf & fuse need some love to run in a container

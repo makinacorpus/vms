@@ -1,8 +1,8 @@
 #
 # Ubuntu with a debuggable upstart
 #
-MAINTAINER Mathieu Le Marec Pasquet <kiorky@cryptelium.net>
 FROM makinacorpus/ubuntu
+MAINTAINER Mathieu Le Marec Pasquet <kiorky@cryptelium.net>
 ENV prefix /testing
 RUN apt-get install -y --force-yes autopoint gdb strace build-essential m4 libtool pkg-config autoconf gettext bzip2 groff man-db automake libsigc++-2.0-dev tcl8.5 git bzr lxc;\
     apt-get build-dep -y --force-yes upstart libnih1 &&\
