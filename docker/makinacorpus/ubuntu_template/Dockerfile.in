@@ -1,4 +1,6 @@
 # To boot a fancy LXC container with upstart we need some extra stuff:
+#
+# - enable all repositories
 # - Re configure some packages
 # - Disable some services at boot
 # - Configure locales
@@ -8,6 +10,7 @@
 # http://upstart.ubuntu.com/wiki/Debugging
 #
 FROM ubuntu:latest
+MAINTAINER Mathieu Le Marec Pasquet <kiorky@cryptelium.net>
 ENV DEBIAN_FRONTEND noninteractive
 #
 # resolvconf & fuse need some love to run in a container

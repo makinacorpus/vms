@@ -492,10 +492,12 @@ install_backports() {
         || [[ "$DISTRIB_CODENAME" == "precise" ]];then
         backport_for_${DISTRIB_CODENAME}
     fi
-    if [[ $(is_apt_installed linux-image-extra-virtual) != "yes" ]];then
-        log " [*] Installing linux-image-extra-virtual for AUFS support"
-        lazy_apt_get_install linux-image-extra-virtual
-        touch $restart_marker
+    if [[ -z "$BEFORE_RARING" ]];then
+        if [[ "$(is_apt_installed linux-image-extra-virtual)" != "yes" ]];then
+            log " [*] Installing linux-image-extra-virtual for AUFS support"
+            lazy_apt_get_install linux-image-extra-virtual
+            touch $restart_marker
+        fi
     fi
     check_restart
 }

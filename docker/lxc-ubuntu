@@ -16,19 +16,23 @@
 # Copyright © 2010 Wilhelm Meier
 # Author: Wilhelm Meier <wilhelm.meier@fh-kl.de>
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License version 2, as
-# published by the Free Software Foundation.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation; either
+#  version 2.1 of the License, or (at your option) any later version.
 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-#
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+
+
+
+
 
 
 cd $(dirname $0)
@@ -106,7 +110,7 @@ configure_ubuntu()
     hostname=$2
     release=$3
 
-   # configure the network using the dhcp
+    # configure the network using the dhcp
     cat <<EOF > $rootfs/etc/network/interfaces
 # This file describes the network interfaces available on your system
 # and how to activate them. For more information, see interfaces(5).
@@ -199,11 +203,47 @@ finalize_user()
     return 0
 }
 
+#
+# Choose proxies for container
+# http_proxy will be used by debootstrap on the host.
+# APT_PROXY will be used to set /etc/apt/apt.conf.d/70proxy in the container.
+#
+choose_container_proxy()
+{
+    local rootfs=$1
+    local arch=$2
+
+    if [ -z "$HTTP_PROXY" ]; then
+        HTTP_PROXY="none"
+    fi
+    case "$HTTP_PROXY" in
+    none)
+        APT_PROXY=
+        ;;
+    apt)
+        RES=`apt-config shell APT_PROXY Acquire::http::Proxy`
+        eval $RES
+        [ -z "$APT_PROXY" ] || export http_proxy=$APT_PROXY
+        ;;
+    *)
+        APT_PROXY=$HTTP_PROXY
+        export http_proxy=$HTTP_PROXY
+        ;;
+    esac
+}
+
 write_sourceslist()
 {
     # $1 => path to the rootfs
     # $2 => architecture we want to add
     # $3 => whether to use the multi-arch syntax or not
+
+    if [ -n "$APT_PROXY" ]; then
+        mkdir -p $rootfs/etc/apt/apt.conf.d
+        cat > $rootfs/etc/apt/apt.conf.d/70proxy << EOF
+Acquire::http::Proxy "$APT_PROXY" ;
+EOF
+    fi
 
     case $2 in
       amd64|i386)
@@ -272,6 +312,7 @@ download_ubuntu()
         return 1
     fi
 
+    choose_container_proxy $cache/partial-$arch/ $arch
     # download a mini ubuntu into a cache
     echo "Downloading ubuntu $release minimal ..."
     if [ -n "$(which qemu-debootstrap)" ]; then
@@ -414,6 +455,10 @@ lxc.cap.drop = sys_module mac_admin mac_override
 # When using LXC with apparmor, uncomment the next line to run unconfined:
 #lxc.aa_profile = unconfined
 
+# To support container nesting on an Ubuntu host, uncomment next two lines:
+#lxc.aa_profile = lxc-container-default-with-nesting
+#lxc.hook.mount = /usr/share/lxc/hooks/mountcgroups
+
 lxc.cgroup.devices.deny = a
 # Allow any mknod (but not using the node)
 lxc.cgroup.devices.allow = c *:* m
@@ -424,30 +469,32 @@ lxc.cgroup.devices.allow = c 1:5 rwm
 # consoles
 lxc.cgroup.devices.allow = c 5:1 rwm
 lxc.cgroup.devices.allow = c 5:0 rwm
-#lxc.cgroup.devices.allow = c 4:0 rwm
-#lxc.cgroup.devices.allow = c 4:1 rwm
 # /dev/{,u}random
 lxc.cgroup.devices.allow = c 1:9 rwm
 lxc.cgroup.devices.allow = c 1:8 rwm
 lxc.cgroup.devices.allow = c 136:* rwm
 lxc.cgroup.devices.allow = c 5:2 rwm
 # rtc
-lxc.cgroup.devices.allow = c 254:0 rwm
-#fuse
+lxc.cgroup.devices.allow = c 254:0 rm
+# fuse
 lxc.cgroup.devices.allow = c 10:229 rwm
-#tun
+# tun
 lxc.cgroup.devices.allow = c 10:200 rwm
-#full
+# full
 lxc.cgroup.devices.allow = c 1:7 rwm
-#hpet
+# hpet
 lxc.cgroup.devices.allow = c 10:228 rwm
-#kvm
+# kvm
 lxc.cgroup.devices.allow = c 10:232 rwm
 EOF
 
     cat <<EOF > $path/fstab
 proc            proc         proc    nodev,noexec,nosuid 0 0
 sysfs           sys          sysfs defaults  0 0
+/sys/fs/fuse/connections sys/fs/fuse/connections none bind 0 0
+/sys/kernel/debug sys/kernel/debug none bind 0 0
+/sys/kernel/security sys/kernel/security none bind 0 0
+/sys/fs/pstore sys/fs/pstore none bind,optional 0 0
 EOF
 
     if [ $? -ne 0 ]; then
@@ -595,8 +642,14 @@ post_process()
         write_sourceslist $rootfs $hostarch "multiarch"
 
         # Finally update the lists and install upstart using the host architecture
+        HOST_PACKAGES="upstart:${hostarch} mountall:${hostarch} isc-dhcp-client:${hostarch}"
         chroot $rootfs apt-get update
-        chroot $rootfs apt-get install --force-yes -y --no-install-recommends upstart:${hostarch} mountall:${hostarch} iproute:${hostarch} isc-dhcp-client:${hostarch}
+        if chroot $rootfs dpkg -l iproute2 | grep -q ^ii; then
+            HOST_PACKAGES="$HOST_PACKAGES iproute2:${hostarch}"
+        else
+            HOST_PACKAGES="$HOST_PACKAGES iproute:${hostarch}"
+        fi
+        chroot $rootfs apt-get install --force-yes -y --no-install-recommends $HOST_PACKAGES
     fi
 
     # rmdir /dev/shm for containers that have /run/shm
@@ -652,6 +705,7 @@ usage()
     cat <<EOF
 $1 -h|--help [-a|--arch] [-b|--bindhome <user>] [--trim] [-d|--debug]
    [-F | --flush-cache] [-r|--release <release>] [ -S | --auth-key <keyfile>]
+   [--rootfs <rootfs>]
 release: the ubuntu release (e.g. precise): defaults to host release on ubuntu, otherwise uses latest LTS
 trim: make a minimal (faster, but not upgrade-safe) container
 bindhome: bind <user>'s home into the container
@@ -663,7 +717,7 @@ EOF
     return 0
 }
 
-options=$(getopt -o a:b:hp:r:xn:FS:d -l arch:,bindhome:,help,path:,release:,trim,name:,flush-cache,auth-key:,debug -- "$@")
+options=$(getopt -o a:b:hp:r:xn:FS:d -l arch:,bindhome:,help,path:,release:,trim,name:,flush-cache,auth-key:,debug,rootfs: -- "$@")
 if [ $? -ne 0 ]; then
     usage $(basename $0)
     exit 1
@@ -705,6 +759,7 @@ while true
 do
     case "$1" in
     -h|--help)      usage $0 && exit 0;;
+    --rootfs)       rootfs=$2; shift 2;;
     -p|--path)      path=$2; shift 2;;
     -n|--name)      name=$2; shift 2;;
     -F|--flush-cache) flushcache=1; shift 1;;
