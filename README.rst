@@ -13,6 +13,29 @@ Check other branches to find LTS precise versions.
 check the Install part on this documentation for installation instructions
 
 Notes for specific ubuntu release packages:
+
+**IMPORTANT**
+-----------------
+For now you need docker from git and lxc from git also to fix:
+- https://github.com/dotcloud/docker/issues/2278
+- https://github.com/dotcloud/docker/issues/1960
+
+You can install them in the vm with
+::
+
+    vagrant ssh
+    sudo su
+    cd /srv/docker
+    ./make.sh inst
+
+And uninstall them with
+::
+
+    vagrant ssh
+    sudo su
+    cd /srv/docker
+    ./make.sh teardown
+
 Precise (LTS)
 --------------
 - Recent Virtualbox
