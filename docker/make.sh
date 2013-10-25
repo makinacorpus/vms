@@ -268,9 +268,11 @@ make_image_with_postinst() {
     ret="$?"
     if [[ "$ret" != "0" ]];then die "failed tmp build $tag";fi
     MID=$(docker run -d -privileged ${tag}_tmp)
+    if [[ "$?" != "0" ]];then die "failed run tmp build $tag";fi
     LID=$(docker inspect $MID|grep ID|awk '{print $2}'|sed -re 's/\"//g' -e 's/\,//g')
     log "Running $postinst from $MID( $LID )"
     lxc-attach -n $LID -- $postinst
+    if [[ "$ret" != "0" ]];then die "failed postinst: $postinst";fi
     log "Commiting result from $MID to $tag"
     docker commit $MID $tag
     log "Cleaning image ${tag}_tmp"
@@ -300,6 +302,14 @@ make_image_ubuntu_deboostrap() {
 
 make_image_debian() {
     make_image_from_deboostrap $c/lxc-debian makinacorpus/debian
+}
+
+make_image_debian_salt() {
+    make_image_from_deboostrap $c/lxc-debian makinacorpus/debian_salt
+}
+
+make_image_debian() {
+    make_image_from_deboostrap $c/lxc-debian makinacorpus/debian_mastersalt
 }
 
 make_image_ubuntu_saucy() {
@@ -343,7 +353,8 @@ images() {
     make_image ubuntu_salt
     make_image ubuntu_mastersalt
     make_image debian
-
+    make_image debian_salt
+    make_image debian_mastersalt
 }
 
 make_image() {

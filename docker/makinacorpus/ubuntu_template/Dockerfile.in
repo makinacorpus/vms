@@ -9,6 +9,7 @@
 # http://linux-vserver.org/Upstart_issues
 # http://upstart.ubuntu.com/wiki/Debugging
 #
+MAINTAINER Mathieu Le Marec Pasquet <kiorky@cryptelium.net>
 FROM ubuntu:latest
 ENV DEBIAN_FRONTEND noninteractive
 #
