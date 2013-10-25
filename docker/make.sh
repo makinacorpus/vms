@@ -75,7 +75,7 @@ teardown_() {
 }
 
 inst() {
-    if [[ $DISTRIB_CODENAME == "saucy" ]] || [[ $DISTRIB_CODENAME == "trusty" ]];then
+    if [[ "$DISTRIB_CODENAME" == "saucy" ]] || [[ "$DISTRIB_CODENAME" == "trusty" ]];then
         install_lxc
     fi
     install_docker
