@@ -36,6 +36,10 @@ CYAN="\\033[36m"
 NORMAL="\\033[0m"
 YELLOW='\e[1;33m'
 
+if [[ -f /etc/lsb-release ]];then
+    . /etc/lsb-release
+fi
+
 help() { usage; }
 
 log(){ echo -e "${YELLOW} [docker make] ${@}${NORMAL}" >&2; }
@@ -71,7 +75,9 @@ teardown_() {
 }
 
 inst() {
-    install_lxc
+    if [[ $DISTRIB_CODENAME == "saucy" ]] || [[ $DISTRIB_CODENAME == "trusty" ]];then
+        install_lxc
+    fi
     install_docker
 }
 
