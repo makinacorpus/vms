@@ -366,8 +366,8 @@ get_iid() {
 make_image_with_postinst() {
     tag="$1";postinst="${2:-/etc/docker-postinst.sh}"
     iid="$(get_iid $tag)"
-    if [[ -n "$iid" ]];then
-        log "Already Builded image $tag with postinst: $postinst (tag: $iid)"
+    if [[ -n "$iid" ]] && [[ -z "$DOCKER_IMAGE_POSTINST_BUILD_FORCE" ]];then
+        log "Already Builded image $tag with postinst: $postinst (tag: $iid) set DOCKER_IMAGE_POSTINST_BUILD_FORCE=1"
     else
         log "Building image $tag with postinst: $postinst"
         docker build -rm=true -t ${tag}_tmp $c/${tag}
