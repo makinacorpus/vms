@@ -115,6 +115,8 @@ RUN cd /;\
     echo 'LANG="fr_FR.utf8"'>/etc/default/locale;\
     echo "export LANG=\${LANG:-fr_FR.UTF-8}">>$d/etc/profile.d/0_lang.sh;\
     /usr/sbin/locale-gen;\
-    update-locale LANG=fr_FR.utf8;\
+    /usr/sbin/locale-gen fr_FR.UTF-8;\
+    /usr/sbin/locale-gen de_DE.UTF-8;\
+    update-locale LANG=fr_FR.UTF-8;\
     /sbin/lxc-cleanup.sh
 CMD ["/sbin/init"]

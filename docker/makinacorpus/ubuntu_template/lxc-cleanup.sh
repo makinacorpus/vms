@@ -17,6 +17,8 @@ for i in /var/run/*.pid /var/run/dbus/pid;do
 done
 # disabling useless and harmfull services
 for f in \
+    $(find /etc/init -name apport.cof)\
+    $(find /etc/init -name acpid.conf)\
     $(find /etc/init -name resolvconf.conf)\
     $(find /etc/init -name console.conf)\
     $(find /etc/init -name console-setup.conf)\
@@ -45,10 +47,20 @@ done
 # disabling useless and harmfull sysctls
 for i in \
     vm.mmap_min_addr\
+    fs.protected_hardlinks\
+    fs.protected_symlinks\
     kernel.yama.ptrace_scope\
     kernel.kptr_restrict\
     kernel.printk;do
         sed -re "s/^($i)/#\1/g" -i \
-        /etc/sysctl*/*  /etc/sysctl.conf
+        /etc/sysctl*/*  /etc/sysctl.conf || /bin/true
 done
+en=/etc/network
+if [[ -f $en/if-up.d/000resolvconf ]];then
+    mv -f $en/if-up.d/000resolvconf $en/if-up.d_000resolvconf.bak || /bin/true
+fi
+if [[ -f $en/if-down.d/resolvconf ]];then
+    mv -f $en/if-down.d/resolvconf $en/if-down.d_resolvconf.bak || /bin/true
+fi
+exit 0
 # vim:set et sts=4 ts=4 tw=80:
