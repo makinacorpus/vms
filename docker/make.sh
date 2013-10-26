@@ -96,7 +96,6 @@ teardown() {
     teardown_docker
 }
 
-
 save_() {
     for binary in $@;do
         mybin="$(which $binary)"
@@ -113,7 +112,6 @@ save_docker() {
 save_lxc() {
     save_ $lxc_bins
 }
-
 
 install_lxc() {
     log "Bootstrapping sources"
@@ -331,8 +329,8 @@ import_image() {
 
 make_image_from_tarball() {
     tag="$2";tar="$1";iid="$(get_iid $tag)"
-    if [[ -n "$iid" ]];then
-        log "Already built '$tag' from tarball: $tar ($iid)"
+    if [[ -n "$iid" ]] && [[  -z "$DOCKER_IMAGE_BUILD_FORCE" ]];then
+        log "Already built '$tag' from tarball: $tar ($iid) set DOCKER_IMAGE_BUILD_FORCE=1 to rebuild"
     else
         log "Building docker from tarball: $tar"
         import_image $tar ${tag}_base
