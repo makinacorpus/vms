@@ -17,7 +17,7 @@ for i in /var/run/*.pid /var/run/dbus/pid;do
 done
 # disabling useless and harmfull services
 for f in \
-    $(find /etc/init -name apport.cof)\
+    $(find /etc/init -name apport.conf)\
     $(find /etc/init -name acpid.conf)\
     $(find /etc/init -name resolvconf.conf)\
     $(find /etc/init -name console.conf)\
