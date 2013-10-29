@@ -1,94 +1,20 @@
 
 .. contents:: :local:
 
-
-Vagrant VMs
-============
-Their use is to facilitate the learning of docker and to mitigate current
-installation issues by providing a ready-to-use docker+salt virtualised host.
-
-Master branch of this repository is using an `Ubuntu Raring-64 Vagrantfile VM <https://github.com/makinacorpus/vms/tree/master/Vagrantfile>`_.
-Check other branches to find LTS precise versions.
-
-check the Install part on this documentation for installation instructions
-
-Notes for specific ubuntu release packages:
-
-**IMPORTANT**
------------------
-For now you need docker from git and lxc from git also to fix:
-- https://github.com/dotcloud/docker/issues/2278
-- https://github.com/dotcloud/docker/issues/1960
-
-You can install them in the vm with
-::
-
-    vagrant ssh
-    sudo su
-    cd /srv/docker
-    ./make.sh inst
-
-And uninstall them with
-::
-
-    vagrant ssh
-    sudo su
-    cd /srv/docker
-    ./make.sh teardown
-
-Precise (LTS)
---------------
-- Recent Virtualbox
-- Linux hardware enablement stack kernel (3.8)
-
-Raring
--------
-As of now, we needed to backport those next-ubuntu stuff (saucy) for things to behave correctly and efficiently:
-
-    - Lxc >= 1.0b
-    - Kernel >= 3.11
-    - Virtualbox >= 4.2.16
-
-Saucy
----------
-Mainline packages
-
-Mac
----------
-to test: 09:22 <kiorky> nfsd update && nfsd restart -vvvvvvvvvvvv
-
-
-
-Docker VMs
-==========
-- Contruct base environments to work with docker.
-- Whereas the single process, we want to use the system providen by the
-  underlying distribution to manage a bunch of things.
-
-Goal is to have in working state:
-
-    - init system
-    - cron
-    - logrotate
-    - sshd
-    - sudo
-    - syslog
-    - ntp
-    - screen
-
-Ubuntu
-------------
-- **makinacorpus/ubuntu**: `minimal ubuntu system <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/ubuntu>`_
-- **makinacorpus/ubuntu_salt**: `ubuntu + salt master + salt minion <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/salt>`_
-- **makinacorpus/ubuntu_mastersalt**: `ubuntu + salt master + salt minion + mastersalt minion <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/mastersalt>`_
-- **makinacorpus/ubuntu_deboostrap**: `ubuntu deboostrapped <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu-debootstrap>`_
-
-Debian
---------
-- **makinacorpus/debian**: `minimal debian system <https://github.com/makinacorpus/vms/tree/master/docker/debian>`_
-
-Install
+Summary
 =======
+
+This git project contains vagrant virtualbox's Vagrantfile to help you work in development with Ubuntu Server + salt-stack + docker. It also contains some Docker images.
+
+Development VM
+==============
+
+This schema should help you visualize interactions between the VM and the development host
+
+.. image:: https://raw.github.com/makinacorpus/vms/master/vagrant/schema.png
+
+Install Development VM
+=======================
 
 Following theses instructions you can install this git repository on a directory of your local host, then start a Virtualbox vm from this directory. this virtualbox VM handled by vagrant will then run the docker VMs. All files used in the VirtualBox VM and in the docker mounts will be editable from your host as this VM will ensure your current user will be member of the right group, shared with the VM, and that all important files used by the vm are shared from your development host via nfs
 
@@ -204,5 +130,106 @@ By default this file is not yet created and will be created on first usage. But 
 This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1.42.43** for the private network
 and the docker network on this host will be **172.31.22.0** and not **172.31.42.0**.
 The box hostname will be **devhost22.local** instead of devhost42.local.
+
+Troubleshooting
+===============
+
+NFS
+---
+
+If the provision script of the vm halt on nfs mounts you will have to check several things:
+
+* do you have some sort of firewalling preventing NFS from your host to the vm? Maybe also apparmor orselinux?
+* do you have a correct /etc/hosts with a first 127.0.[0|1].1 record associated with localhost name and your short and long hostname?
+* On Mac OS X you can try `sudo nfsd checkexports`
+* try to run the vagrant up with `VAGRANT_LOG=INFO vagrant up`
+
+Vagrant VMs
+============
+Their use is to facilitate the learning of docker and to mitigate current
+installation issues by providing a ready-to-use docker+salt virtualised host.
+This vagrant Virtualbox management can be also used without Docker usage.
+
+Master branch of this repository is using an `Ubuntu Raring-64 Vagrantfile VM <https://github.com/makinacorpus/vms/tree/master/Vagrantfile>`_.
+Check other branches to find LTS precise versions.
+
+check the Install part on this documentation for installation instructions
+
+Notes for specific ubuntu release packages:
+
+**IMPORTANT**
+-----------------
+For now you need docker from git and lxc from git also to fix:
+- https://github.com/dotcloud/docker/issues/2278
+- https://github.com/dotcloud/docker/issues/1960
+
+You can install them in the vm with
+::
+
+    vagrant ssh
+    sudo su
+    cd /srv/docker
+    ./make.sh inst
+
+And uninstall them with
+::
+
+    vagrant ssh
+    sudo su
+    cd /srv/docker
+    ./make.sh teardown
+
+Precise (LTS)
+--------------
+- Recent Virtualbox
+- Linux hardware enablement stack kernel (3.8)
+
+Raring
+-------
+As of now, we needed to backport those next-ubuntu stuff (saucy) for things to behave correctly and efficiently:
+
+    - Lxc >= 1.0b
+    - Kernel >= 3.11
+    - Virtualbox >= 4.2.16
+
+Saucy
+---------
+Mainline packages
+
+Mac
+---------
+to test: 09:22 <kiorky> nfsd update && nfsd restart -vvvvvvvvvvvv
+
+
+
+Docker VMs
+==========
+- Contruct base environments to work with docker.
+- Whereas the single process, we want to use the system providen by the
+  underlying distribution to manage a bunch of things.
+
+Goal is to have in working state:
+
+    - init system
+    - cron
+    - logrotate
+    - sshd
+    - sudo
+    - syslog
+    - ntp
+    - screen
+
+Ubuntu
+------------
+- **makinacorpus/ubuntu**: `minimal ubuntu system <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/ubuntu>`_
+- **makinacorpus/ubuntu_salt**: `ubuntu + salt master + salt minion <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/salt>`_
+- **makinacorpus/ubuntu_mastersalt**: `ubuntu + salt master + salt minion + mastersalt minion <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/mastersalt>`_
+- **makinacorpus/ubuntu_deboostrap**: `ubuntu deboostrapped <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu-debootstrap>`_
+
+Debian
+--------
+- **makinacorpus/debian**: `minimal debian system <https://github.com/makinacorpus/vms/tree/master/docker/debian>`_
+
+
 
 
