@@ -45,13 +45,15 @@ Now you can start the vm installation with vagrant. Note that this repository wi
   mkdir -p ~/makina/
   cd ~/makina/
   # get this project in the vms subdirectory of this base place
-  git clone https://github.com/makinacorpus/vms.git
+  # note that you can alter the last name to choose another
+  # directory
+  git clone https://github.com/makinacorpus/vms.git vms
   cd vms
   # Alternatively if you want the precise64 LTS ubuntu server use:
   git clone https://github.com/makinacorpus/vms.git -b vagrant-ubuntu-lts-precise64 vms-precise
   cd vms-precise
   # Optionnaly preload the base image
-  vagrant box add raring64 http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
+  vagrant box add saucy64 http://cloud-images.ubuntu.com/vagrant/saucy/current/saucy-server-cloudimg-amd64-vagrant-disk1.box
   # Optionnaly, read the Vagrantfile top section, containing VM cpu and memory settings
   vi Vagrantfile
   # start the VM a first time, this will launch the VM creation and provisioning
