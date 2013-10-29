@@ -100,8 +100,10 @@ src_l="/etc/apt/sources.list"
 ready_to_run() {
     output " [*] VM is now ready for 'vagrant ssh' or other usages..."
     output " ------------------------------- [ OK] -----------------------------------------"
-    output " 'You can upgrade all your projects with \"salt '*' state.highstate\""
-    output " 'You can upgrade the base salt infrastructure with \"salt '*' state.sls setup\""
+    output " 'Once connected as root in the vm with \"vagrant ssh\" and \"sudo su -\""
+    output "   * You can upgrade all your projects with \"salt '*' state.highstate\""
+    output "   * You can run one specific state with \"salt-call [-l debug] state.sls makina-state.name-of-state\""
+    output "   * You can upgrade the base salt infrastructure with \"salt '*' state.sls setup\""
     output " 'Stop vm with 'vagrant [-f] halt', connect it with 'vagrant ssh'"
 }
 
