@@ -129,9 +129,10 @@ Now you can start the vm installation with vagrant. Note that this repository wi
   # Optionnaly, read the Vagrantfile top section, containing VM cpu and memory settings
   vi Vagrantfile
   # start the VM a first time, this will launch the VM creation and provisioning
-  ./manage.sh
-  # you will certainly need one or to reload to finish the provision steps (normally the first time, the script do it for you)
-  vagrant reload
+  ./manage.sh up
+  # you will certainly need one or to reload to finish the provision steps (normally the first time, the script do it for you) but to do it on your own you could use:
+  vagrant reload #or:
+  ./manage.sh reload
 
 Daily usage
 ------------
