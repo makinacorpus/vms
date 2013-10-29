@@ -56,6 +56,11 @@ Now you can start the vm installation with vagrant. Note that this repository wi
   vagrant box add saucy64 http://cloud-images.ubuntu.com/vagrant/saucy/current/saucy-server-cloudimg-amd64-vagrant-disk1.box
   # Optionnaly, read the Vagrantfile top section, containing VM cpu and memory settings
   vi Vagrantfile
+  # From there, as explained, you should create a .vagrant_config.rb file, to alter
+  # MEMORY (by default 1Go) and CPU (by default 2) and MAX_CPU_USAGE_PERCENT (by default 50%)
+  # If it is not your first VM managed via this project alter DEVHOST_NUM (and read the part
+  # Manage several Virtualboxes below)
+  #
   # start the VM a first time, this will launch the VM creation and provisioning
   ./manage.sh up
   # you will certainly need one or to reload to finish the provision steps (normally the first time, the script do it for you) but to do it on your own you could use:
