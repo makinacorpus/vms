@@ -151,6 +151,13 @@ If the provision script of the vm halt on nfs mounts you will have to check seve
 * On Mac OS X you can try `sudo nfsd checkexports`
 * try to run the vagrant up with `VAGRANT_LOG=INFO vagrant up`
 
+Mac OS
+-------
+On Maverick, you may encounter several issues, usually you need at least to reinstall virtualbox:
+* ``There was an error while executing VBoxManage``: https://github.com/mitchellh/vagrant/issues/1809 try to use ``sudo launchctl load /Library/LaunchDaemons/org.virtualbox.startup.plist`` and ``sudo /Library/StartupItems/VirtualBox/VirtualBox restart``
+* ``There was an error executing the following command with VBoxManage: ["hostonlyif", "create"]`` : http://stackoverflow.com/questions/14404777/vagrant-hostonlyif-create-not-working
+* shutdown problems: https://www.virtualbox.org/ticket/12241 you can try ``VBoxManage hostonlyif remove vboxnet0``
+
 Vagrant VMs
 ============
 Their use is to facilitate the learning of docker and to mitigate current
