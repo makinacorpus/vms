@@ -153,8 +153,8 @@ If the provision script of the vm halt on nfs mounts you will have to check seve
 
 Mac OS
 -------
-On Maverick, you may encounter several issues, usually you need at least to reinstall virtualbox:
-* ``There was an error while executing VBoxManage``: https://github.com/mitchellh/vagrant/issues/1809 try to use ``sudo launchctl load /Library/LaunchDaemons/org.virtualbox.startup.plist`` and ``sudo /Library/StartupItems/VirtualBox/VirtualBox restart``
+On Mavericks, you may encounter several issues, usually you need at least to reinstall virtualbox:
+* ``There was an error while executing VBoxManage``: https://github.com/mitchellh/vagrant/issues/1809 try to use ``sudo launchctl load /Library/LaunchDaemons/org.virtualbox.startup.plist`` (4.3) and ``sudo /Library/StartupItems/VirtualBox/VirtualBox restart`` (before)
 * ``There was an error executing the following command with VBoxManage: ["hostonlyif", "create"]`` : http://stackoverflow.com/questions/14404777/vagrant-hostonlyif-create-not-working
 * shutdown problems: https://www.virtualbox.org/ticket/12241 you can try ``VBoxManage hostonlyif remove vboxnet0``
 
