@@ -20,10 +20,17 @@ ENV DEBIAN_FRONTEND noninteractive
 #
 RUN rm -f /etc/init/resolvconf.conf
 ADD ntp_postinst /root/ntp_postinst
-RUN sed -re 's/ main$/ main restricted universe multiverse/g' -e "s:/archive\.:/fr.archive\.:g" -i /etc/apt/sources.list &&\
+# cleanup on (re)start / setup console / maintain services
+ADD lxc-cleanup.sh /sbin/lxc-cleanup.sh
+RUN FROZEN_PACKAGES=$(grep FROZEN_PACKAGES= /sbin/lxc-cleanup.sh | awk -F'"' '{print $2}'|sed -re 's/"//g') &&\
+    sed -re 's/ main$/ main restricted universe multiverse/g' -e "s:/archive\.:/fr.archive\.:g" -i /etc/apt/sources.list &&\
+    echo "$FROZEN_PACKAGES on hold" &&\
+    for i in $FROZEN_PACKAGES;do\
+      echo $i hold | dpkg --set-selections;\
+    done&&\
     grep "deb " /etc/apt/sources.list|sed -re "s/^deb /deb-src /g" >> /etc/apt/sources.list &&\
-    apt-get -q update && apt-get upgrade -y &&\
-    apt-get install -y libfuse2 apt-utils &&\
+    apt-get -q update && apt-get upgrade -y --force-yes &&\
+    apt-get install -y --force-yes libfuse2 apt-utils &&\
     if [ ! -e "/root/debbuild" ];then mkdir -pv /root/debbuild;fi &&\
     mv /root/ntp_postinst /root/debbuild &&\
     cd /root/debbuild;\
@@ -51,42 +58,42 @@ RUN sed -re 's/ main$/ main restricted universe multiverse/g' -e "s:/archive\.:/
       echo $i hold | dpkg --set-selections;\
     done&&\
     apt-get -fy install &&\
-    apt-get install -y apport;\
-    apt-get install -y acpid;\
-    apt-get install -y cron;\
-    apt-get install -y dialog;\
-    apt-get install -y git-core;\
-    apt-get install -y language-pack-en;\
-    apt-get install -y language-pack-fr;\
-    apt-get install -y locales;\
-    apt-get install -y logrotate;\
-    apt-get install -y man;\
-    apt-get install -y man-db;\
-    apt-get install -y manpages;\
-    apt-get install -y manpages-de;\
-    apt-get install -y manpages-fr;\
-    apt-get install -y net-tools;\
-    apt-get install -y openssh-server;\
-    apt-get install -y python-software-properties;\
-    apt-get install -y rsyslog;\
-    apt-get install -y screen;\
-    apt-get install -y snmpd;\
-    apt-get install -y ssh;\
-    apt-get install -y sudo;\
-    apt-get install -y tmux;\
-    apt-get install -y tree;\
-    apt-get install -y tzdata;\
-    apt-get install -y ubuntu-minimal;\
-    apt-get install -y ubuntu-standard;\
-    apt-get install -y vim;\
+    apt-get install -y --force-yes apport;\
+    apt-get install -y --force-yes acpid;\
+    apt-get install -y --force-yes cron;\
+    apt-get install -y --force-yes dialog;\
+    apt-get install -y --force-yes git-core;\
+    apt-get install -y --force-yes language-pack-en;\
+    apt-get install -y --force-yes language-pack-fr;\
+    apt-get install -y --force-yes locales;\
+    apt-get install -y --force-yes logrotate;\
+    apt-get install -y --force-yes man;\
+    apt-get install -y --force-yes man-db;\
+    apt-get install -y --force-yes libopts25;\
+    apt-get install -y --force-yes manpages;\
+    apt-get install -y --force-yes manpages-de;\
+    apt-get install -y --force-yes manpages-fr;\
+    apt-get install -y --force-yes net-tools;\
+    apt-get install -y --force-yes openssh-server;\
+    apt-get install -y --force-yes python-software-properties;\
+    apt-get install -y --force-yes rsyslog;\
+    apt-get install -y --force-yes screen;\
+    apt-get install -y --force-yes snmpd;\
+    apt-get install -y --force-yes ssh;\
+    apt-get install -y --force-yes sudo;\
+    apt-get install -y --force-yes tmux;\
+    apt-get install -y --force-yes tree;\
+    apt-get install -y --force-yes tzdata;\
+    apt-get install -y --force-yes ubuntu-minimal;\
+    apt-get install -y --force-yes ubuntu-standard;\
+    apt-get install -y --force-yes vim;\
     rm -rf /var/cache/apt/archives/*deb;
 # Move those service away and make sure even if an upgrade spawn again
 # the servvice file to mark it as-no-starting
 # cleanup on (re)start / setup console / maintain services
 ADD lxc-setup.conf /etc/init/lxc-setup.conf
 ADD lxc-stop.conf /etc/init/lxc-stop.conf
-# cleanup on (re)start / setup console / maintain services
-ADD lxc-cleanup.sh /sbin/lxc-cleanup.sh
+
 RUN cd /;\
     for i in openssh-server cron logrotate;do dpkg-reconfigure --force $i;done;\
     for i in /lib/init/fstab /etc/fstab;do echo > $i;done;\

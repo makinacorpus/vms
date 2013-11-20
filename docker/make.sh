@@ -16,6 +16,7 @@ actions="$actions cleanup_docker cleanup_containers cleanup_images"
 actions="$actions restart_dockers rm_all cleanup_docker dattach"
 actions="$actions make_image make_images"
 actions="$actions init_src"
+actions="$actions make_image_with_postinst"
 actions="$actions inst install_lxc install_docker"
 actions="$actions teardown teardown_lxc teardown_docker"
 actions=" $actions "
@@ -332,8 +333,13 @@ make_image_from_tarball() {
     if [[ -n "$iid" ]] && [[  -z "$DOCKER_IMAGE_BUILD_FORCE" ]];then
         log "Already built '$tag' from tarball: $tar ($iid) set DOCKER_IMAGE_BUILD_FORCE=1 to rebuild"
     else
-        log "Building docker from tarball: $tar"
-        import_image $tar ${tag}_base
+        biid="$(get_iid ${tag}_base)"
+        if [[ -n "$biid" ]] && [[  -z "$DOCKER_IMAGE_BASE_BUILD_FORCE" ]];then
+            log "Already imported '$tag' from tarball: $tar ($iid) set DOCKER_IMAGE_BASE_BUILD_FORCE=1 to rebuild"
+        else
+            log "Building docker from tarball: $tar"
+            import_image $tar ${tag}_base
+        fi
         log "Building docker image $c/$tag from imported tarball"
         docker build -t="${tag}" $c/$tag
     fi
@@ -370,7 +376,7 @@ make_image_with_postinst() {
         log "Already Builded image $tag with postinst: $postinst (tag: $iid) set DOCKER_IMAGE_POSTINST_BUILD_FORCE=1"
     else
         log "Building image $tag with postinst: $postinst"
-        docker build -rm=true -t ${tag}_tmp $c/${tag}
+        docker build -no-cache=true -rm=true -t ${tag}_tmp $c/${tag}
         ret="$?"
         if [[ "$ret" != "0" ]];then die "failed tmp build $tag";fi
         MID=$(docker run -d -privileged ${tag}_tmp)
@@ -465,9 +471,9 @@ make_image_ubuntu_precise() {
 make_images() {
     make_image ubuntu_saucy
     make_image ubuntu
-    #make_image ubuntu_raring
     make_image ubuntu_salt
     make_image ubuntu_mastersalt
+    #make_image ubuntu_raring
     #make_image debian
     #make_image debian_salt
     #make_image debian_mastersalt

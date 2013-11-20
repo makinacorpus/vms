@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# freeze hostile packages
+FROZEN_PACKAGES="udev whoopsie ntp resolvconf fuse grub-common grub-pc grub-pc-bin grub2-common"
+for i in $FROZEN;do
+    echo $i hold | dpkg --set-selections || /bin/true
+done
+
 # disabling fstab
 for i in /lib/init/fstab /etc/fstab;do
     echo > $i || /bin/true

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 export SALT_BOOT="mastersalt"
 cd /tmp
-wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O - | bash
+wget http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh -O /tmp/boot
+chmod +x /tmp/boot
+/tmp/boot || exit -1
 ps aux|grep salt-master|awk '{print $2}'|xargs kill -9
 ps aux|grep salt-minion|awk '{print $2}'|xargs kill -9
 find /etc/*salt*/pki -type f -delete
