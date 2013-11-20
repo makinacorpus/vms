@@ -156,7 +156,7 @@ EOF
     fi
 
     # make sure we have the current locale defined in the container
-    if [ -z "$LANG" ]; then
+    if [ -z "$LANG" ] || echo $LANG | grep -E -q "^C(\..+)*$"; then
         chroot $rootfs locale-gen en_US.UTF-8
         chroot $rootfs update-locale LANG=en_US.UTF-8
     else
@@ -168,6 +168,22 @@ EOF
     rm -rf $rootfs/etc/ssh/ssh_host_* $rootfs/var/cahe/apt/archives/*deb || echo "Already cleanedup"
     [[ ! -d "$rootfs/var/run/ssh" ]] && mkdir -pv "$rootfs/var/run/ssh"
     chmod -R o-rwx $rootfs/run
+    # generate new SSH keys
+    if [ -x $rootfs/var/lib/dpkg/info/openssh-server.postinst ]; then
+        cat > $rootfs/usr/sbin/policy-rc.d << EOF
+#!/bin/sh
+exit 101
+EOF
+        chmod +x $rootfs/usr/sbin/policy-rc.d
+
+        rm -f $rootfs/etc/ssh/ssh_host_*key*
+        mv $rootfs/etc/init/ssh.conf $rootfs/etc/init/ssh.conf.disabled
+        DPKG_MAINTSCRIPT_PACKAGE=openssh DPKG_MAINTSCRIPT_NAME=postinst chroot $rootfs /var/lib/dpkg/info/openssh-server.postinst configure
+        mv $rootfs/etc/init/ssh.conf.disabled $rootfs/etc/init/ssh.conf
+
+        rm -f $rootfs/usr/sbin/policy-rc.d
+    fi
+
     return 0
 }
 
@@ -450,7 +466,7 @@ lxc.pts = 1024
 
 lxc.utsname = $name
 lxc.arch = $arch
-lxc.cap.drop = sys_module mac_admin mac_override
+lxc.cap.drop = sys_module mac_admin mac_override sys_time
 
 # When using LXC with apparmor, uncomment the next line to run unconfined:
 #lxc.aa_profile = unconfined
@@ -595,7 +611,7 @@ post_process()
     release=$2
     trim_container=$3
 
-    if [[ "$trim_container" == "1" ]]; then
+    if [ $trim_container -eq 1 ]; then
         trim $rootfs $release
     elif [ ! -f $rootfs/etc/init/container-detect.conf ]; then
         # Make sure we have a working resolv.conf
@@ -724,7 +740,7 @@ if [ $? -ne 0 ]; then
 fi
 eval set -- "$options"
 
-## release=precise # Default to the last Ubuntu LTS release for non-Ubuntu systems
+release=precise # Default to the last Ubuntu LTS release for non-Ubuntu systems
 if [ -f /etc/lsb-release ]; then
     . /etc/lsb-release
     if [ "$DISTRIB_ID" = "Ubuntu" ]; then
@@ -837,20 +853,22 @@ fi
 
 # detect rootfs
 config="$path/config"
-if grep -q '^lxc.rootfs' $config 2>/dev/null ; then
-    rootfs=`grep 'lxc.rootfs =' $config | awk -F= '{ print $2 }'`
-else
-    rootfs=$path/rootfs
+rootfs="$path"
+# if $rootfs exists here, it was passed in with --rootfs
+if [ -z "$rootfs" ]; then
+    if grep -q '^lxc.rootfs' $config 2>/dev/null ; then
+        rootfs=`grep 'lxc.rootfs =' $config | awk -F= '{ print $2 }'`
+    else
+        rootfs=$path/rootfs
+    fi
 fi
 
-rootfs=$path
 install_ubuntu $rootfs $release $flushcache
 if [ $? -ne 0 ]; then
     echo "failed to install ubuntu $release"
     exit 1
 fi
 
-rootfs=$path
 configure_ubuntu $rootfs $name $release
 if [ $? -ne 0 ]; then
     echo "failed to configure ubuntu $release for a container"
@@ -858,23 +876,18 @@ if [ $? -ne 0 ]; then
 fi
 
 ## XXX: docker side
-## rootfs=$path
 ## copy_configuration $path $rootfs $name $arch $release
 ## if [ $? -ne 0 ]; then
 ##     echo "failed write configuration file"
 ##     exit 1
 ## fi
 
-rootfs=$path
 post_process $rootfs $release $trim_container
 
 if [ -n "$bindhome" ]; then
-    rootfs=$path
     do_bindhome $rootfs $bindhome
-    rootfs=$path
     finalize_user $bindhome
 else
-    rootfs=$path
     finalize_user ubuntu
 fi
 
