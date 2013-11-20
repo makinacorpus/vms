@@ -9,7 +9,7 @@ for i in console tty0 tty1 tty2 tty3 tty4 tty5 tty6 tty7;do
     ln -s /dev/tty /dev/$i || /bin/true
 done
 # pruning old logs & pids
-rm -rf /var/run/network/*
+rm -rf /var/run/network/* || /bin/true
 for i in /var/run/*.pid /var/run/dbus/pid;do
     if [ -e $i ];then
         rm -f $i || /bin/true
