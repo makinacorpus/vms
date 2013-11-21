@@ -32,6 +32,7 @@ for f in \
     $(find /etc/init -name cloud-init-nonet.conf)\
     $(find /etc/init -name apport.conf)\
     $(find /etc/init -name console.conf)\
+    $(find /etc/init -name console-setup.conf)\
     $(find /etc/init -name control-alt-delete.conf)\
     $(find /etc/init -name cryptdisks-enable.conf)\
     $(find /etc/init -name cryptdisks-udev.conf)\
