@@ -29,7 +29,9 @@ for f in \
     $(find /etc/init -name acpid.conf)\
     $(find /etc/init -name resolvconf.conf)\
     $(find /etc/init -name console.conf)\
-    $(find /etc/init -name console-setup.conf)\
+    $(find /etc/init -name console.conf)\
+    $(find /etc/init -name cryptdisks-enable.conf)\
+    $(find /etc/init -name cryptdisks-udev.conf)\
     $(find /etc/init -name dmesg.conf)\
     $(find /etc/init -name tty[1-9].conf)\
     $(find /etc/init -name plymouth*.conf)\
