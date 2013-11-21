@@ -9,4 +9,5 @@ ps aux|grep salt-minion|awk '{print $2}'|xargs kill -9
 find /etc/*salt*/pki -type f -delete
 rm -rf /var/cache/apt/archives/*deb
 /sbin/lxc-cleanup.sh
+sed -re "s/PasswordAuthentication\s.*/PasswordAuthentication yes/g" -i /etc/ssh/sshd_config;
 # vim:set et sts=4 ts=4 tw=80:

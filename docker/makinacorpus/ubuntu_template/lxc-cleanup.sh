@@ -16,7 +16,7 @@ for i in console tty0 tty1 tty2 tty3 tty4 tty5 tty6 tty7;do
 done
 # pruning old logs & pids
 rm -rf /var/run/network/* || /bin/true
-for i in /var/run/*.pid /var/run/dbus/pid;do
+for i in /var/run/*.pid /var/run/dbus/pid /etc/nologin;do
     if [ -e $i ];then
         rm -f $i || /bin/true
     fi
