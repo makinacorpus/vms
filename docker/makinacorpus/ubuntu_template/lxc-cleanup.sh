@@ -21,6 +21,8 @@ for i in /var/run/*.pid /var/run/dbus/pid;do
         rm -f $i || /bin/true
     fi
 done
+# no apparmor in container
+update-rc.d -f apparmor remove || /bin/true
 # disabling useless and harmfull services
 for f in \
     $(find /etc/init -name apport.conf)\
