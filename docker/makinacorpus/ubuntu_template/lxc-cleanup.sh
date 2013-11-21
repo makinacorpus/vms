@@ -26,6 +26,10 @@ update-rc.d -f apparmor remove || /bin/true
 # disabling useless and harmfull services
 for f in \
     $(find /etc/init -name acpid.conf)\
+    $(find /etc/init -name cloud-init.conf)\
+    $(find /etc/init -name cloud-init-container.conf)\
+    $(find /etc/init -name cloud-init-local.conf)\
+    $(find /etc/init -name cloud-init-nonet.conf)\
     $(find /etc/init -name apport.conf)\
     $(find /etc/init -name console.conf)\
     $(find /etc/init -name control-alt-delete.conf)\
@@ -50,8 +54,8 @@ for f in \
     $(find /etc/init -name upstart-dbus-bridge.conf)\
     $(find /etc/init -name ureadahead*.conf)\
     ;do
-    echo manual>$(basename $i .conf).override
-    mv -f $f $f.orig
+    echo manual>"/etc/init/$(basename $f .conf).override"
+    mv -f "$f" "$f.orig"
 done
 # disabling useless and harmfull sysctls
 for i in \
