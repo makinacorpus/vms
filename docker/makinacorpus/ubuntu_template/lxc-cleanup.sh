@@ -76,5 +76,6 @@ fi
 if [[ -f $en/if-down.d/resolvconf ]];then
     mv -f $en/if-down.d/resolvconf $en/if-down.d_resolvconf.bak || /bin/true
 fi
+sed -re "s/^(session.*\spam_loginuid\.so.*)/#\\1/g" -i /etc/pam.d/* || /bin/true
 exit 0
 # vim:set et sts=4 ts=4 tw=80:
