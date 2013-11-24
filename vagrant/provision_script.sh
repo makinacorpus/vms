@@ -590,6 +590,15 @@ configure_saltstack() {
         output " [*] Old installation detected for boot grain, updating salt"
         NEED_REDO=1
     fi
+    if [[ "$vm_boot_mode" != *"True"* ]];then
+        output " [*] Old installation detected for boot grain, updating salt"
+        NEED_REDO=1
+    fi
+    if [[ "$(egrep  "^(  '\*':)" /srv/salt/setup.sls|wc -l)" == "0" ]];then
+        output " [*] Old installation detected for setup.sls, updating salt"
+        NEED_REDO=1 
+        exit -1
+    fi
     if [[ -n "$NEED_REDO" ]];then
         output " [*] Updating code"
         cd /srv/salt/makina-states
