@@ -165,7 +165,7 @@ install_docker() {
         fi
     fi
     log "Building docker"
-    sudo /usr/bin/docker run -lxc-conf=lxc.aa_profile=unconfined -privileged -v `pwd`:/go/src/github.com/dotcloud/docker docker hack/make.sh binary
+    sudo /usr/bin/docker run -privileged -v `pwd`:/go/src/github.com/dotcloud/docker docker hack/make.sh binary
     bin="$(find $PWD/bundles|grep -v "old"|grep "docker-"|xargs ls -r1t|tail -n1)"
     echo $bin
     sudo service docker stop

@@ -126,5 +126,6 @@ RUN cd /;\
     /usr/sbin/locale-gen fr_FR.UTF-8;\
     /usr/sbin/locale-gen de_DE.UTF-8;\
     update-locale LANG=fr_FR.UTF-8;\
+    sed -re "s/PasswordAuthentication\s.*/PasswordAuthentication yes/g" -i /etc/ssh/sshd_config;\
     /sbin/lxc-cleanup.sh
 CMD ["/sbin/init"]
