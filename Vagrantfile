@@ -87,9 +87,9 @@ end
 # IP managment
 # The box used a default NAT private IP, defined automatically by vagrant and virtualbox
 # It also use a private deticated network (automatically created in virtualbox on a vmX network)
-# By default the private IP will be 10.1.42.43/24. This is used for NFS shre, but, as you will have a fixed
+# By default the private IP will be 10.1.44.43/24. This is used for NFS shre, but, as you will have a fixed
 # IP for this VM it could be used in your /etc/host file to reference any name on this vm
-# (the default devhost42.local or devhotsXX.local entry is managed by salt).
+# (the default devhost44.local or devhotsXX.local entry is managed by salt).
 # If you have several VMs you may need to alter at least the MAKINA_DEVHOST_NUM to obtain a different
 # IP network and docker IP network on this VM
 #
@@ -109,7 +109,7 @@ if not defined?(DEVHOST_NUM)
         devhost_num=File.open(VBOX_SUBNET_FILE, 'r').read().strip()
     end
     if devhost_num.empty?
-      devhost_num="42"
+      devhost_num="44"
     end
     DEVHOST_NUM=devhost_num
 end
@@ -161,13 +161,13 @@ end
 # Chances are you do not want to alter that.
 
 BOX_PRIVATE_SUBNET=BOX_PRIVATE_SUBNET_BASE+DEVHOST_NUM
-BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43" # so 10.1.42.43 by default
+BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43" # so 10.1.44.43 by default
 BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
 # To enable dockers to be interlinked between multiple virtuabox,
 # we also setup a specific docker network subnet per virtualbox host
 DOCKER_NETWORK_IF="docker0"
 DOCKER_NETWORK_HOST_IF="eth0"
-DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.42.0 by default
+DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.44.0 by default
 DOCKER_NETWORK=DOCKER_NETWORK_SUBNET+".0"
 DOCKER_NETWORK_GATEWAY=DOCKER_NETWORK_SUBNET+".254"
 DOCKER_NETWORK_MASK="255.255.255.0"
@@ -191,11 +191,11 @@ vagrant_config_lines << "VIRTUALBOX_VM_NAME=\"#{VIRTUALBOX_VM_NAME}\""
 printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 printf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
 printf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
-printf(" [*] To have multiple hosts, you can change the third bits of IP (default: 42) via the MAKINA_DEVHOST_NUM env variable)\n")
+printf(" [*] To have multiple hosts, you can change the third bits of IP (default: 44) via the MAKINA_DEVHOST_NUM env variable)\n")
 printf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
 printf(" [*] if you want to share this wm, use manage.sh export | import\n")
 # Name inside the VM (as rendered by hostname command)
-VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost42.local by default
+VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost44.local by default
 
 
 # ------------- BASE IMAGE UBUNTU  -----------------------
