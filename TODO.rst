@@ -34,6 +34,9 @@ TODO
 
   * btw: integrate rdesktop bridge to the host in the vagrantfile
 
+* on salt docker vm, make an upstart script to accelerate the first run start which result
+  nowoday with timeouts on master/minion concilliation, and also auto accept the key like with boot-salt.sh
+
 DONE
 ====
 * :24/10/2013: Saucy(ubuntu-current) is master

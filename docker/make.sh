@@ -11,8 +11,16 @@
 # There are some helpers to manage dockers (like rm_all which wipe out this host docker images and containers)
 #
 
-actions="rm_all build_docker fix_perms restart_dockers init_src build_lxc make_image usage images"
+actions="usage fix_perms"
+actions="$actions cleanup_docker cleanup_containers cleanup_images"
+actions="$actions restart_dockers rm_all cleanup_docker dattach"
+actions="$actions make_image make_images"
+actions="$actions init_src"
+actions="$actions make_image_with_postinst"
+actions="$actions inst install_lxc install_docker"
+actions="$actions teardown teardown_lxc teardown_docker"
 actions=" $actions "
+actions="${actions//  / }"
 actions_main_usage="$actions"
 UBUNTU_SAUCY_IMG="http://cloud-images.ubuntu.com/releases/saucy/release/ubuntu-13.10-server-cloudimg-amd64-root.tar.gz"
 UBUNTU_RARING_IMG="http://cloud-images.ubuntu.com/releases/raring/release/ubuntu-13.04-server-cloudimg-amd64-root.tar.gz"
@@ -29,13 +37,17 @@ CYAN="\\033[36m"
 NORMAL="\\033[0m"
 YELLOW='\e[1;33m'
 
+if [[ -f /etc/lsb-release ]];then
+    . /etc/lsb-release
+fi
+
 help() { usage; }
 
-log(){ echo -e "${YELLOW} [docker make] ${@}${NORMAL}"; }
+log(){ echo -e "${YELLOW} [docker make] ${@}${NORMAL}" >&2; }
 
-warn(){ echo -e "${CYAN} [docker make] ${@}${NORMAL}"; }
+warn(){ echo -e "${CYAN} [docker make] ${@}${NORMAL}" >&2; }
 
-die() { echo -e "${RED}${@}${NORMAL}"; exit -1; }
+die() { echo -e "${RED}${@}${NORMAL}" >&2; exit -1; }
 
 lazy_apt_get_install() {
     to_install=""
@@ -50,10 +62,62 @@ lazy_apt_get_install() {
     fi
 }
 
-build_lxc() {
+teardown_() {
+    for binary in $@;do
+        mybin="$(which $binary)"
+        if [ -f "${mybin}.ubuntu" ];then
+            warn "Saving${mybin}.ubuntu in $binary"
+            sudo cp -f "${mybin}.ubuntu" "${mybin}"
+            if [[ "$?" == "0" ]];then
+                rm -f "${mybin}.ubuntu"
+            fi
+        fi
+    done
+}
+
+inst() {
+    if [[ "$DISTRIB_CODENAME" == "saucy" ]] || [[ "$DISTRIB_CODENAME" == "trusty" ]];then
+        install_lxc
+    fi
+    install_docker
+}
+
+teardown_docker() {
+    log "Disabling docker dev binaries"
+    teardown_ $lxc_bins
+}
+
+teardown_lxc() {
+    log "Disabling lxc dev binaries"
+    teardown_ docker
+}
+
+teardown() {
+    teardown_lxc
+    teardown_docker
+}
+
+save_() {
+    for binary in $@;do
+        mybin="$(which $binary)"
+        if [ ! -f "${mybin}.ubuntu" ] && [ -f "${mybin}" ];then
+            warn "Saving $binary in ${mybin}.ubuntu"
+            sudo cp "${mybin}" "${mybin}.ubuntu"
+        fi
+    done
+}
+save_docker() {
+    save_ docker
+}
+
+save_lxc() {
+    save_ $lxc_bins
+}
+
+install_lxc() {
     log "Bootstrapping sources"
     init_src
-    save_bins
+    save_lxc
     cd $c/lxc || die "docker src not there"
     lazy_apt_get_install autopoint
     sudo apt-get build-dep -y --force-yes lxc
@@ -62,15 +126,6 @@ build_lxc() {
     post_build $@
 }
 
-save_bins() {
-    for binary in $lxc_bins docker ;do
-        mybin="$(which $binary)"
-        if [ ! -f "${mybin}.ubuntu" ] && [ -f "${mybin}" ];then
-            warn "Saving $binary in ${mybin}.ubuntu"
-            sudo cp "${mybin}" "${mybin}.ubuntu"
-        fi
-    done
-}
 post_build() {
     for i in $@;do
         if [[ $i == "fix_perms" ]];then
@@ -79,7 +134,7 @@ post_build() {
     done
 }
 
-build_docker() {
+install_docker() {
     nopull="nopull"
     for i in $@;do
         if [[ $i == "pull" ]];then
@@ -89,24 +144,33 @@ build_docker() {
     log "Bootstrapping sources"
     init_src $nopull
     cd $c/docker || die "docker src not there"
-    save_bins
+    save_docker
     sudo service docker stop
     sudo rm -rf /var/run/docker.sock
-    sudo rm -f  /usr/bin/docker
-    sudo ln -sf /usr/bin/docker.ubuntu /usr/bin/docker
+    sudo rm -f /usr/bin/docker
+    sudo cp -f /usr/bin/docker.ubuntu /usr/bin/docker
     sudo service docker start
     sleep 2
     cd $c/docker || die "docker src not there"
+    chrono=$(date +"%Y%m%d%H%M%S")
+    old="$PWD/bundles/old/$chrono"
+    if [[ ! -d "$old" ]];then
+        mkdir -pv "$old"
+    fi
+    mv -vf $PWD/bundles/* $old/
     if [[ $(docker images|awk '{print $1}'|egrep '^docker$'|wc -l) == "0" ]];then
-        docker build -t docker .
+        sudo docker build -t docker .
         if [[ $? != 0 ]];then
             die "Docker build-init failed"
         fi
     fi
-    sudo /usr/bin/docker run -lxc-conf=lxc.aa_profile=unconfined -privileged -v `pwd`:/go/src/github.com/dotcloud/docker docker hack/make.sh binary
-    bin="$(ls -r1t $PWD/bundles/*/binary/docker-*|tail -n1)"
+    log "Building docker"
+    sudo /usr/bin/docker run -privileged -v `pwd`:/go/src/github.com/dotcloud/docker docker hack/make.sh binary
+    bin="$(find $PWD/bundles|grep -v "old"|grep "docker-"|xargs ls -r1t|tail -n1)"
+    echo $bin
     sudo service docker stop
     sudo rm -rf /var/run/docker.sock
+    log "Linking docker"
     sudo ln -fs  $bin /usr/bin/docker
     sudo service docker start
     post_build $@
@@ -129,12 +193,15 @@ init_src() {
         fi
     done
     if [[ $nopull != "nopull" ]];then
+        d_origin="o"
+        d_branch="master"
+        warn "Upgrading sources"
+        cd $c/docker && git remote add o https://github.com:makinacorpus/docker.git
+        cd $c/docker && git remote add k https://github.com/kiorky/docker.git
         warn "Upgrading lxc"
         cd $c/lxc && git pull
-        warn "Upgrading sources"
-        cd $c/docker && git remote add k https://github.com/kiorky/docker.git
         warn "Upgrading docker"
-        cd $c/docker && git pull
+        cd $c/docker && git pull $d_origin $d_branch
     fi
     sed -re "s/filemode.*/filemode=false/g" -i $c/*/.git/config
 }
@@ -163,6 +230,24 @@ restart_dockers() {
     fi
     sleep 2
     docker run $args $image $@
+}
+
+cleanup_images() {
+    docker images -a|egrep  '<none>.*<none>'|awk '{print $3}'|xargs docker rmi
+}
+
+cleanup_containers() {
+    for j in $(docker ps -a|grep Exit|awk '{print $1}'|grep -v ID);do
+        echo $j
+        docker stop -t=1  $j
+        docker rm  $j
+    done
+}
+
+cleanup_docker() {
+    cleanup_images
+    cleanup_containers
+    service docker restart
 }
 
 rm_all() {
@@ -227,10 +312,15 @@ make_image_from_path() {
 
 make_image_from_deboostrap() {
     debootstrap="$1";tag="$2";dst="$c/$tag/deboostrap"
-    if [[ -e $debootstrap ]];then chmod +x $debootstrap;fi
-    log "Using $debootstrap for building $tag"
-    cook $debootstrap -p $dst
-    make_image_from_path $dst $tag
+    iid="$(get_iid $tag)"
+    if [[ -n $iid ]];then
+        log "Already built image '$tag' from deboostrap: $debootstrap ($iid)"
+    else
+        if [[ -e $debootstrap ]];then chmod +x $debootstrap;fi
+        log "Build image '$tag' from deboostrap: $debootstrap"
+        cook $debootstrap -p $dst
+        make_image_from_path $dst $tag
+    fi
 }
 
 import_image() {
@@ -239,59 +329,82 @@ import_image() {
 }
 
 make_image_from_tarball() {
-    tag="$2";tar="$1"
-    log "Building docker from tarball: $tar"
-    cook import_image $tar ${tag}_base
-    log "Building docker image $c/$tag from imported tarball"
-    cook docker build -t="${tag}" $c/$tag
+    tag="$2";tar="$1";iid="$(get_iid $tag)"
+    if [[ -n "$iid" ]] && [[  -z "$DOCKER_IMAGE_BUILD_FORCE" ]];then
+        log "Already built '$tag' from tarball: $tar ($iid) set DOCKER_IMAGE_BUILD_FORCE=1 to rebuild"
+    else
+        biid="$(get_iid ${tag}_base)"
+        if [[ -n "$biid" ]] && [[  -z "$DOCKER_IMAGE_BASE_BUILD_FORCE" ]];then
+            log "Already imported '$tag' from tarball: $tar ($iid) set DOCKER_IMAGE_BASE_BUILD_FORCE=1 to rebuild"
+        else
+            log "Building docker from tarball: $tar"
+            import_image $tar ${tag}_base
+        fi
+        log "Building docker image $c/$tag from imported tarball"
+        docker build -t="${tag}" $c/$tag
+    fi
 }
 
 make_image_from_remote_tarball() {
-    tag="$2";url="$1";fic="$c/$(basename $url)"
+    tag="$2";url="$1";tar="$c/$(basename $url)"
     log "Building $tag from remote tarball: $url"
     wget -c $url
-    make_image_from_tarball $fic $tag
+    make_image_from_tarball $tar $tag
 }
 
 make_image_generic() {
-    cook docker build -rm=true -t="$1" "$1"
+    iid="$(get_iid $1)"
+    if [[ -n $iid ]];then
+        docker build -rm=true -t="$1" "$1"
+    else
+        log "Already Builded generic image $1 (tag: $iid)"
+    fi
 }
 
 ubuntu_dockerfile() {
     sed -re "s|^FROM.*|FROM ${tag}_base|g" $c/$tag/Dockerfile.in > $c/$tag/Dockerfile
 }
 
+get_iid() {
+    docker images|egrep "^$1 "|awk '{print $3}'
+}
+
 make_image_with_postinst() {
     tag="$1";postinst="${2:-/etc/docker-postinst.sh}"
-    log "Building image $tag with postinst: $postinst"
-    docker build -rm=true -t ${tag}_tmp $c/${tag}
-    ret="$?"
-    if [[ "$ret" != "0" ]];then die "failed tmp build $tag";fi
-    MID=$(docker run -d -privileged ${tag}_tmp)
-    if [[ "$?" != "0" ]];then die "failed run tmp build $tag";fi
-    LID=$(docker inspect $MID|grep ID|awk '{print $2}'|sed -re 's/\"//g' -e 's/\,//g')
-    log "Running $postinst from $MID( $LID )"
-    lxc-attach -n $LID -- $postinst
-    if [[ "$ret" != "0" ]];then die "failed postinst: $postinst";fi
-    log "Commiting result from $MID to $tag"
-    docker commit $MID $tag
-    log "Cleaning image ${tag}_tmp"
-    docker rmi ${tag}_tmp
+    iid="$(get_iid $tag)"
+    if [[ -n "$iid" ]] && [[ -z "$DOCKER_IMAGE_POSTINST_BUILD_FORCE" ]];then
+        log "Already Builded image $tag with postinst: $postinst (tag: $iid) set DOCKER_IMAGE_POSTINST_BUILD_FORCE=1"
+    else
+        log "Building image $tag with postinst: $postinst"
+        docker build -no-cache=true -rm=true -t ${tag}_tmp $c/${tag}
+        ret="$?"
+        if [[ "$ret" != "0" ]];then die "failed tmp build $tag";fi
+        MID=$(docker run -d -privileged ${tag}_tmp)
+        if [[ "$?" != "0" ]];then die "failed run tmp build $tag";fi
+        LID=$(docker inspect $MID|grep ID|awk '{print $2}'|sed -re 's/\"//g' -e 's/\,//g')
+        log "Running $postinst from $MID( $LID )"
+        lxc-attach -n $LID -- $postinst
+        if [[ "$ret" != "0" ]];then die "failed postinst: $postinst";fi
+        log "Commiting result from $MID to $tag"
+        docker commit $MID $tag
+        log "Cleaning image ${tag}_tmp"
+        docker rmi ${tag}_tmp
+    fi
 }
 
 make_image_ubuntu_salt() {
     make_image ubuntu
-    cook make_image_with_postinst makinacorpus/ubuntu_salt
+    make_image_with_postinst makinacorpus/ubuntu_salt
 }
 
 make_image_ubuntu_mastersalt() {
     make_image ubuntu
-    cook make_image_with_postinst makinacorpus/ubuntu_mastersalt
+    make_image_with_postinst makinacorpus/ubuntu_mastersalt
 }
 
 make_image_ubuntu_upstart() {
     make_image ubuntu
-    cook make_image_generic makinacorpus/ubuntu_upstart
+    make_image_generic makinacorpus/ubuntu_upstart
 }
 
 make_image_ubuntu_deboostrap() {
@@ -312,6 +425,15 @@ make_image_debian() {
     make_image_from_deboostrap $c/lxc-debian makinacorpus/debian_mastersalt
 }
 
+dattach() {
+    did="$1";lid="$(docker inspect $did|grep ID|sed -re 's/.* "//g' -e 's/".*//g')"
+    shift
+    cmd="$@"
+    if [[ -z "$cmd" ]];then cmd=bash;fi
+    log "Executing lxc-attach -n $lid -- $cmd"
+    lxc-attach -n $lid -- $cmd
+}
+
 make_image_ubuntu_saucy() {
     tag="makinacorpus/ubuntu_saucy"
     ubuntu_dockerfile $tag
@@ -324,7 +446,7 @@ make_image_ubuntu() {
     ctar="$c/$(basename $CURRENT_URL)"
     make_image_ubuntu_$CURRENT_UBUNTU || die "building current ubuntu failed"
     # get image id of current image
-    bid=$(docker images|egrep "^${btag}\s*"|awk '{print $3}')
+    bid=$(docker images|egrep "^${ctag} "|awk '{print $3}')
     tag=makinacorpus/ubuntu
     if [[ -n $bid ]];then
         log "Tagging $bid as $tag"
@@ -346,19 +468,19 @@ make_image_ubuntu_precise() {
     make_image_from_remote_tarball $UBUNTU_PRECICE_IMG $tag
 }
 
-images() {
-    make_image ubuntu
+make_images() {
     make_image ubuntu_saucy
-    make_image ubuntu_raring
+    make_image ubuntu
     make_image ubuntu_salt
     make_image ubuntu_mastersalt
-    make_image debian
-    make_image debian_salt
-    make_image debian_mastersalt
+    #make_image ubuntu_raring
+    #make_image debian
+    #make_image debian_salt
+    #make_image debian_mastersalt
 }
 
 make_image() {
-    cook make_image_$@
+    make_image_$@
 }
 
 usage() {
