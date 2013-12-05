@@ -1,4 +1,3 @@
-
 .. contents:: :local:
 
 Summary
@@ -80,9 +79,9 @@ Starting the VM is simple::
 
   ./manage.sh up
 
-connecting to the VM in ssh with the ``vagrant`` user (sudoer) is::
+Connecting to the VM in ssh with the ``vagrant`` user (sudoer) is::
 
-  ./manage.sh down
+  ./manage.sh ssh
 
 Stoping the VM can be done like that::
 
