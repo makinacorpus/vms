@@ -12,14 +12,49 @@ This schema should help you visualize interactions between the VM and the develo
 
 .. image:: https://raw.github.com/makinacorpus/vms/master/vagrant/schema.png
 
+Organization
+-------------
+Vagrant boxes
+++++++++++++++
+For vagrant images, we provide on specific branch those boxes:
+
+    :master: Ubuntu saucy / 64 bits Ubuntu
+    :vagrant-ubuntu-1304-raring64: Ubuntu raring / 64 bits
+    :vagrant-ubuntu-lts-precise64: Ubuntu raring / 64 bits
+    :vagrant-debian-7-wheezy64: Vagrant box for Debian wheezy 7.2 / 64 bits
+
+Docker images
+++++++++++++++++
+For docker, we use a docker subfolder with the appropriate stuff to build the base docker images insides.
+
+Ubuntu
+~~~~~~
+
+**ATTENTION** You need to comment out all the /etc/apparmor.d/usr.bin.ntpd profile and do **sudo invoke-rc.d apparmor reload**
+
+- **makinacorpus/ubuntu**: `minimal ubuntu system <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/ubuntu>`_
+- **makinacorpus/ubuntu_salt**: `ubuntu + salt master + salt minion <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/salt>`_
+- **makinacorpus/ubuntu_mastersalt**: `ubuntu + salt master + salt minion + mastersalt minion <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/mastersalt>`_
+- **makinacorpus/ubuntu_deboostrap**: `ubuntu deboostrapped <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu-debootstrap>`_
+
+Debian
+~~~~~~~
+- **makinacorpus/debian**: `minimal debian system <https://github.com/makinacorpus/vms/tree/master/docker/debian>`_
+
+Packer images
++++++++++++++
+
+Debian
+~~~~~~
+
+    :debian-7.2.0-amd64: base vagrant box for the official makinacorpus/vms debian based vagrant box
+
 Install Development VM
 =======================
-
 Following theses instructions you can install this git repository on a directory of your local host, then start a Virtualbox vm from this directory. this virtualbox VM handled by vagrant will then run the docker VMs. All files used in the VirtualBox VM and in the docker mounts will be editable from your host as this VM will ensure your current user will be member of the right group, shared with the VM, and that all important files used by the vm are shared from your development host via nfs
 
-Prerequisitements
------------------
-
+Prerequisites
+-------------
 You need to have ``virtualbox``, ``vagrant`` and ``NFS`` (as a server).
 
 
@@ -34,9 +69,8 @@ For a debian/ubuntu deb-like host, version 1.3.5 64 bits::
   wget http://files.vagrantup.com/packages/a40522f5fabccb9ddabad03d836e120ff5d14093/vagrant_1.3.5_x86_64.deb
   sudo dpkg -i vagrant_1.3.5_x86_64.deb
 
-
 Installation
----------------
+------------
 
 Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projects source code managment::
 
@@ -157,21 +191,78 @@ On Mavericks, you may encounter several issues, usually you need at least to rei
 * ``There was an error executing the following command with VBoxManage: ["hostonlyif", "create"]`` : http://stackoverflow.com/questions/14404777/vagrant-hostonlyif-create-not-working
 * shutdown problems: https://www.virtualbox.org/ticket/12241 you can try ``VBoxManage hostonlyif remove vboxnet0``
 
-Vagrant VMs
-============
+TO VMS Developers
+==================
+Vagrant images
+--------------
 Their use is to facilitate the learning of docker and to mitigate current
 installation issues by providing a ready-to-use docker+salt virtualised host.
 This vagrant Virtualbox management can be also used without Docker usage.
 
-Master branch of this repository is using an `Ubuntu Raring-64 Vagrantfile VM <https://github.com/makinacorpus/vms/tree/master/Vagrantfile>`_.
+Master branch of this repository is using an `Ubuntu Saucy Vagrantfile VM <https://github.com/makinacorpus/vms/tree/master/Vagrantfile>`_.
 Check other branches to find LTS precise versions.
 
 check the Install part on this documentation for installation instructions
 
 Notes for specific ubuntu release packages:
 
-**IMPORTANT**
------------------
+Ubuntu
++++++++
+All the images are constructed from ubuntu cloud archives images.
+
+Precise LTS - 12.04 - git: vagrant-ubuntu-lts-precise64
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Recent Virtualbox
+- Linux hardware enablement stack kernel (3.8)
+
+Raring - 13.04  - git: vagrant-ubuntu-1304-raring64)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+As of now, we needed to backport those next-ubuntu stuff (saucy) for things to behave correctly and efficiently:
+
+- Lxc >= 1.0b
+- Kernel >= 3.11
+- Virtualbox >= 4.2.16
+
+Saucy - 13.10 - git: master
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Mainline packages
+
+
+Debian
++++++++
+Debian Wheezy - 7 - git: wheezydebian-7.2.0-amd64
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Mainline packages
+
+Packer boxes
+------------
+Debian
+++++++
+We maintain some handmade Packer images from the official debian netinst iso
+           (see packer subdir)
+For packer, we use a docker subfolder with the appropriate stuff to build the base docker images insides.
+Goal is to use packer to construct base images for the vagrant ones when there are no base images avalaible from trusted sources.
+
+Docker Images
+--------------
+- Contruct base environments to work with docker. (kernel, aufs, base setup)
+- Install a functional makina-states installation inside in ``server`` mode
+- Whereas the single process docker mainstream approach, we want to use the init systems
+providen by the underlying distribution to manage a bunch of things.
+
+Goal is to have in working state:
+
+    - init system
+    - cron
+    - logrotate
+    - sshd
+    - sudo
+    - syslog
+    - screen
+    - makina-states in server mode (vm)
+
+Installing lxcutils & docker from git repositories
+-----------------------------------------------------
 For now you need docker from git and lxc from git also to fix:
 - https://github.com/dotcloud/docker/issues/2278
 - https://github.com/dotcloud/docker/issues/1960
@@ -191,62 +282,4 @@ And uninstall them with
     sudo su
     cd /srv/docker
     ./make.sh teardown
-
-Precise (LTS)
---------------
-- Recent Virtualbox
-- Linux hardware enablement stack kernel (3.8)
-
-Raring
--------
-As of now, we needed to backport those next-ubuntu stuff (saucy) for things to behave correctly and efficiently:
-
-    - Lxc >= 1.0b
-    - Kernel >= 3.11
-    - Virtualbox >= 4.2.16
-
-Saucy
----------
-Mainline packages
-
-Mac
----------
-to test: 09:22 <kiorky> nfsd update && nfsd restart -vvvvvvvvvvvv
-
-
-
-Docker VMs
-==========
-- Contruct base environments to work with docker.
-- Whereas the single process, we want to use the system providen by the
-  underlying distribution to manage a bunch of things.
-
-Goal is to have in working state:
-
-    - init system
-    - cron
-    - logrotate
-    - sshd
-    - sudo
-    - syslog
-    - ntp
-    - screen
-
-Ubuntu
-------------
-
-**ATTENTION** You need to comment out all the /etc/apparmor.d/usr.bin.ntpd profile and do **sudo invoke-rc.d apparmor reload**
-
-
-- **makinacorpus/ubuntu**: `minimal ubuntu system <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/ubuntu>`_
-- **makinacorpus/ubuntu_salt**: `ubuntu + salt master + salt minion <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/salt>`_
-- **makinacorpus/ubuntu_mastersalt**: `ubuntu + salt master + salt minion + mastersalt minion <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/mastersalt>`_
-- **makinacorpus/ubuntu_deboostrap**: `ubuntu deboostrapped <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu-debootstrap>`_
-
-Debian
---------
-- **makinacorpus/debian**: `minimal debian system <https://github.com/makinacorpus/vms/tree/master/docker/debian>`_
-
-
-
 
