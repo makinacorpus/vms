@@ -1,0 +1,77 @@
+{
+	"provisioners": [
+		{
+			"type": "shell",
+			"scripts": [
+				"scripts/base.sh",
+				"scripts/vagrant.sh",
+				"scripts/virtualbox.sh",
+				"scripts/ruby.sh",
+				"scripts/puppet.sh",
+				"scripts/cleanup.sh"
+			],
+			"override": {
+				"virtualbox": {
+					"execute_command": "echo 'vagrant'|sudo -S bash '{{.Path}}'"
+				}
+			}
+		}
+	],
+	"builders": [
+		{
+			"type": "virtualbox",
+			"boot_command": [
+				"<esc><wait>",
+				"install <wait>",
+				"preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg <wait>",
+				"debian-installer=en_US <wait>",
+				"auto <wait>",
+				"locale=en_US <wait>",
+				"kbd-chooser/method=us <wait>",
+				"netcfg/get_hostname={{ .Name }} <wait>",
+				"netcfg/get_domain=vagrantup.com <wait>",
+				"fb=false <wait>",
+				"debconf/frontend=noninteractive <wait>",
+				"console-setup/ask_detect=false <wait>",
+				"console-keymaps-at/keymap=us <wait>",
+				"keyboard-configuration/xkb-keymap=us <wait>",
+				"<enter><wait>"
+			],
+			"boot_wait": "10s",
+			"disk_size": 10140,
+			"guest_os_type": "Debian_64",
+			"http_directory": "http",
+			"iso_checksum": "48dd0a26678f383710e992954c15b4cf034cc4cdebdfb8902d6d1e5d2752f003",
+			"iso_checksum_type": "sha256",
+			"iso_url": "http://cdimage.debian.org/cdimage/release/7.2.0/amd64/iso-cd/debian-7.2.0-amd64-netinst.iso",
+			"ssh_username": "vagrant",
+			"ssh_password": "vagrant",
+			"ssh_port": 22,
+			"ssh_wait_timeout": "10000s",
+			"shutdown_command": "echo 'halt -p' > shutdown.sh; echo 'vagrant'|sudo -S bash 'shutdown.sh'",
+			"guest_additions_path": "VBoxGuestAdditions_{{.Version}}.iso",
+			"virtualbox_version_file": ".vbox_version",
+			"vboxmanage": [
+				[
+					"modifyvm",
+					"{{.Name}}",
+					"--memory",
+					"256"
+				],
+				[
+					"modifyvm",
+					"{{.Name}}",
+					"--cpus",
+					"1"
+				]
+			]
+		}
+	],
+	"post-processors": [
+		{
+			"type": "vagrant",
+			"output": "debian-7.2.0-amd64.box",
+			"vagrantfile_template": "scripts/Vagrantfile"
+		}
+	]
+}
