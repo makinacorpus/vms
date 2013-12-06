@@ -18,11 +18,10 @@ Vagrant boxes
 ++++++++++++++
 For vagrant images, we provide on specific branch those boxes:
 
-:table: --
-:master: Ubuntu saucy / 64 bits Ubuntu
-:vagrant-ubuntu-1304-raring64: Ubuntu raring / 64 bits
-:vagrant-ubuntu-lts-precise64: Ubuntu raring / 64 bits
-:vagrant-debian-7-wheezy64: Vagrant box for Debian wheezy 7.2 / 64 bits
+- **master**: Ubuntu saucy / 64 bits Ubuntu
+- **vagrant-ubuntu-1304-raring64**: Ubuntu raring / 64 bits
+- **vagrant-ubuntu-lts-precise64**: Ubuntu raring / 64 bits
+- **vagrant-debian-7-wheezy64**: Vagrant box for Debian wheezy 7.2 / 64 bits
 
 Docker images
 ++++++++++++++++
