@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Clean up
+#apt-get install -y --force-yes zerofree
 apt-get -y --force-yes remove linux-headers-$(uname -r) build-essential
 apt-get -y --force-yes autoremove
 apt-get -y --force-yes purge $(dpkg --list |grep '^rc' |awk '{print $2}')
@@ -27,6 +28,8 @@ echo "Adding a 2 sec delay to the interface up, to make the dhclient happy"
 echo "pre-up sleep 2" >> /etc/network/interfaces
 
 # Zero out the free space to save space in the final image:
+echo " [*] Zerofreeing"
 echo "Zeroing device to make space..."
 dd if=/dev/zero of=/EMPTY bs=1M
 rm -f /EMPTY
+
