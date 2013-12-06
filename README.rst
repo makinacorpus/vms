@@ -47,7 +47,7 @@ Packer images
 Debian
 ~~~~~~
 
-    :debian-7.2.0-amd64: base vagrant box for the official makinacorpus/vms debian based vagrant box
+- **debian-7.2.0-amd64**: base vagrant box for the official makinacorpus/vms debian based vagrant box
 
 Install Development VM
 =======================
