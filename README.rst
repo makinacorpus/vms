@@ -230,7 +230,7 @@ Mainline packages
 
 Debian
 +++++++
-Debian Wheezy - 7 - git: wheezydebian-7.2.0-amd64
+Debian Wheezy - 7 - git: vagrant-debian-7-wheezy64
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Mainline packages
 
