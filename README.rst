@@ -18,10 +18,10 @@ Vagrant boxes
 ++++++++++++++
 For vagrant images, we provide on specific branch those boxes:
 
-    :master: Ubuntu saucy / 64 bits Ubuntu
-    :vagrant-ubuntu-1304-raring64: Ubuntu raring / 64 bits
-    :vagrant-ubuntu-lts-precise64: Ubuntu raring / 64 bits
-    :vagrant-debian-7-wheezy64: Vagrant box for Debian wheezy 7.2 / 64 bits
+- **master**: Ubuntu saucy / 64 bits Ubuntu
+- **vagrant-ubuntu-1304-raring64**: Ubuntu raring / 64 bits
+- **vagrant-ubuntu-lts-precise64**: Ubuntu raring / 64 bits
+- **vagrant-debian-7-wheezy64**: Vagrant box for Debian wheezy 7.2 / 64 bits
 
 Docker images
 ++++++++++++++++
@@ -47,7 +47,7 @@ Packer images
 Debian
 ~~~~~~
 
-    :debian-7.2.0-amd64: base vagrant box for the official makinacorpus/vms debian based vagrant box
+- **debian-7.2.0-amd64**: base vagrant box for the official makinacorpus/vms debian based vagrant box
 
 Install Development VM
 =======================
@@ -230,7 +230,7 @@ Mainline packages
 
 Debian
 +++++++
-Debian Wheezy - 7 - git: wheezydebian-7.2.0-amd64
+Debian Wheezy - 7 - git: vagrant-debian-7-wheezy64
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Mainline packages
 
