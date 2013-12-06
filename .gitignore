@@ -1,3 +1,5 @@
+packer_cache
+packer/**/*.box
 debian/cache/
 docker/makinacorpus/*/deboostrap.tar.gz
 docker/makinacorpus/ubuntu_template/Dockerfile
