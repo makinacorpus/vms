@@ -70,7 +70,7 @@
 	"post-processors": [
 		{
 			"type": "vagrant",
-			"output": "debian-7.2.0-amd64.box",
+			"output": "debian-7-wheezy64.box",
 			"vagrantfile_template": "scripts/Vagrantfile"
 		}
 	]
