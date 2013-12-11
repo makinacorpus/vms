@@ -183,6 +183,7 @@ If the provision script of the vm halt on nfs mounts you will have to check seve
 * do you have a correct /etc/hosts with a first 127.0.[0|1].1 record associated with localhost name and your short and long hostname?
 * On Mac OS X you can try `sudo nfsd checkexports`
 * try to run the vagrant up with `VAGRANT_LOG=INFO vagrant up`
+* If file access is slow, or the machine is slow, try to go to network settings in Virtualbox ui, then advanced settings for card1 and card2, then select virtio.
 
 Mac OS
 -------
@@ -242,6 +243,11 @@ We maintain some handmade Packer images from the official debian netinst iso
            (see packer subdir)
 For packer, we use a docker subfolder with the appropriate stuff to build the base docker images insides.
 Goal is to use packer to construct base images for the vagrant ones when there are no base images avalaible from trusted sources.
+::
+
+    apt-get -t wheezy-backports install linux-image-3.10-0.bpo.3-amd64
+    linux-headers-3.10-0.bpo.3-amd64 initramfs-tools
+
 
 Docker Images
 --------------

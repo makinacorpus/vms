@@ -30,8 +30,8 @@ vagrant_config_lines = []
 # module MyConfig
 #    DEVHOST_NUM="3"
 #    VIRTUALBOX_VM_NAME="Super devhost Vm"
-#    BOX_NAME="saucy64"
-#    BOX_URI="http://foo/saucy64.img
+#    BOX_NAME="jessie64"
+#    BOX_URI="http://foo/jessie64.img
 #    MEMORY="512"
 #    CPUS="1"
 #    MAX_CPU_USAGE_PERCENT="25"
@@ -49,20 +49,24 @@ rescue LoadError
 end
 # --- End Load optional config file -----------------
 
-if defined?(UBUNTU_RELEASE)
-    vagrant_config_lines << "UBUNTU_RELEASE=\"#{UBUNTU_RELEASE}\""
+if defined?(DEBIAN_RELEASE)
+    vagrant_config_lines << "DEBIAN_RELEASE=\"#{DEBIAN_RELEASE}\""
+    vagrant_config_lines << "DEBIAN_RELEASE_NUMBER=\"#{DEBIAN_RELEASE_NUMBER}\""
 else
-    UBUNTU_RELEASE="saucy"
+    DEBIAN_RELEASE="wheezy"
+    DEBIAN_RELEASE_NUMBER="7"
 end
-if defined?(UBUNTU_LTS_RELEASE)
-    vagrant_config_lines << "UBUNTU_LTS_RELEASE=\"#{UBUNTU_LTS_RELEASE}\""
+if defined?(DEBIAN_STABLE_RELEASE)
+    vagrant_config_lines << "DEBIAN_STABLE_RELEASE=\"#{DEBIAN_STABLE_RELEASE}\""
 else
-    UBUNTU_LTS_RELEASE="precise"
+    DEBIAN_STABLE_RELEASE="wheezy"
+    DEBIAN_STABLE_RELEASE_NUMBER="7"
 end
-if defined?(UBUNTU_NEXT_RELEASE)
-    vagrant_config_lines << "UBUNTU_NEXT_RELEASE=\"#{UBUNTU_NEXT_RELEASE}\""
+if defined?(DEBIAN_NEXT_RELEASE)
+    vagrant_config_lines << "DEBIAN_NEXT_RELEASE=\"#{DEBIAN_NEXT_RELEASE}\""
 else
-    UBUNTU_NEXT_RELEASE="trusty"
+    DEBIAN_NEXT_RELEASE="jessie"
+    DEBIAN_NEXT_RELEASE_NUMBER="8"
 end
 
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
@@ -87,9 +91,9 @@ end
 # IP managment
 # The box used a default NAT private IP, defined automatically by vagrant and virtualbox
 # It also use a private deticated network (automatically created in virtualbox on a vmX network)
-# By default the private IP will be 10.1.42.43/24. This is used for NFS shre, but, as you will have a fixed
+# By default the private IP will be 10.1.70.43/24. This is used for NFS shre, but, as you will have a fixed
 # IP for this VM it could be used in your /etc/host file to reference any name on this vm
-# (the default devhost42.local or devhotsXX.local entry is managed by salt).
+# (the default devhost70.local or devhotsXX.local entry is managed by salt).
 # If you have several VMs you may need to alter at least the MAKINA_DEVHOST_NUM to obtain a different
 # IP network and docker IP network on this VM
 #
@@ -109,7 +113,7 @@ if not defined?(DEVHOST_NUM)
         devhost_num=File.open(VBOX_SUBNET_FILE, 'r').read().strip()
     end
     if devhost_num.empty?
-      devhost_num="42"
+      devhost_num="70"
     end
     DEVHOST_NUM=devhost_num
 end
@@ -136,23 +140,23 @@ end
 if defined?(LOCAL_MIRROR)
     vagrant_config_lines << "LOCAL_MIRROR=\"#{LOCAL_MIRROR}\""
 else
-    LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
+    LOCAL_MIRROR="http://ftp.de.debian.org/"
 end
 if defined?(OFFICIAL_MIRROR)
     vagrant_config_lines << "OFFICIAL_MIRROR=\"#{OFFICIAL_MIRROR}\""
 else
-    OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu"
+    OFFICIAL_MIRROR="http://ftp.debian.org/"
 end
 # let this one to the previous mirror for it to be automaticly replaced
 if defined?(PREVIOUS_LOCAL_MIRROR)
     vagrant_config_lines << "PREVIOUS_LOCAL_MIRROR=\"#{PREVIOUS_LOCAL_MIRROR}\""
 else
-    PREVIOUS_LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
+    PREVIOUS_LOCAL_MIRROR="http://ftp.de.debian.org/"
 end
 if defined?(PREVIOUS_OFFICIAL_MIRROR)
     vagrant_config_lines << "PREVIOUS_OFFICIAL_MIRROR=\"#{PREVIOUS_OFFICIAL_MIRROR}\""
 else
-    PREVIOUS_OFFICIAL_MIRROR="http://us.archive.ubuntu.com/ubuntu"
+    PREVIOUS_OFFICIAL_MIRROR="http://ftp.debian.org/"
 end
 
 # ----------------- END CONFIGURATION ZONE ----------------------------------
@@ -161,13 +165,13 @@ end
 # Chances are you do not want to alter that.
 
 BOX_PRIVATE_SUBNET=BOX_PRIVATE_SUBNET_BASE+DEVHOST_NUM
-BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43" # so 10.1.42.43 by default
+BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43" # so 10.1.70.43 by default
 BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
 # To enable dockers to be interlinked between multiple virtuabox,
 # we also setup a specific docker network subnet per virtualbox host
 DOCKER_NETWORK_IF="docker0"
 DOCKER_NETWORK_HOST_IF="eth0"
-DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.42.0 by default
+DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.70.0 by default
 DOCKER_NETWORK=DOCKER_NETWORK_SUBNET+".0"
 DOCKER_NETWORK_GATEWAY=DOCKER_NETWORK_SUBNET+".254"
 DOCKER_NETWORK_MASK="255.255.255.0"
@@ -175,7 +179,7 @@ DOCKER_NETWORK_MASK_NUM="24"
 
 # md5 based on currentpath
 # Name on your VirtualBox panel
-VIRTUALBOX_BASE_VM_NAME="Docker DevHost "+DEVHOST_NUM+" Ubuntu "+UBUNTU_RELEASE+"64"
+VIRTUALBOX_BASE_VM_NAME="Docker DevHost "+DEVHOST_NUM+" Debian "+DEBIAN_RELEASE+"64"
 VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
 if not defined?(VIRTUALBOX_VM_NAME)
     # old system file support
@@ -191,26 +195,25 @@ vagrant_config_lines << "VIRTUALBOX_VM_NAME=\"#{VIRTUALBOX_VM_NAME}\""
 printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 printf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
 printf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
-printf(" [*] To have multiple hosts, you can change the third bits of IP (default: 42) via the MAKINA_DEVHOST_NUM env variable)\n")
+printf(" [*] To have multiple hosts, you can change the third bits of IP (default: 70) via the MAKINA_DEVHOST_NUM env variable)\n")
 printf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
 printf(" [*] if you want to share this wm, use manage.sh export | import\n")
 # Name inside the VM (as rendered by hostname command)
-VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost42.local by default
+VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost70.local by default
 
-
-# ------------- BASE IMAGE UBUNTU  -----------------------
+# ------------- BASE IMAGE DEBIAN  -----------------------
 # You can pre-download this image with
-# vagrant box add precise64 http://cloud-images.ubuntu.com/precise/precise/current/precise-server-cloudimg-amd64-vagrant-disk1.box
+# vagrant box add debian-7-wheezy64 https://downloads.sourceforge.net/project/makinacorpus/vms/debian-7-wheezy64.box?r=&ts=1386543863&use_mirror=freefr
 
 if defined?(BOX_NAME)
     vagrant_config_lines << "BOX_NAME=\"#{BOX_NAME}\""
 else
-    BOX_NAME=UBUNTU_RELEASE+"64"
+    BOX_NAME="debian-#{DEBIAN_RELEASE_NUMBER}-#{DEBIAN_RELEASE}64"
 end
 if defined?(BOX_URI)
     vagrant_config_lines << "BOX_URI=\"#{BOX_URI}\""
 else
-    BOX_URI="http://cloud-images.ubuntu.com/vagrant/"+UBUNTU_RELEASE+"/current/"+UBUNTU_RELEASE+"-server-cloudimg-amd64-vagrant-disk1.box"
+    BOX_URI="https://downloads.sourceforge.net/project/makinacorpus/vms/debian-#{DEBIAN_RELEASE_NUMBER}-#{DEBIAN_RELEASE}64.box?r=&ts=1386543863&use_mirror=freefr"
 end
 
 # -- Other things ----------------------------------------------------------
@@ -223,8 +226,6 @@ Vagrant.configure("2") do |config|
   # Setup virtual machine box. This VM configuration code is always executed.
   config.vm.box = BOX_NAME
   config.vm.box_url = BOX_URI
-  #config.ssh.username = "ubuntu"
-  #config.ssh.username = "vagrant"
   config.vm.host_name = VM_HOSTNAME
   config.vm.provider "virtualbox" do |vb|
       vb.name=VIRTUALBOX_VM_NAME
@@ -258,11 +259,26 @@ Vagrant.configure("2") do |config|
   # and the "sendfile" bugs with nginx and apache
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
-  config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check"], bsd__nfs_options: ["maproot=root:wheel", "alldirs"]
-  #disabling default vagrant mount on /vagrant as we mount it on /srv
+  config.vm.synced_folder(
+      ".", "/srv/",
+      nfs: true,
+      linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check",],
+      bsd__nfs_options: ["maproot=root:wheel", "alldirs"],
+      mount_options: ["vers=3", "udp", "rw",
+                      "async","soft",
+                      #"noatime", "nodiratime",
+                      #"rsize=32768", "wsize=32768",
+                      #"noacl",
+      ],
+      #mount_options: ["vers=4", "udp", "rw", "async",
+      #                "rsize=32768", "wsize=32768",
+      #                "noacl", "noatime", "nodiratime",],
+  )
+  # disabling default vagrant mount on /vagrant as we mount it on /srv
   config.vm.synced_folder ".", "/vagrant", disabled: true
   # dev: mount of etc, so we can alter current host /etc/hosts from the guest (insecure by definition)
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
+
 
   #------------- PROVISIONING ------------------------------
   # We push all the code in a script which manages the versioning of
@@ -398,8 +414,8 @@ PREVIOUS_OFFICIAL_MIRROR="#{PREVIOUS_OFFICIAL_MIRROR}"
 PREVIOUS_LOCAL_MIRROR="#{PREVIOUS_LOCAL_MIRROR}"
 OFFICIAL_MIRROR="#{OFFICIAL_MIRROR}"
 LOCAL_MIRROR="#{LOCAL_MIRROR}"
-UBUNTU_RELEASE="#{UBUNTU_RELEASE}"
-UBUNTU_NEXT_RELEASE="#{UBUNTU_NEXT_RELEASE}"
+DEBIAN_RELEASE="#{DEBIAN_RELEASE}"
+DEBIAN_NEXT_RELEASE="#{DEBIAN_NEXT_RELEASE}"
 DOCKER_NETWORK_HOST_IF="#{DOCKER_NETWORK_HOST_IF}"
 DOCKER_NETWORK_IF="#{DOCKER_NETWORK_IF}"
 DOCKER_NETWORK_BASE="#{DOCKER_NETWORK_IF}"
@@ -424,31 +440,8 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
     vb.customize ["modifyvm", :id, "--memory", MEMORY]
     vb.customize ["modifyvm", :id, "--cpus", CPUS]
     vb.customize ["modifyvm", :id, "--cpuexecutioncap", MAX_CPU_USAGE_PERCENT]
+    vb.customize ["modifyvm", :id, "--nictype1", "virtio"]
+    vb.customize ["modifyvm", :id, "--nictype2", "virtio"]
+    vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
   end
 end
-
-# NOTE: right know you need to use a very uptodate kernel not to suffer from big slowness on ubuntu
-# To improve performance of virtualisation, you need a kernel > 3.10
-# and the last virtualbox stuff
-# Idea is to backport the official next-ubuntu kernel (Codename: saucy)
-#
-# install a recent kernel & last virtualbox (saucy backports):
-#   ./backport-pkgs.sh
-#
-# If you use nvidia drivers, you need nvidia>325 to run on kernel 3.10+:
-#  sudo add-apt-repository ppa:xorg-edgers/ppa
-#  sudo add-apt-repository ppa:bumblebee/stable
-#  sudo apt-get update
-#  sudo apt-get purge nvidia-304 nvidia-settings-304
-#  apt-get install nvidia-325 nvidia-settings-325
-#  # If you have optimus based chipset you will need to upgrade your bumblebee setup:
-#    sudo apt-get install bumblebee bumblebee-nvidia primus primus-libs-ia32:i386 virtualgl
-#  # Then, edit in /etc/bumblebee/bumblebee.conf
-#    KernelDriver=nvidia_325
-#    LibraryPath=/usr/lib/nvidia-325/:/usr/lib32/nvidia-325:/usr/lib/nvidia-current:/usr/lib32/nvidia-current
-#    XorgModulePath=/usr/lib/nvidia-325/xorg,/usr/lib/nvidia-current/xorg,/usr/lib/xorg/modules
-#  # You can then use nvidia settings as usual:
-#    optirun nvidia-settings -c :8
-#
-#  # finally remove this edge repo:
-#    sudo add-apt-repository --remove ppa:xorg-edgers:ppa
