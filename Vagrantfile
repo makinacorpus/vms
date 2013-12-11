@@ -42,6 +42,14 @@ vagrant_config_lines = []
 
 # Check entries in the configuration zone for variables available.
 # --- Start Load optional config file ---------------
+def get_uuid
+    uuid_file = "#{CWD}/.vagrant/machines/default/virtualbox/id"
+    uuid = nil
+    if File.exist?(uuid_file)
+        uuid = File.read(uuid_file).strip()
+    end
+    uuid
+end
 begin
   require_relative VSETTINGS_N
   include MyConfig
@@ -223,8 +231,6 @@ Vagrant.configure("2") do |config|
   # Setup virtual machine box. This VM configuration code is always executed.
   config.vm.box = BOX_NAME
   config.vm.box_url = BOX_URI
-  #config.ssh.username = "ubuntu"
-  #config.ssh.username = "vagrant"
   config.vm.host_name = VM_HOSTNAME
   config.vm.provider "virtualbox" do |vb|
       vb.name=VIRTUALBOX_VM_NAME
@@ -258,8 +264,23 @@ Vagrant.configure("2") do |config|
   # and the "sendfile" bugs with nginx and apache
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
-  config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check"], bsd__nfs_options: ["maproot=root:wheel", "alldirs"]
-  #disabling default vagrant mount on /vagrant as we mount it on /srv
+  config.vm.synced_folder(
+      ".", "/srv/",
+      nfs: true,
+      nfs_udp: false,
+      linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check",],
+      bsd__nfs_options: ["maproot=root:wheel", "alldirs"],
+      mount_options: [
+          "vers=3","rw","noatime", "nodiratime",
+          #"tcp",
+          "udp", "rsize=32768", "wsize=32768",
+          #"async","soft", "noacl",
+      ],
+      #mount_options: ["vers=4", "udp", "rw", "async",
+      #                "rsize=32768", "wsize=32768",
+      #                "noacl", "noatime", "nodiratime",],
+  )
+  # disabling default vagrant mount on /vagrant as we mount it on /srv
   config.vm.synced_folder ".", "/vagrant", disabled: true
   # dev: mount of etc, so we can alter current host /etc/hosts from the guest (insecure by definition)
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
@@ -424,31 +445,18 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
     vb.customize ["modifyvm", :id, "--memory", MEMORY]
     vb.customize ["modifyvm", :id, "--cpus", CPUS]
     vb.customize ["modifyvm", :id, "--cpuexecutioncap", MAX_CPU_USAGE_PERCENT]
+    vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+    #uuid = 'b71e292b-87e5-4ec8-8ecb-337b9482676f'
+    uuid = get_uuid
+    if uuid != nil
+      interface_hostonly = `VBoxManage showvminfo #{uuid} --machinereadable|grep -i hostonlyadapter|sed 's/.*="//'|sed 's/"//'`.strip()
+      if interface_hostonly.start_with?("vboxnet")
+        mtu = `sudo ifconfig #{interface_hostonly}|grep -i mtu|sed -e "s/.*MTU:*//g"|awk '{print $1}'`.strip()
+        if (mtu != "9000")
+          printf("Configuring jumbo frame on #{interface_hostonly}")
+          `sudo ifconfig #{interface_hostonly} mtu 9000`
+        end
+      end
+    end
   end
 end
-
-# NOTE: right know you need to use a very uptodate kernel not to suffer from big slowness on ubuntu
-# To improve performance of virtualisation, you need a kernel > 3.10
-# and the last virtualbox stuff
-# Idea is to backport the official next-ubuntu kernel (Codename: saucy)
-#
-# install a recent kernel & last virtualbox (saucy backports):
-#   ./backport-pkgs.sh
-#
-# If you use nvidia drivers, you need nvidia>325 to run on kernel 3.10+:
-#  sudo add-apt-repository ppa:xorg-edgers/ppa
-#  sudo add-apt-repository ppa:bumblebee/stable
-#  sudo apt-get update
-#  sudo apt-get purge nvidia-304 nvidia-settings-304
-#  apt-get install nvidia-325 nvidia-settings-325
-#  # If you have optimus based chipset you will need to upgrade your bumblebee setup:
-#    sudo apt-get install bumblebee bumblebee-nvidia primus primus-libs-ia32:i386 virtualgl
-#  # Then, edit in /etc/bumblebee/bumblebee.conf
-#    KernelDriver=nvidia_325
-#    LibraryPath=/usr/lib/nvidia-325/:/usr/lib32/nvidia-325:/usr/lib/nvidia-current:/usr/lib32/nvidia-current
-#    XorgModulePath=/usr/lib/nvidia-325/xorg,/usr/lib/nvidia-current/xorg,/usr/lib/xorg/modules
-#  # You can then use nvidia settings as usual:
-#    optirun nvidia-settings -c :8
-#
-#  # finally remove this edge repo:
-#    sudo add-apt-repository --remove ppa:xorg-edgers:ppa
