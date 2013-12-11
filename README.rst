@@ -30,7 +30,7 @@ For docker, we use a docker subfolder with the appropriate stuff to build the ba
 Ubuntu
 ~~~~~~
 
-**ATTENTION** You need to comment out all the /etc/apparmor.d/usr.bin.ntpd profile and do **sudo invoke-rc.d apparmor reload**
+**WARNING** You need to comment out all the /etc/apparmor.d/usr.bin.ntpd profile and do **sudo invoke-rc.d apparmor reload**
 
 - **makinacorpus/ubuntu**: `minimal ubuntu system <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/ubuntu>`_
 - **makinacorpus/ubuntu_salt**: `ubuntu + salt master + salt minion <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/salt>`_
@@ -64,12 +64,12 @@ For a debian-like host this would be ok with theses commands::
 
 For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
 
-Think to make you a supersudoer without password
+Think to make you a supersudoer without password::
 
-::
+    # visudo    
     # Allow members of group sudo to execute any command
     %sudo   ALL=(ALL:ALL) NOPASSWD:ALL
-    </pre>
+
 
 For a debian/ubuntu deb-like host, version 1.3.5 64 bits::
 
