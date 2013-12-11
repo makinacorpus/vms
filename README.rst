@@ -30,7 +30,7 @@ For docker, we use a docker subfolder with the appropriate stuff to build the ba
 Ubuntu
 ~~~~~~
 
-**ATTENTION** You need to comment out all the /etc/apparmor.d/usr.bin.ntpd profile and do **sudo invoke-rc.d apparmor reload**
+**WARNING** You need to comment out all the /etc/apparmor.d/usr.bin.ntpd profile and do **sudo invoke-rc.d apparmor reload**
 
 - **makinacorpus/ubuntu**: `minimal ubuntu system <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/ubuntu>`_
 - **makinacorpus/ubuntu_salt**: `ubuntu + salt master + salt minion <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/salt>`_
@@ -64,6 +64,13 @@ For a debian-like host this would be ok with theses commands::
 
 For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
 
+You could make you a supersudoer without password to avoid sudo questions when lauching the VMs (not required)::
+
+    # visudo    
+    # Allow members of group sudo to execute any command
+    %sudo   ALL=(ALL:ALL) NOPASSWD:ALL
+
+
 For a debian/ubuntu deb-like host, version 1.3.5 64 bits::
 
   wget http://files.vagrantup.com/packages/a40522f5fabccb9ddabad03d836e120ff5d14093/vagrant_1.3.5_x86_64.deb
@@ -85,6 +92,9 @@ Now you can start the vm installation with vagrant. Note that this repository wi
   # Alternatively if you want the precise64 LTS ubuntu server use:
   git clone https://github.com/makinacorpus/vms.git -b vagrant-ubuntu-lts-precise64 vms-precise
   cd vms-precise
+  # Or for Debian (see that the last word is free, it's the destination directory):
+  git clone https://github.com/makinacorpus/vms.git -b vagrant-debian-7-wheezy64 vmfoo
+  cd vmfoo
   # Optionnaly preload the base image
   vagrant box add saucy64 http://cloud-images.ubuntu.com/vagrant/saucy/current/saucy-server-cloudimg-amd64-vagrant-disk1.box
   # Optionnaly, read the Vagrantfile top section, containing VM cpu and memory settings

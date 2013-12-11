@@ -690,7 +690,6 @@ install_nfs
 configure_langs
 install_docker
 open_routes
-exit -1
 install_saltstack
 configure_saltstack
 check_restart
