@@ -42,6 +42,14 @@ vagrant_config_lines = []
 
 # Check entries in the configuration zone for variables available.
 # --- Start Load optional config file ---------------
+def get_uuid
+    uuid_file = "#{CWD}/.vagrant/machines/default/virtualbox/id"
+    uuid = nil
+    if File.exist?(uuid_file)
+        uuid = File.read(uuid_file).strip()
+    end
+    uuid
+end
 begin
   require_relative VSETTINGS_N
   include MyConfig
@@ -442,5 +450,17 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
     vb.customize ["modifyvm", :id, "--cpus", CPUS]
     vb.customize ["modifyvm", :id, "--cpuexecutioncap", MAX_CPU_USAGE_PERCENT]
     vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+    #uuid = 'b71e292b-87e5-4ec8-8ecb-337b9482676f'
+    uuid = get_uuid
+    if uuid != nil
+      interface_hostonly = `VBoxManage showvminfo #{uuid} --machinereadable|grep -i hostonlyadapter|sed 's/.*="//'|sed 's/"//'`.strip()
+      if interface_hostonly.start_with?("vboxnet")
+        mtu = `sudo ifconfig #{interface_hostonly}|grep mtu -i|sed -re "s/.*MTU:*//g"|awk '{print $1}'`.strip()
+        if (mtu != "9000")
+          printf("Configuring jumbo frame on #{interface_hostonly}")
+          `sudo ifconfig #{interface_hostonly} mtu 9000`
+        end
+      end
+    end
   end
 end
