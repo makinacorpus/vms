@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-exit 0
 
 # This script is ubuntu specific for the moment.
 # Script is supposed to be run on development VMs (Virtualbox)
@@ -686,8 +685,8 @@ install_backports
 install_docker
 install_nfs
 configure_langs
-install_saltstack
 exit -1
+install_saltstack
 configure_saltstack
 check_restart
 #deactivate_ifup_debugging
