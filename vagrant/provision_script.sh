@@ -17,6 +17,10 @@ output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
 log() { output "$@"; }
 die_if_error() { if [[ "$?" != "0" ]];then output "There were errors";exit 1;fi; }
 
+# FOR NFS ENABLE JUMBO FRAMES, OTHER PART IN ON THE VAGRANTFILE
+# FOR HOST ONLY INTERFACE VBOXNET
+ifconfig eth1 mtu 9000
+
 output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
 output " [*] You can safely relaunch this script from within the vm"
 
@@ -682,9 +686,10 @@ disable_useless_services
 configure_mirrors
 initial_upgrade
 install_backports
-install_docker
 install_nfs
 configure_langs
+install_docker
+open_routes
 exit -1
 install_saltstack
 configure_saltstack
@@ -692,6 +697,5 @@ check_restart
 #deactivate_ifup_debugging
 cleanup_space
 restart_daemons
-open_routes
 ready_to_run
 # vim:set et sts=4 ts=4 tw=0:

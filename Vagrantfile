@@ -262,13 +262,14 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder(
       ".", "/srv/",
       nfs: true,
+      nfs_udp: false,
       linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check",],
       bsd__nfs_options: ["maproot=root:wheel", "alldirs"],
-      mount_options: ["vers=3", "udp", "rw",
-                      "async","soft",
-                      #"noatime", "nodiratime",
-                      #"rsize=32768", "wsize=32768",
-                      #"noacl",
+      mount_options: [
+          "vers=3","rw","noatime", "nodiratime",
+          #"tcp",
+          "udp", "rsize=32768", "wsize=32768",
+          #"async","soft", "noacl",
       ],
       #mount_options: ["vers=4", "udp", "rw", "async",
       #                "rsize=32768", "wsize=32768",
@@ -440,8 +441,6 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
     vb.customize ["modifyvm", :id, "--memory", MEMORY]
     vb.customize ["modifyvm", :id, "--cpus", CPUS]
     vb.customize ["modifyvm", :id, "--cpuexecutioncap", MAX_CPU_USAGE_PERCENT]
-    vb.customize ["modifyvm", :id, "--nictype1", "virtio"]
-    vb.customize ["modifyvm", :id, "--nictype2", "virtio"]
     vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
   end
 end
