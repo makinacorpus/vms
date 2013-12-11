@@ -118,9 +118,9 @@ if not defined?(DEVHOST_NUM)
         devhost_num=File.open(VBOX_SUBNET_FILE, 'r').read().strip()
     end
     if devhost_num.empty?
-      devhost_num="43"
+      devhost_num=DEVHOST_NUM_DEF
     end
-    DEVHOST_NUM=DEVHOST_NUM_DEF
+    DEVHOST_NUM=devhost_num
 end
 vagrant_config_lines << "DEVHOST_NUM=\"#{DEVHOST_NUM}\""
 BOX_PRIVATE_SUBNET_BASE="10.1." unless defined?(BOX_PRIVATE_SUBNET_BASE)
