@@ -455,7 +455,7 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
     if uuid != nil
       interface_hostonly = `VBoxManage showvminfo #{uuid} --machinereadable|grep -i hostonlyadapter|sed 's/.*="//'|sed 's/"//'`.strip()
       if interface_hostonly.start_with?("vboxnet")
-        mtu = `sudo ifconfig #{interface_hostonly}|grep mtu -i|sed -re "s/.*MTU:*//g"|awk '{print $1}'`.strip()
+        mtu = `sudo ifconfig #{interface_hostonly}|grep -i mtu|sed -e "s/.*MTU:*//g"|awk '{print $1}'`.strip()
         if (mtu != "9000")
           printf("Configuring jumbo frame on #{interface_hostonly}")
           `sudo ifconfig #{interface_hostonly} mtu 9000`
