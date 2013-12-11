@@ -183,7 +183,6 @@ If the provision script of the vm halt on nfs mounts you will have to check seve
 * do you have a correct /etc/hosts with a first 127.0.[0|1].1 record associated with localhost name and your short and long hostname?
 * On Mac OS X you can try `sudo nfsd checkexports`
 * try to run the vagrant up with `VAGRANT_LOG=INFO vagrant up`
-* If file access is slow, or the machine is slow, try to go to network settings in Virtualbox ui, then advanced settings for card1 and card2, then select virtio.
 
 Mac OS
 -------
