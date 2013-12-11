@@ -42,6 +42,14 @@ vagrant_config_lines = []
 
 # Check entries in the configuration zone for variables available.
 # --- Start Load optional config file ---------------
+def get_uuid
+    uuid_file = "#{CWD}/.vagrant/machines/default/virtualbox/id"
+    uuid = nil
+    if File.exist?(uuid_file)
+        uuid = File.read(uuid_file).strip()
+    end
+    uuid
+end
 begin
   require_relative VSETTINGS_N
   include MyConfig
@@ -87,14 +95,14 @@ end
 # IP managment
 # The box used a default NAT private IP, defined automatically by vagrant and virtualbox
 # It also use a private deticated network (automatically created in virtualbox on a vmX network)
-# By default the private IP will be 10.1.43.43/24. This is used for NFS shre, but, as you will have a fixed
+# By default the private IP will be 10.1.XX.YY/24. This is used for NFS shre, but, as you will have a fixed
 # IP for this VM it could be used in your /etc/host file to reference any name on this vm
-# (the default devhost43.local or devhotsXX.local entry is managed by salt).
+# (the default devhostYY.local or devhotsXX.local entry is managed by salt).
 # If you have several VMs you may need to alter at least the MAKINA_DEVHOST_NUM to obtain a different
 # IP network and docker IP network on this VM
 #
 # You can change the subnet used via the MAKINA_DEVHOST_NUM
-# EG: export MAKINA_DEVHOST_NUM=44 will give an ip of 10.1.44.43 for this host
+# EG: export MAKINA_DEVHOST_NUM=44 will give an ip of 10.1.XX.YY for this host
 # This setting is saved upon reboots, you need to set it only once.
 # (be careful with env variable if you run several vms)
 # You could also set it in the ./vagrant_config.rb to get it fixed at any time
@@ -103,6 +111,7 @@ end
 # Be sure to have only one unique subnet per devhost per physical host
 #
 VBOX_SUBNET_FILE=File.dirname(__FILE__) + "/.vb_subnet"
+DEVHOST_NUM_DEF="43"
 if not defined?(DEVHOST_NUM)
     devhost_num=ENV.fetch("MAKINA_DEVHOST_NUM", "").strip()
     if devhost_num.empty? and File.exist?(VBOX_SUBNET_FILE)
@@ -111,7 +120,7 @@ if not defined?(DEVHOST_NUM)
     if devhost_num.empty?
       devhost_num="43"
     end
-    DEVHOST_NUM=devhost_num
+    DEVHOST_NUM=DEVHOST_NUM_DEF
 end
 vagrant_config_lines << "DEVHOST_NUM=\"#{DEVHOST_NUM}\""
 BOX_PRIVATE_SUBNET_BASE="10.1." unless defined?(BOX_PRIVATE_SUBNET_BASE)
@@ -161,13 +170,13 @@ end
 # Chances are you do not want to alter that.
 
 BOX_PRIVATE_SUBNET=BOX_PRIVATE_SUBNET_BASE+DEVHOST_NUM
-BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43" # so 10.1.43.43 by default
+BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43" # so 10.1.XX.YY by default
 BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
 # To enable dockers to be interlinked between multiple virtuabox,
 # we also setup a specific docker network subnet per virtualbox host
 DOCKER_NETWORK_IF="docker0"
 DOCKER_NETWORK_HOST_IF="eth0"
-DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.43.0 by default
+DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.xx.0 by default
 DOCKER_NETWORK=DOCKER_NETWORK_SUBNET+".0"
 DOCKER_NETWORK_GATEWAY=DOCKER_NETWORK_SUBNET+".254"
 DOCKER_NETWORK_MASK="255.255.255.0"
@@ -191,11 +200,11 @@ vagrant_config_lines << "VIRTUALBOX_VM_NAME=\"#{VIRTUALBOX_VM_NAME}\""
 printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 printf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
 printf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
-printf(" [*] To have multiple hosts, you can change the third bits of IP (default: 43) via the MAKINA_DEVHOST_NUM env variable)\n")
+printf(" [*] To have multiple hosts, you can change the third bits of IP (default: #{DEVHOST_NUM_DEF}) via the MAKINA_DEVHOST_NUM env variable)\n")
 printf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
 printf(" [*] if you want to share this wm, use manage.sh export | import\n")
 # Name inside the VM (as rendered by hostname command)
-VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhost43.local by default
+VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhostxx.local by default
 
 
 # ------------- BASE IMAGE UBUNTU  -----------------------
@@ -223,8 +232,6 @@ Vagrant.configure("2") do |config|
   # Setup virtual machine box. This VM configuration code is always executed.
   config.vm.box = BOX_NAME
   config.vm.box_url = BOX_URI
-  #config.ssh.username = "ubuntu"
-  #config.ssh.username = "vagrant"
   config.vm.host_name = VM_HOSTNAME
   config.vm.provider "virtualbox" do |vb|
       vb.name=VIRTUALBOX_VM_NAME
@@ -258,8 +265,23 @@ Vagrant.configure("2") do |config|
   # and the "sendfile" bugs with nginx and apache
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
-  config.vm.synced_folder ".", "/srv/", nfs: true, linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check"], bsd__nfs_options: ["maproot=root:wheel", "alldirs"]
-  #disabling default vagrant mount on /vagrant as we mount it on /srv
+  config.vm.synced_folder(
+      ".", "/srv/",
+      nfs: true,
+      nfs_udp: false,
+      linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check",],
+      bsd__nfs_options: ["maproot=root:wheel", "alldirs"],
+      mount_options: [
+          "vers=3","rw","noatime", "nodiratime",
+          #"tcp",
+          "udp", "rsize=32768", "wsize=32768",
+          #"async","soft", "noacl",
+      ],
+      #mount_options: ["vers=4", "udp", "rw", "async",
+      #                "rsize=32768", "wsize=32768",
+      #                "noacl", "noatime", "nodiratime",],
+  )
+  # disabling default vagrant mount on /vagrant as we mount it on /srv
   config.vm.synced_folder ".", "/vagrant", disabled: true
   # dev: mount of etc, so we can alter current host /etc/hosts from the guest (insecure by definition)
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
@@ -424,31 +446,18 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
     vb.customize ["modifyvm", :id, "--memory", MEMORY]
     vb.customize ["modifyvm", :id, "--cpus", CPUS]
     vb.customize ["modifyvm", :id, "--cpuexecutioncap", MAX_CPU_USAGE_PERCENT]
+    vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+    #uuid = 'b71e292b-87e5-4ec8-8ecb-337b9482676f'
+    uuid = get_uuid
+    if uuid != nil
+      interface_hostonly = `VBoxManage showvminfo #{uuid} --machinereadable|grep -i hostonlyadapter|sed 's/.*="//'|sed 's/"//'`.strip()
+      if interface_hostonly.start_with?("vboxnet")
+        mtu = `sudo ifconfig #{interface_hostonly}|grep -i mtu|sed -e "s/.*MTU:*//g"|awk '{print $1}'`.strip()
+        if (mtu != "9000")
+          printf("Configuring jumbo frame on #{interface_hostonly}")
+          `sudo ifconfig #{interface_hostonly} mtu 9000`
+        end
+      end
+    end
   end
 end
-
-# NOTE: right know you need to use a very uptodate kernel not to suffer from big slowness on ubuntu
-# To improve performance of virtualisation, you need a kernel > 3.10
-# and the last virtualbox stuff
-# Idea is to backport the official next-ubuntu kernel (Codename: saucy)
-#
-# install a recent kernel & last virtualbox (saucy backports):
-#   ./backport-pkgs.sh
-#
-# If you use nvidia drivers, you need nvidia>325 to run on kernel 3.10+:
-#  sudo add-apt-repository ppa:xorg-edgers/ppa
-#  sudo add-apt-repository ppa:bumblebee/stable
-#  sudo apt-get update
-#  sudo apt-get purge nvidia-304 nvidia-settings-304
-#  apt-get install nvidia-325 nvidia-settings-325
-#  # If you have optimus based chipset you will need to upgrade your bumblebee setup:
-#    sudo apt-get install bumblebee bumblebee-nvidia primus primus-libs-ia32:i386 virtualgl
-#  # Then, edit in /etc/bumblebee/bumblebee.conf
-#    KernelDriver=nvidia_325
-#    LibraryPath=/usr/lib/nvidia-325/:/usr/lib32/nvidia-325:/usr/lib/nvidia-current:/usr/lib32/nvidia-current
-#    XorgModulePath=/usr/lib/nvidia-325/xorg,/usr/lib/nvidia-current/xorg,/usr/lib/xorg/modules
-#  # You can then use nvidia settings as usual:
-#    optirun nvidia-settings -c :8
-#
-#  # finally remove this edge repo:
-#    sudo add-apt-repository --remove ppa:xorg-edgers:ppa
