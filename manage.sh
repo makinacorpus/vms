@@ -38,7 +38,7 @@ test() {
     elif [[ "$name" == "raring" ]];then
         num="53"
     elif [[ "$name" == "precise" ]];then
-        num="54"
+        num="55"
     fi
     cat > vagrant_config.rb << EOF
 module MyConfig
