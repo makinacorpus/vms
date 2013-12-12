@@ -30,8 +30,8 @@ vagrant_config_lines = []
 # module MyConfig
 #    DEVHOST_NUM="3"
 #    VIRTUALBOX_VM_NAME="Super devhost Vm"
-#    BOX_NAME="saucy64"
-#    BOX_URI="http://foo/saucy64.img
+#    BOX_NAME="jessie64"
+#    BOX_URI="http://foo/jessie64.img
 #    MEMORY="512"
 #    CPUS="1"
 #    MAX_CPU_USAGE_PERCENT="25"
@@ -57,20 +57,24 @@ rescue LoadError
 end
 # --- End Load optional config file -----------------
 
-if defined?(UBUNTU_RELEASE)
-    vagrant_config_lines << "UBUNTU_RELEASE=\"#{UBUNTU_RELEASE}\""
+if defined?(DEBIAN_RELEASE)
+    vagrant_config_lines << "DEBIAN_RELEASE=\"#{DEBIAN_RELEASE}\""
+    vagrant_config_lines << "DEBIAN_RELEASE_NUMBER=\"#{DEBIAN_RELEASE_NUMBER}\""
 else
-    UBUNTU_RELEASE="raring"
+    DEBIAN_RELEASE="wheezy"
+    DEBIAN_RELEASE_NUMBER="7"
 end
-if defined?(UBUNTU_LTS_RELEASE)
-    vagrant_config_lines << "UBUNTU_LTS_RELEASE=\"#{UBUNTU_LTS_RELEASE}\""
+if defined?(DEBIAN_STABLE_RELEASE)
+    vagrant_config_lines << "DEBIAN_STABLE_RELEASE=\"#{DEBIAN_STABLE_RELEASE}\""
 else
-    UBUNTU_LTS_RELEASE="precise"
+    DEBIAN_STABLE_RELEASE="wheezy"
+    DEBIAN_STABLE_RELEASE_NUMBER="7"
 end
-if defined?(UBUNTU_NEXT_RELEASE)
-    vagrant_config_lines << "UBUNTU_NEXT_RELEASE=\"#{UBUNTU_NEXT_RELEASE}\""
+if defined?(DEBIAN_NEXT_RELEASE)
+    vagrant_config_lines << "DEBIAN_NEXT_RELEASE=\"#{DEBIAN_NEXT_RELEASE}\""
 else
-    UBUNTU_NEXT_RELEASE="saucy"
+    DEBIAN_NEXT_RELEASE="jessie"
+    DEBIAN_NEXT_RELEASE_NUMBER="8"
 end
 
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
@@ -111,7 +115,7 @@ end
 # Be sure to have only one unique subnet per devhost per physical host
 #
 VBOX_SUBNET_FILE=File.dirname(__FILE__) + "/.vb_subnet"
-DEVHOST_NUM_DEF="43"
+DEVHOST_NUM_DEF="70"
 if not defined?(DEVHOST_NUM)
     devhost_num=ENV.fetch("MAKINA_DEVHOST_NUM", "").strip()
     if devhost_num.empty? and File.exist?(VBOX_SUBNET_FILE)
@@ -145,23 +149,23 @@ end
 if defined?(LOCAL_MIRROR)
     vagrant_config_lines << "LOCAL_MIRROR=\"#{LOCAL_MIRROR}\""
 else
-    LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
+    LOCAL_MIRROR="http://ftp.de.debian.org/"
 end
 if defined?(OFFICIAL_MIRROR)
     vagrant_config_lines << "OFFICIAL_MIRROR=\"#{OFFICIAL_MIRROR}\""
 else
-    OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu"
+    OFFICIAL_MIRROR="http://ftp.debian.org/"
 end
 # let this one to the previous mirror for it to be automaticly replaced
 if defined?(PREVIOUS_LOCAL_MIRROR)
     vagrant_config_lines << "PREVIOUS_LOCAL_MIRROR=\"#{PREVIOUS_LOCAL_MIRROR}\""
 else
-    PREVIOUS_LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
+    PREVIOUS_LOCAL_MIRROR="http://ftp.de.debian.org/"
 end
 if defined?(PREVIOUS_OFFICIAL_MIRROR)
     vagrant_config_lines << "PREVIOUS_OFFICIAL_MIRROR=\"#{PREVIOUS_OFFICIAL_MIRROR}\""
 else
-    PREVIOUS_OFFICIAL_MIRROR="http://us.archive.ubuntu.com/ubuntu"
+    PREVIOUS_OFFICIAL_MIRROR="http://ftp.debian.org/"
 end
 
 # ----------------- END CONFIGURATION ZONE ----------------------------------
@@ -176,7 +180,7 @@ BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
 # we also setup a specific docker network subnet per virtualbox host
 DOCKER_NETWORK_IF="docker0"
 DOCKER_NETWORK_HOST_IF="eth0"
-DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.xx.0 by default
+DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.XX.0 by default
 DOCKER_NETWORK=DOCKER_NETWORK_SUBNET+".0"
 DOCKER_NETWORK_GATEWAY=DOCKER_NETWORK_SUBNET+".254"
 DOCKER_NETWORK_MASK="255.255.255.0"
@@ -184,7 +188,7 @@ DOCKER_NETWORK_MASK_NUM="24"
 
 # md5 based on currentpath
 # Name on your VirtualBox panel
-VIRTUALBOX_BASE_VM_NAME="Docker DevHost "+DEVHOST_NUM+" Ubuntu "+UBUNTU_RELEASE+"64"
+VIRTUALBOX_BASE_VM_NAME="Docker DevHost "+DEVHOST_NUM+" Debian "+DEBIAN_RELEASE+"64"
 VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
 if not defined?(VIRTUALBOX_VM_NAME)
     # old system file support
@@ -200,26 +204,25 @@ vagrant_config_lines << "VIRTUALBOX_VM_NAME=\"#{VIRTUALBOX_VM_NAME}\""
 printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 printf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
 printf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
-printf(" [*] To have multiple hosts, you can change the third bits of IP (default: #{DEVHOST_NUM_DEF}) via the MAKINA_DEVHOST_NUM env variable)\n")
+printf(" [*] To have multiple hosts, you can change the third bits of IP (default: 70) via the MAKINA_DEVHOST_NUM env variable)\n")
 printf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
 printf(" [*] if you want to share this wm, use manage.sh export | import\n")
 # Name inside the VM (as rendered by hostname command)
-VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhostxx.local by default
+VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhostXX.local by default
 
-
-# ------------- BASE IMAGE UBUNTU  -----------------------
+# ------------- BASE IMAGE DEBIAN  -----------------------
 # You can pre-download this image with
-# vagrant box add precise64 http://cloud-images.ubuntu.com/precise/precise/current/precise-server-cloudimg-amd64-vagrant-disk1.box
+# vagrant box add debian-7-wheezy64 https://downloads.sourceforge.net/project/makinacorpus/vms/debian-7-wheezy64.box?r=&ts=1386543863&use_mirror=freefr
 
 if defined?(BOX_NAME)
     vagrant_config_lines << "BOX_NAME=\"#{BOX_NAME}\""
 else
-    BOX_NAME=UBUNTU_RELEASE+"64"
+    BOX_NAME="debian-#{DEBIAN_RELEASE_NUMBER}-#{DEBIAN_RELEASE}64"
 end
 if defined?(BOX_URI)
     vagrant_config_lines << "BOX_URI=\"#{BOX_URI}\""
 else
-    BOX_URI="http://cloud-images.ubuntu.com/vagrant/"+UBUNTU_RELEASE+"/current/"+UBUNTU_RELEASE+"-server-cloudimg-amd64-vagrant-disk1.box"
+    BOX_URI="https://downloads.sourceforge.net/project/makinacorpus/vms/debian-#{DEBIAN_RELEASE_NUMBER}-#{DEBIAN_RELEASE}64.box?r=&ts=1386543863&use_mirror=freefr"
 end
 
 # -- Other things ----------------------------------------------------------
@@ -285,6 +288,7 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder ".", "/vagrant", disabled: true
   # dev: mount of etc, so we can alter current host /etc/hosts from the guest (insecure by definition)
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
+
 
   #------------- PROVISIONING ------------------------------
   # We push all the code in a script which manages the versioning of
@@ -393,6 +397,9 @@ vsettings_f.close()
 # provision script has been moved to a bash script as it growned too much see ./provision_script.sh
 # the only thing we cant move is to test for NFS to be there as the shared file system relies on it
 pkg_cmd = [
+    # FOR NFS ENABLE JUMBO FRAMES, OTHER PART IN ON THE VAGRANTFILE
+    # FOR HOST ONLY INTERFACE VBOXNET
+    "ifconfig eth1 mtu 9000",
     "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
     %{cat > /root/vagrant/provision_nfs.sh  << EOF
 #!/usr/bin/env bash
@@ -420,8 +427,8 @@ PREVIOUS_OFFICIAL_MIRROR="#{PREVIOUS_OFFICIAL_MIRROR}"
 PREVIOUS_LOCAL_MIRROR="#{PREVIOUS_LOCAL_MIRROR}"
 OFFICIAL_MIRROR="#{OFFICIAL_MIRROR}"
 LOCAL_MIRROR="#{LOCAL_MIRROR}"
-UBUNTU_RELEASE="#{UBUNTU_RELEASE}"
-UBUNTU_NEXT_RELEASE="#{UBUNTU_NEXT_RELEASE}"
+DEBIAN_RELEASE="#{DEBIAN_RELEASE}"
+DEBIAN_NEXT_RELEASE="#{DEBIAN_NEXT_RELEASE}"
 DOCKER_NETWORK_HOST_IF="#{DOCKER_NETWORK_HOST_IF}"
 DOCKER_NETWORK_IF="#{DOCKER_NETWORK_IF}"
 DOCKER_NETWORK_BASE="#{DOCKER_NETWORK_IF}"
@@ -454,7 +461,7 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
       if interface_hostonly.start_with?("vboxnet")
         mtu = `sudo ifconfig #{interface_hostonly}|grep -i mtu|sed -e "s/.*MTU:*//g"|awk '{print $1}'`.strip()
         if (mtu != "9000")
-          printf("Configuring jumbo frame on #{interface_hostonly}")
+          printf("Configuring jumbo frame on #{interface_hostonly}\n")
           `sudo ifconfig #{interface_hostonly} mtu 9000`
         end
       end

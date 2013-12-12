@@ -29,16 +29,25 @@ test() {
     name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
     echo $name
     d="$c-test"
-    sudo rsync -azv $c/ $d/ --exclude=salt/ --exclude=pillar --exclude=projects --exclude=.vagrant --exclude=vagrant_config.rb --exclude=docker/
+    sudo rsync -azv $c/ $d/ \
+        --exclude=salt/ \
+        --exclude=mastersalt --exclude=mastersalt-pillar \
+        --exclude=pillar \
+        --exclude=projects --exclude=docker/ \
+        --exclude=.vagrant --exclude=packer --exclude=vagrant_config.rb
     cd ${d} || exit -1
-    ./manage.sh destroy
+    if [[ -n "$NOCLEAN" ]];then
+        log "Warning, no clean!"
+    else
+        ./manage.sh destroy
+    fi
     rm -rf salt projects pillar .vagrant
     if [[ "$name" == "saucy" ]];then
         num="52"
     elif [[ "$name" == "raring" ]];then
         num="53"
     elif [[ "$name" == "precise" ]];then
-        num="54"
+        num="55"
     fi
     cat > vagrant_config.rb << EOF
 module MyConfig
@@ -46,7 +55,11 @@ module MyConfig
     VIRTUALBOX_VM_NAME="Docker DevHost $num Ubuntu ${name}64"
 end
 EOF
+    if [[ -n "$NOCLEAN" ]];then
+        ./manage.sh down
+    fi
     ./manage.sh up
+    exit $?
 }
 destroy() {
     cd $c
