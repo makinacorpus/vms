@@ -397,6 +397,9 @@ vsettings_f.close()
 # provision script has been moved to a bash script as it growned too much see ./provision_script.sh
 # the only thing we cant move is to test for NFS to be there as the shared file system relies on it
 pkg_cmd = [
+    # FOR NFS ENABLE JUMBO FRAMES, OTHER PART IN ON THE VAGRANTFILE
+    # FOR HOST ONLY INTERFACE VBOXNET
+    "ifconfig eth1 mtu 9000",
     "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
     %{cat > /root/vagrant/provision_nfs.sh  << EOF
 #!/usr/bin/env bash
@@ -458,7 +461,7 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
       if interface_hostonly.start_with?("vboxnet")
         mtu = `sudo ifconfig #{interface_hostonly}|grep -i mtu|sed -e "s/.*MTU:*//g"|awk '{print $1}'`.strip()
         if (mtu != "9000")
-          printf("Configuring jumbo frame on #{interface_hostonly}")
+          printf("Configuring jumbo frame on #{interface_hostonly}\n")
           `sudo ifconfig #{interface_hostonly} mtu 9000`
         end
       end

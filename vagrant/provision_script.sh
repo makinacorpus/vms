@@ -17,10 +17,6 @@ output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
 log() { output "$@"; }
 die_if_error() { if [[ "$?" != "0" ]];then output "There were errors";exit 1;fi; }
 
-# FOR NFS ENABLE JUMBO FRAMES, OTHER PART IN ON THE VAGRANTFILE
-# FOR HOST ONLY INTERFACE VBOXNET
-ifconfig eth1 mtu 9000
-
 output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
 output " [*] You can safely relaunch this script from within the vm"
 
