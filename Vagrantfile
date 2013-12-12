@@ -393,6 +393,9 @@ vsettings_f.close()
 # provision script has been moved to a bash script as it growned too much see ./provision_script.sh
 # the only thing we cant move is to test for NFS to be there as the shared file system relies on it
 pkg_cmd = [
+    # FOR NFS ENABLE JUMBO FRAMES, OTHER PART IN ON THE VAGRANTFILE
+    # FOR HOST ONLY INTERFACE VBOXNET
+    "ifconfig eth1 mtu 9000",
     "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
     %{cat > /root/vagrant/provision_nfs.sh  << EOF
 #!/usr/bin/env bash
