@@ -405,6 +405,10 @@ pkg_cmd = [
 #!/usr/bin/env bash
 MARKERS="/srv/root/vagrant/markers"
 die_if_error() { if [[ "\\$?" != "0" ]];then output "There were errors";exit 1;fi; };
+fix_apt()   {
+    apt-get -f install -y --force-yes
+}
+fix_apt
 if [[ ! -f /srv/Vagrantfile ]];then
     output() { echo "\\$@" >&2; };
     if [ ! -d "/srv" ]; then mkdir /srv;fi;
@@ -414,7 +418,7 @@ if [[ ! -f /srv/Vagrantfile ]];then
       fi
       output " [*] Installing nfs tools on guest for next reboot, please wait..."
       apt-get update -qq
-      apt-get install nfs-common portmap
+      apt-get install -y --force-yes nfs-common portmap
       if [ "0" == "$?" ];then touch \\$MARKERS/provision_step_nfs_done; fi;
     fi
     output " [*] ERROR: You do not have /srv/Vagrantfile, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it and launch 'vagrant reload'!"
