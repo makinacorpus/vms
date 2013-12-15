@@ -7,6 +7,7 @@ NORMAL="\\033[0m"
 log(){
     echo -e "${RED} [manage] ${@}${NORMAL}"
 }
+
 u=""
 if [[ "$(whoami)" != "root" ]];then
     u=$(whoami)
@@ -15,14 +16,19 @@ g=editor
 c=$(dirname $0)
 cd $c
 c=$PWD
+
 die() { echo $@; exit -1; }
+
 actions=" $actions "
+
 actions_main_usage="$actions"
+
 usage() {
     for i in $actions_main_usage;do
         echo "$0 $i"
     done
 }
+
 test() {
     cd $(dirname $0)
     c=$PWD
@@ -40,8 +46,14 @@ test() {
         log "Warning, no clean!"
     else
         ./manage.sh destroy
+        rm -rf salt projects pillar
+        cat > vagrant_config.rb << EOF
+module MyConfig
+    DEVHOST_NUM="$num"
+    VIRTUALBOX_VM_NAME="Docker DevHost $num Ubuntu ${name}64"
+end
+EOF
     fi
-    rm -rf salt projects pillar .vagrant
     if [[ "$name" == "saucy" ]];then
         num="52"
     elif [[ "$name" == "raring" ]];then
@@ -49,12 +61,6 @@ test() {
     elif [[ "$name" == "precise" ]];then
         num="55"
     fi
-    cat > vagrant_config.rb << EOF
-module MyConfig
-    DEVHOST_NUM="$num"
-    VIRTUALBOX_VM_NAME="Docker DevHost $num Ubuntu ${name}64"
-end
-EOF
     if [[ -n "$NOCLEAN" ]];then
         ./manage.sh down
     fi
