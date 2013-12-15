@@ -56,6 +56,10 @@ if [[ -f "$SETTINGS" ]];then
     . "$SETTINGS"
 fi
 PREFIX="${PREFIX:-"/srv"}"
+SALT_ROOT="${SALT_ROOT:-"$PREFIX/salt"}"
+MASTERSALT_ROOT="${MASTERSALT_ROOT:-"$PREFIX/mastersalt"}"
+MS="$SALT_ROOT/makina-states"
+MMS="$MASTERSALT_ROOT/makina-states"
 VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
 export SALT_BOOT='server'
 BOOT_GRAIN="makina.bootstrap.$SALT_BOOT"
@@ -77,7 +81,7 @@ DOCKER_NETWORK_GATEWAY="${DOCKER_NETWORK_GATEWAY:-"172.17.42.1"}"
 DOCKER_NETWORK="${DOCKER_NETWORK:-"172.17.0.0"}"
 DOCKER_NETWORK_MASK="${DOCKER_NETWORK_MASK:-"255.255.0.0"}"
 DOCKER_NETWORK_MASK_NUM="${DOCKER_NETWORK_MASK_NUM:-"16"}"
-restart_marker=/tmp/vagrant42
+restart_marker=/tmp/vagrant_provision_needs_restart
 
 # disable some useless and harmfull services
 PLYMOUTH_SERVICES=$(find /etc/init -name 'plymouth*'|grep -v override|sed -re "s:/etc/init/(.*)\.conf:\1:g")
@@ -104,6 +108,7 @@ RE_OFFICIAL_MIRROR="$(echo "${OFFICIAL_MIRROR}"                   | sed -re "s/(
 RE_LOCAL_MIRROR="$(echo "${LOCAL_MIRROR}"                         | sed -re "s/([.#/])/\\\\\1/g")"
 RE_UBUNTU_RELEASE="$(echo "${UBUNTU_RELEASE}"                     | sed -re "s/([.#/])/\\\\\1/g")"
 src_l="/etc/apt/sources.list"
+bootsalt_marker="$MARKERS/salt_bootstrap_done"
 
 ready_to_run() {
     output " [*] VM is now ready for 'vagrant ssh' or other usages..."
@@ -188,12 +193,19 @@ lazy_apt_get_install() {
     fi
 }
 
-initialize_devel_salt_grains() {
-    grain=makina.devhost
-    output " [*] Testing salt grain '$grain'"
-    if [[ "$(get_grain $grain)" != *"True"* ]];then
-        output " [*] Setting salt grain $grain=true to mark this host as a dev host for salt-stack"
-        salt-call --local grains.setval $grain true
+# now done with bootmode=devhost
+#initialize_devel_salt_grains() {
+#    salt_set_grain makina.devhost true
+#
+#}
+
+salt_set_grain() {
+    grain=$1
+    val=$2
+    output " [*] Testing salt grain '$grain'='$val'"
+    if [[ "$(get_grain $grain)" != *"$val"* ]];then
+        output " [*] Setting salt grain $grain=$val to mark this host as a dev host for salt-stack"
+        salt-call --local grains.setval $grain $val
         # sync grains right now, do not wait for reboot
         salt-call saltutil.sync_grains
     else
@@ -485,28 +497,29 @@ create_base_dirs() {
     done
 }
 
-configure_langs() {
-    if [ ! -e $MARKERS/provision_step_lang_done ]; then
-      output " [*] Fix French language"
-      if [[ -n $IS_UBUNTU ]];then
-          apt-get install -y --force-yes language-pack-fr
-      fi
-      echo>/etc/locale.gen
-      echo "en_US.UTF-8 UTF-8">>/etc/locale.gen
-      echo "en_US ISO-8859-1">>/etc/locale.gen
-      echo "de_DE.UTF-8 UTF-8">>/etc/locale.gen
-      echo "de_DE ISO-8859-1">>/etc/locale.gen
-      echo "de_DE@euro ISO-8859-15">>/etc/locale.gen
-      echo "fr_FR.UTF-8 UTF-8">>/etc/locale.gen
-      echo "fr_FR ISO-8859-1">>/etc/locale.gen
-      echo "fr_FR@euro ISO-8859-15">>/etc/locale.gen
-      echo 'LANG="fr_FR.utf8"'>/etc/default/locale
-      echo "export LANG=\${LANG:-fr_FR.UTF-8}">>/etc/profile.d/0_lang.sh
-      /usr/sbin/locale-gen || die_if_error
-      update-locale LANG=fr_FR.utf8 || die_if_error
-      if [ "0" == "$?" ];then touch $MARKERS/provision_step_lang_done; fi;
-    fi
-}
+# done on salt side
+#configure_langs() {
+#    if [ ! -e $MARKERS/provision_step_lang_done ]; then
+#      output " [*] Fix French language"
+#      if [[ -n $IS_UBUNTU ]];then
+#          apt-get install -y --force-yes language-pack-fr
+#      fi
+#      echo>/etc/locale.gen
+#      echo "en_US.UTF-8 UTF-8">>/etc/locale.gen
+#      echo "en_US ISO-8859-1">>/etc/locale.gen
+#      echo "de_DE.UTF-8 UTF-8">>/etc/locale.gen
+#      echo "de_DE ISO-8859-1">>/etc/locale.gen
+#      echo "de_DE@euro ISO-8859-15">>/etc/locale.gen
+#      echo "fr_FR.UTF-8 UTF-8">>/etc/locale.gen
+#      echo "fr_FR ISO-8859-1">>/etc/locale.gen
+#      echo "fr_FR@euro ISO-8859-15">>/etc/locale.gen
+#      echo 'LANG="fr_FR.utf8"'>/etc/default/locale
+#      echo "export LANG=\${LANG:-fr_FR.UTF-8}">>/etc/profile.d/0_lang.sh
+#      /usr/sbin/locale-gen || die_if_error
+#      update-locale LANG=fr_FR.utf8 || die_if_error
+#      if [ "0" == "$?" ];then touch $MARKERS/provision_step_lang_done; fi;
+#    fi
+#}
 
 check_restart() {
     if [[ -e $restart_marker ]];then
@@ -565,87 +578,68 @@ install_docker() {
 install_nfs() {
     if [ ! -e $MARKERS/provision_step_nfs_done ]; then
       output " [*] Install nfs support on guest"
-      apt-get install -y --force-yes nfs-common portmap || die_if_error
+      lazy_apt_get_install nfs-common portmap
       touch $MARKERS/provision_step_nfs_done
     fi
 }
 
-install_saltstack() {
+run_boot_salt() {
+    export MAKINA_STATES_NOCONFIRM='1'
+    export SALT_BOOT="devhost"
+    bootsalt="$MS/_scripts/boot-salt.sh"
+    if [[ ! -e "$bootsalt" ]];then
+        output " [*] Running makina-states bootstrap directly from github"
+        wget "http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh" -O "/tmp/boot-salt.sh"
+        bootsalt="/tmp/boot-salt.sh"
+    fi
+    chmod u+x "$bootsalt"
+    "$bootsalt" && touch "$bootsalt_marker"
+    die_if_error
+    . /etc/profile
+    # now done by the new devhost bootstrap
+    #initialize_devel_salt_grains
+}
+
+test_online() {
+    ping -W 10 -c 1 8.8.8.8 &> /dev/null
+    echo $?
+}
+
+install_or_refresh_makina_states() {
+    if [ -e $MS/src/salt ];then
+          sed -re "s/filemode = true/filemode = false/g" -i $MS/src/*/.git/config
+    fi
+    if [[ -e /srv/salt-venv ]];then
+        rm -rf /srv/salt-venv
+    fi
     if [[ ! -e $MARKERS/salt_bootstrap_done ]];then
-      output " [ * ] Bootstrap Salt-Stack env..."
-      if [ -e /src/salt/makina-states/src/salt ];then
-        sed -re "s/filemode = true/filemode = false/g" -i /src/salt/makina-states/src/*/.git/config
-      fi
-      ms_updated=""
-      if [[ -e /srv/salt/makina-states/.git ]];then
-          output " [ * ] Bootstrap mode update in makina-states.."
-          cd /srv/salt/makina-states
-          git pull && ms_updated="1"
-      fi
-      if [[ -z $ms_updated ]];then
-          output " [ * ] Running makina-states bootstrap directly from github"
-          #wget "http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh" -O "/tmp/boot-salt.sh"
-          bootsalt="/tmp/boot-salt.sh"
-      else
-          output " [ * ] Running makina-states bootstrap"
-          bootsalt="/srv/salt/makina-states/_scripts/boot-salt.sh"
-      fi
-      chmod u+x "$bootsalt"
-      "$bootsalt"
-      die_if_error
-      . /etc/profile
-      touch $MARKERS/salt_bootstrap_done
+        boot_word="Bootstrap"
+    else
+        boot_word="Refresh"
+    fi
+    # upgrade salt only if online
+    if [[ $(test_online) == "0" ]];then
+        output " [*] $boot_word makina-states..."
+        run_boot_salt
+    else
+        if [[ ! -e "$bootsalt_marker" ]];then
+            bs_yellow_log " [*] Warning, we are not online, and thus boot-salt can't be installed"
+            exit -1
+        else
+            bs_yellow_log " [*] Warning, we are not online, not refreshing makina-states!"
+        fi
     fi
 }
 
-configure_saltstack() {
-    # migrate existing vms, be sure to have everywhere the same setup
-    NEED_REDO=""
-    EDITOR_GID="$(salt-call --local pillar.get salt.filesystem.gid 65753|grep -v 'local:'|sed -re 's/\s//g')"
-    EDITOR_GROUP="$(salt-call --local pillar.get salt.filesystem.group editor|grep -v 'local:'|sed -re 's/\s//g')"
+old_editor_group_stuff() {
+    if [[ -e "$(which salt-call 2> /dev/null)" ]];then
+        EDITOR_GID="$(salt-call --local pillar.get salt.filesystem.gid 65753|grep -v 'local:'|sed -re 's/\s//g')"
+        EDITOR_GROUP="$(salt-call --local pillar.get salt.filesystem.group editor|grep -v 'local:'|sed -re 's/\s//g')"
+    fi
     oldg=$(getent group "$EDITOR_GID"|awk -F: '{print $1}')
     if [[ "$oldg" != "$EDITOR_GROUP" ]];then
         output " [*] Changing Editor Group from '$oldg' to '$EDITOR_GROUP'"
         groupmod "$oldg" -n "$EDITOR_GROUP"
-        NEED_REDO="y"
-    fi
-    if [[ -e /srv/salt-venv ]];then
-        rm -rf /srv/salt-venv
-        NEED_REDO="y"
-    fi
-    if [[ ! -e $VENV_PATH ]];then
-        NEED_REDO="y"
-    fi
-    if [[ ! -e /srv/salt/setup.sls ]] || [[ ! -e /srv/salt/top.sls ]];then
-        NEED_REDO="y"
-    fi
-    initialize_devel_salt_grains
-    vm_boot_mode=$(get_grain $BOOT_GRAIN)
-    if [[ $(egrep -- "- makina-states\.dev\s*" /srv/salt/top.sls|wc -l) == "0" ]];then
-        output " [*] Old installation detected for makina-stes.dev top file"
-        NEED_REDO=1
-    fi
-    if [[ "$vm_boot_mode" != *"True"* ]];then
-        output " [*] Old installation detected for boot grain, updating salt"
-        NEED_REDO=1
-    fi
-    if [[ "$vm_boot_mode" != *"True"* ]];then
-        output " [*] Old installation detected for boot grain, updating salt"
-        NEED_REDO=1
-    fi
-    if [[ "$(egrep  "^(  '\*':)" /srv/salt/setup.sls|wc -l)" == "0" ]];then
-        output " [*] Old installation detected for setup.sls, updating salt"
-        NEED_REDO=1
-        exit -1
-    fi
-    if [[ -n "$NEED_REDO" ]];then
-        output " [*] Updating code"
-        cd /srv/salt/makina-states
-        git pull origin master
-        cd /srv/salt/makina-states/src/salt
-        git pull origin develop
-        output " [*] Running salt state setup"
-        /srv/salt/makina-states/_scripts/boot-salt.sh
     fi
 }
 
@@ -672,9 +666,16 @@ restart_daemons() {
     service docker stop
     service docker start
 }
+
+fix_apt()   {
+    apt-get -f install -y --force-yes
+}
+
+fix_apt
 create_base_dirs
 delete_old_stuff
 write_zerofree
+old_editor_group_stuff
 cleanup_restart_marker
 cleanup_repos
 configure_network
@@ -683,14 +684,14 @@ configure_mirrors
 initial_upgrade
 install_backports
 install_nfs
-configure_langs
+# done on salt side
+# configure_langs
 install_docker
 open_routes
-install_saltstack
-configure_saltstack
+# done on salt side
+install_or_refresh_makina_states
 check_restart
-#deactivate_ifup_debugging
-cleanup_space
 restart_daemons
+cleanup_space
 ready_to_run
 # vim:set et sts=4 ts=4 tw=0:
