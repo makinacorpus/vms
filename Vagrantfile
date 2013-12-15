@@ -410,7 +410,7 @@ if [[ ! -f /srv/Vagrantfile ]];then
       fi
       output " [*] Installing nfs tools on guest for next reboot, please wait..."
       apt-get update -qq
-      apt-get install nfs-common portmap
+      apt-get install -y --force-yes nfs-common portmap
       if [ "0" == "$?" ];then touch \\$MARKERS/provision_step_nfs_done; fi;
     fi
     output " [*] ERROR: You do not have /srv/Vagrantfile, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it and launch 'vagrant reload'!"
