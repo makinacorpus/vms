@@ -29,37 +29,56 @@ usage() {
     done
 }
 
+write_test_config() {
+    num="$1"
+    cat > vagrant_config.rb << EOF
+module MyConfig
+    DEVHOST_NUM="$num"
+    VIRTUALBOX_VM_NAME="Docker DevHost $num Ubuntu ${name}64"
+end
+EOF
+}
+
 test() {
     cd $(dirname $0)
     c=$PWD
     name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
+    dname=$(grep ' DEBIAN_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
     echo $name
     d="$c-test"
-    sudo rsync -azv $c/ $d/ \
+    sudo rsync -av $c/ $d/ \
         --exclude=salt/ \
         --exclude=mastersalt --exclude=mastersalt-pillar \
         --exclude=pillar \
         --exclude=projects --exclude=docker/ \
         --exclude=.vagrant --exclude=packer --exclude=vagrant_config.rb
     cd ${d} || exit -1
-    if [[ -n "$NOCLEAN" ]];then
-        log "Warning, no clean!"
-    else
-        ./manage.sh destroy
-        rm -rf salt projects pillar
-        cat > vagrant_config.rb << EOF
-module MyConfig
-    DEVHOST_NUM="$num"
-    VIRTUALBOX_VM_NAME="Docker DevHost $num Ubuntu ${name}64"
-end
-EOF
-    fi
     if [[ "$name" == "saucy" ]];then
         num="52"
     elif [[ "$name" == "raring" ]];then
         num="53"
     elif [[ "$name" == "precise" ]];then
         num="55"
+    elif [[ "$name" == "wheezy" ]];then
+        num="56"
+    else
+        die "invalid test"
+    fi
+    if [[ ! -e vagrant_config.rb ]];then
+        write_test_config $num
+    fi
+    if [[ -n "$NOCLEAN" ]];then
+        log "Warning, no clean!"
+    else
+        if [[ -n "$NODESTROY" ]];then
+            log "Warning, no destroy!"
+        else
+            ./manage.sh destroy
+        fi
+        sudo rm -rf salt projects pillar
+    fi
+    if [[ ! -e vagrant_config.rb ]];then
+        write_test_config $num
     fi
     if [[ -n "$NOCLEAN" ]];then
         ./manage.sh down
@@ -67,6 +86,7 @@ EOF
     ./manage.sh up
     exit $?
 }
+
 destroy() {
     cd $c
     log "Destroy !"
