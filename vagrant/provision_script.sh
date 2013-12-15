@@ -584,7 +584,7 @@ install_nfs() {
 }
 
 run_boot_salt() {
-    export MAKINA_STATES_NOCONFIRM='1'
+    export SALT_BOOT_NOCONFIRM='1'
     export SALT_BOOT="devhost"
     bootsalt="$MS/_scripts/boot-salt.sh"
     if [[ ! -e "$bootsalt" ]];then
