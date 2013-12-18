@@ -191,8 +191,10 @@ If the provision script of the vm halt on nfs mounts you will have to check seve
 
 * do you have some sort of firewalling preventing NFS from your host to the vm? Maybe also apparmor orselinux?
 * do you have a correct /etc/hosts with a first 127.0.[0|1].1 record associated with localhost name and your short and long hostname?
+* did you clone this repository in an encrypted folder (e.g.: home folder on Ubuntu)?
 * On Mac OS X you can try `sudo nfsd checkexports`
 * try to run the vagrant up with `VAGRANT_LOG=INFO vagrant up`
+* try to run `sudo exportfs -a` for more debug information on host side.
 
 Mac OS
 -------
