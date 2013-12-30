@@ -25,11 +25,14 @@ if [[ ! -e /root/vagrant/provision_settings.sh ]];then
     cp -f /root/vagrant_provision_settings.sh /root/vagrant/provision_settings.sh
 fi
 
+
 detect_os() {
+    # make as a function to be copy/pasted as-is in multiple scripts
     IS_UBUNTU=""
     IS_DEBIAN=""
-    if [[ -e /etc/lsb-release ]];then
-        . /etc/lsb-release
+    IS_DEBIAN_LIKE=""
+    if [[ -e $CONF_ROOT/lsb-release ]];then
+        . $CONF_ROOT/lsb-release
         if [[ "$DISTRIB_CODENAME" == "lucid" ]]\
             || [[ "$DISTRIB_CODENAME" == "maverick" ]]\
             || [[ "$DISTRIB_CODENAME" == "natty" ]]\
@@ -43,9 +46,36 @@ detect_os() {
         if [[ "$DISTRIB_CODENAME" == "raring" ]] || [[ -n "$EARLY_UBUNTU" ]];then
             BEFORE_SAUCY=y
         fi
+        if [[ "$DISTRIB_ID" == "Ubuntu" ]];then
+            IS_UBUNTU="y"
+        fi
     fi
-    if [[ -e /etc/debian_version ]] && [[ "$DISTRIB_ID" != "Ubuntu" ]];then
+    if [[ -e "$CONF_ROOT/os-release" ]];then
+        OS_RELEASE_ID=$(egrep ^ID= $CONF_ROOT/os-release|sed -re "s/ID=//g")
+        OS_RELEASE_NAME=$(egrep ^NAME= $CONF_ROOT/os-release|sed -re "s/NAME=""//g")
+        OS_RELEASE_VERSION=$(egrep ^VERSION= $CONF_ROOT/os-release|sed -re "s/VERSION=/""/g")
+        OS_RELEASE_PRETTY_NAME=$(egrep ^PRETTY_NAME= $CONF_ROOT/os-release|sed -re "s/PRETTY_NAME=""//g")
+
+    fi
+    if [[ -e $CONF_ROOT/debian_version ]] && [[ "$OS_RELEASE_ID" == "debian" ]] && [[ "$DISTRIB_ID" != "Ubuntu" ]];then
         IS_DEBIAN="y"
+        SALT_BOOT_OS="debian"
+        DISTRIB_CODENAME="$(echo $OS_RELEASE_PRETTY_NAME |sed -re "s/.*\((.*)\).*/\1/g")"
+    fi
+    if [[ $IS_UBUNTU ]];then
+        SALT_BOOT_OS="ubuntu"
+        DISTRIB_NEXT_RELEASE="saucy"
+        DISTRIB_BACKPORT="$DISTRIB_NEXT_RELEASE"
+    elif [[ $IS_DEBIAN ]];then
+        if [[ "$DISTRIB_CODENAME"  == "wheezy" ]];then
+            DISTRIB_NEXT_RELEASE="jessie"
+        elif [[ "$DISTRIB_CODENAME"  == "squeeze" ]];then
+            DISTRIB_NEXT_RELEASE="wheezy"
+        fi
+        DISTRIB_BACKPORT="wheezy-backports"
+    fi
+    if [[ $IS_UBUNTU ]] || [[ $IS_DEBIAN ]];then
+        IS_DEBIAN_LIKE="y"
     fi
 }
 detect_os
@@ -75,6 +105,10 @@ OFFICIAL_MIRROR="${OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
 LOCAL_MIRROR="${LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
 UBUNTU_RELEASE="${UBUNTU_RELEASE:-"raring"}"
 UBUNTU_NEXT_RELEASE="${UBUNTU_NEXT_RELEASE:-"saucy"}"
+DOCKER_DISABLED="${DOCKER_DISABLED:-no}"
+if [[ "$DOCKER_DISABLED" != "yes" ]];then
+    DOCKER_DISABLED=""
+fi
 DOCKER_NETWORK_HOST_IF="${DOCKER_NETWORK_HOST_IF:-eth0}"
 DOCKER_NETWORK_IF="${DOCKER_NETWORK_IF:-docker0}"
 DOCKER_NETWORK_GATEWAY="${DOCKER_NETWORK_GATEWAY:-"172.17.42.1"}"
@@ -84,8 +118,6 @@ DOCKER_NETWORK_MASK_NUM="${DOCKER_NETWORK_MASK_NUM:-"16"}"
 restart_marker=/tmp/vagrant_provision_needs_restart
 
 # disable some useless and harmfull services
-PLYMOUTH_SERVICES=$(find /etc/init -name 'plymouth*'|grep -v override|sed -re "s:/etc/init/(.*)\.conf:\1:g")
-UPSTART_DISABLED_SERVICES="$PLYMOUTH_SERVICES"
 CHRONO="$(date "+%F_%H-%M-%S")"
 
 # order is important
@@ -142,30 +174,17 @@ EOF
     fi
 }
 
-write_zerofree() {
-    cat > /root/vagrant/zerofree.sh << EOF
-#!/usr/bin/env bash
-echo " [*] Zerofreeing"
-apt-get install -y --force-yes zerofree
-echo s > /proc/sysrq-trigger
-echo s > /proc/sysrq-trigger
-echo u > /proc/sysrq-trigger
-mount -o remount,ro /
-zerofree -v /dev/sda1
-mount -o remount,rw /
-EOF
-    chmod +x /root/vagrant/zerofree.sh
-}
-
 delete_old_stuff() {
     # delete old generated scripts
     for old in /root/provision_nfs.sh \
-        /root/zerofree.sh \
         /root/vagrant_provision_settings.sh;do
         if [[ -e "$old" ]];then
             rm -f "$old"
         fi
     done
+    if [[ -e /srv/salt-venv ]];then
+        rm -rf /srv/salt-venv
+    fi
 }
 
 get_grain() {
@@ -193,12 +212,6 @@ lazy_apt_get_install() {
     fi
 }
 
-# now done with bootmode=devhost
-#initialize_devel_salt_grains() {
-#    salt_set_grain makina.devhost true
-#
-#}
-
 salt_set_grain() {
     grain=$1
     val=$2
@@ -219,6 +232,21 @@ open_routes() {
     sysctl -w net.ipv4.conf.all.rp_filter=0
     sysctl -w net.ipv4.conf.all.log_martians=1
 }
+
+backport_for_raring() {
+    if [[ ! -e "$vbox_marker" ]];then
+        output " [*] Installing  $VB_PKGS"
+        apt-get install -y --force-yes $VB_PKGS
+        die_if_error
+        touch "$vbox_marker" "$restart_marker"
+    fi
+    if [[ ! -e "${kernel_marker}" ]];then
+        output " [*] Updating kernel"
+        apt-get update -qq apt-get install -y --force-yes linux-image &&\
+        touch "$kernel_marker" && touch "$restart_marker"
+    fi
+}
+
 
 backport_for_precise() {
     output " [*] Backporting LTS Hardware Enablement Stack kernel"
@@ -242,7 +270,7 @@ backport_for_precise() {
             fi &&\
             lazy_apt_get_install&&\
             output " [*] installing them" &&\
-            echo yes | /mnt/VBoxLinuxAdditions.run ;/bin/true\
+            echo yes | /mnt/VBoxLinuxAdditions.run ;/bin/true
             output " [*] unmounting them" &&\
             touch /root/vagrant/vboxguest${VBOX_ADD_VER}.ok
             touch $restart_marker
@@ -254,138 +282,10 @@ backport_for_precise() {
     fi
 }
 
-backport_for_raring() {
-    if [[ ! -e "$lxc_marker" ]];then
-        output " [*] Backporting $UBUNTU_NEXT_RELEASE LXC packages: adding repository"
-        sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i "${src_l}" && \
-        apt-get update -qq && \
-        output " [*] Backporting $UBUNTU_NEXT_RELEASE LXC packages:"
-        output " [*]   ${LXC_PKGS}"
-        apt-get install -y --force-yes ${LXC_PKGS}
-        die_if_error
-        output " [*] cleanup of apt, removing backports from sources"
-        sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i "${src_l}" && apt-get update -qq
-        die_if_error
-        touch "$lxc_marker"
-        touch $restart_marker
-    fi
-
-    if [[ ! -e "$vbox_marker" ]];then
-        output " [*] Backporting $UBUNTU_NEXT_RELEASE Virtualbox packages:"
-        output " [*]   $VB_PKGS"
-        sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
-        apt-get update -qq && apt-get install -y --force-yes $VB_PKGS
-        die_if_error
-        output " [*] Backporting Saucy Virtualbox packages: cleanup repository"
-        sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
-        die_if_error
-        touch "$vbox_marker"
-        touch $restart_marker
-    fi
-
-    if [[ ! -e "${kernel_marker}" ]]; then
-        output " [*] Backporting $UBUNTU_NEXT_RELEASE kernel ($KERNEL_PKGS)"
-        sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
-        apt-get update -qq && apt-get install -y --force-yes $KERNEL_PKGS
-        die_if_error
-        sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
-        die_if_error
-        touch "$kernel_marker"
-        touch $restart_marker
-    fi
-}
-
 cleanup_restart_marker() {
     if [[ -e $restart_marker ]];then
         output " [*] Removing restart marker"
         rm -f $restart_marker
-    fi
-}
-
-configure_mirrors() {
-    if [ ! -e "$mirror_marker" ];then
-        if [[ -n $EARLY_UBUNTU ]] && [[ -n $IS_UBUNTU ]];then
-            m="$MARKERS/vbox_pkg_1_initial_update_core_pkgs"
-            if [ ! -e $m ];then
-                apt-get update -qq &&\
-                    apt-get install -y --force-yes\
-                    cloud-init\
-                    ubuntu-cloudimage-keyring ubuntu-cloud-keyring\
-                    debian-keyring debian-archive-keyring ubuntu-extras-keyring ubuntu-keyring
-                cloud-init start
-            fi
-            touch $m
-        fi
-        if [[ ! -e "$MARKERS/vbox_pkg_1_initial_update" ]];then
-            # generate a proper commented /etc/apt/source.list
-            if [[ -n $IS_UBUNTU ]];then
-                output " [*] Initial upgrade with cloud-init"
-                if [[ -n $EARLY_UBUNTU ]];then
-                    apt-get update -qq &&\
-                        lazy_apt_get_install cloud-init ubuntu-cloudimage-keyring ubuntu-cloud-keyring git git-core
-                    cloud-init start
-                fi
-                /usr/bin/cloud-init init
-                /usr/bin/cloud-init modules --mode=config
-                /usr/bin/cloud-init modules --mode=final
-                cp "${src_l}" "${src_l}.${CHRONO}.sav" || die_if_error
-            fi
-            if [[ -n $IS_DEBIAN ]];then
-                output " [*] Initial package install"
-                apt-get update -qq &&\
-                    lazy_apt_get_install build-essential m4 libtool pkg-config autoconf gettext \
-                    bzip2 groff man-db automake libsigc++-2.0-dev tcl8.5 git libssl-dev \
-                    libxml2-dev libxslt1-dev libbz2-dev zlib1g-dev python-setuptools \
-                    python-dev libjpeg62-dev libreadline-dev python-imaging wv poppler-utils \
-                    libsqlite0-dev libgdbm-dev libdb-dev tcl8.5-dev tcl8.5-dev \
-                    tcl8.4 tcl8.4-dev tk8.5-dev libsqlite3-dev
-            fi
-            touch "$MARKERS/vbox_pkg_1_initial_update"
-        fi
-        output " [*] Activating some repository and mirrors"
-        sed -re "s/(.*deb(-src)?\s+)(${RE_PREVIOUS_OFFICIAL_MIRROR}|${RE_PREVIOUS_LOCAL_MIRROR}|${RE_OFFICIAL_MIRROR})(.*)/\1${RE_LOCAL_MIRROR}\4/g" -i ${src_l}
-        if [[ -n $IS_UBUNTU ]];then
-            sed -re "s/^(#|\s)*(deb(-src)?\s+[^ ]+\s+(precise|raring|${UBUNTU_NEXT_RELEASE}|${UBUNTU_RELEASE})(-(updates|backports|security))?)\s+(.*)/\2 \7/g" -i ${src_l}
-            for rel in $UBUNTU_RELEASE ${UBUNTU_RELEASE}-updates;do
-                for i in partner restricted universe multiverse main;do
-                    ADD_DEB=1
-                    ADD_DEBSRC=1
-                    if [[ "$i" == "partner" ]];then
-                        ADD_DEBSRC=""
-                        if [[ "$rel" != "$UBUNTU_RELEASE" ]];then
-                            ADD_DEB=""
-                        fi
-                    fi
-                    if [[ ! "$(egrep "^deb\s+.*\s${rel}\s+.*$i(\s+|$)" ${src_l}|wc -l)" == "0" ]];then
-                        ADD_DEB=""
-                    fi
-                    if [[ ! "$(egrep "^deb-src\s+.*\s${rel}\s+.*$i(\s+|$)" ${src_l}|wc -l)" == "0" ]];then
-                        ADD_DEBSRC=""
-                    fi
-                    if [[ -n "$ADD_DEB" ]];then
-                        output " [*] Adding ${i}@${rel} to repos"
-                        echo "deb ${LOCAL_MIRROR} ${rel} $i" >> ${src_l}
-                    fi
-                    if [[ -n "$ADD_DEBSRC" ]];then
-                        output " [*] Adding ${i}(src)@${rel} to repos"
-                        echo "deb-src ${LOCAL_MIRROR} ${rel} $i" >> ${src_l}
-                    fi
-                done
-            done
-        fi
-        apt-get update -qq
-        die_if_error
-        touch "$mirror_marker"
-    fi
-}
-
-cleanup_repos() {
-    # cleanup old failed provisions
-    if [[ "$(grep "$UBUNTU_NEXT_RELEASE" ${src_l} | wc -l)" != "0" ]]\
-        && [[ -n "$IS_UBUNTU" ]];then
-        output " [*] Deactivating next-release($UBUNTU_NEXT_RELEASE) repos"
-        sed -re "s/$UBUNTU_NEXT_RELEASE/$UBUNTU_RELEASE/g" -i ${src_l}
-        apt-get update -qq
     fi
 }
 
@@ -397,6 +297,9 @@ nameserver ${DNS_SERVER}
 nameserver 8.8.8.8
 nameserver 4.4.4.4
 DNSEOF
+}
+
+configure_docker_network() {
     # Create the docker0 bridge before docker does it to hard-fcode
     # the docker network address
     if_file="/etc/network/interfaces.${DOCKER_NETWORK_IF}"
@@ -463,28 +366,18 @@ EOF
     open_routes
 }
 
-disable_useless_services() {
-    if [[ -n $IS_UBUNTU ]];then
-        for service in $UPSTART_DISABLED_SERVICES;do
-            sf=/etc/init/$service.override
-            if [[ "$(cat $sf 2>/dev/null)" != "manual" ]];then
-                output " [*] Disable $service upstart service"
-                echo "manual" > "$sf"
-                service $service stop
-                if [[ -n "$BEFORE_SAUCY" ]];then
-                    touch $restart_marker
-                fi
-            fi
-        done
-    fi
-}
-
 initial_upgrade() {
-    if [ ! -e "$MARKERS/vbox_init_global_upgrade" ];then
-        output " [*] Upgrading base image (apt-get upgrade & dist-upgrade)"
-        apt-get update -qq && apt-get upgrade -y && apt-get dist-upgrade -y
-        die_if_error
-        touch "$MARKERS/vbox_init_global_upgrade"
+    if [[ ! -e "$MARKERS/vbox_init_global_upgrade" ]];then
+        output " [*] Upgrading base imag"
+        if [[ $IS_DEBIAN_LIKE ]];then
+            output " [*] apt-get upgrade & dist-upgrade"
+            apt-get update -qq &&\
+                install_backports &&\
+                apt-get upgrade -y &&\
+                apt-get dist-upgrade -y --force-yes
+            die_if_error
+            touch "$MARKERS/vbox_init_global_upgrade"
+        fi
     fi
 }
 
@@ -496,30 +389,6 @@ create_base_dirs() {
         fi
     done
 }
-
-# done on salt side
-#configure_langs() {
-#    if [ ! -e $MARKERS/provision_step_lang_done ]; then
-#      output " [*] Fix French language"
-#      if [[ -n $IS_UBUNTU ]];then
-#          apt-get install -y --force-yes language-pack-fr
-#      fi
-#      echo>/etc/locale.gen
-#      echo "en_US.UTF-8 UTF-8">>/etc/locale.gen
-#      echo "en_US ISO-8859-1">>/etc/locale.gen
-#      echo "de_DE.UTF-8 UTF-8">>/etc/locale.gen
-#      echo "de_DE ISO-8859-1">>/etc/locale.gen
-#      echo "de_DE@euro ISO-8859-15">>/etc/locale.gen
-#      echo "fr_FR.UTF-8 UTF-8">>/etc/locale.gen
-#      echo "fr_FR ISO-8859-1">>/etc/locale.gen
-#      echo "fr_FR@euro ISO-8859-15">>/etc/locale.gen
-#      echo 'LANG="fr_FR.utf8"'>/etc/default/locale
-#      echo "export LANG=\${LANG:-fr_FR.UTF-8}">>/etc/profile.d/0_lang.sh
-#      /usr/sbin/locale-gen || die_if_error
-#      update-locale LANG=fr_FR.utf8 || die_if_error
-#      if [ "0" == "$?" ];then touch $MARKERS/provision_step_lang_done; fi;
-#    fi
-#}
 
 check_restart() {
     if [[ -e $restart_marker ]];then
@@ -546,46 +415,10 @@ install_backports() {
     fi
 }
 
-install_docker() {
-    if [[ $IS_DEBIAN ]];then
-        lazy_apt_get_install lxc wget bsdtar curl golang git aufs-tools mercurial iptables libdevmapper-dev
-    fi
-    if [[ ! -e $MARKERS/provision_step_lxc_done ]];then
-        if [[  -n $IS_DEBIAN ]] || [[ -n $IS_UBUNTU ]]; then
-        output " [*] Install lxc-docker support"
-        # Add lxc-docker package
-        wget -c -q -O - https://get.docker.io/gpg | apt-key add -
-        echo deb http://get.docker.io/ubuntu docker main > ${src_l}.d/docker.list
-        output " [*] Install lxc-docker support: refresh packages list"
-        apt-get update -qq || die_if_error
-        output " [*] Install lxc-docker support: install lxc-docker package"
-        apt-get install -y --force-yes lxc-docker || die_if_error
-        # autorestart dockers on boot
-        killall -9 docker
-        service docker stop
-        if [[ -f /etc/init/docker.conf ]];then
-            sed -re "s/docker -d/docker -r -d/g" -i /etc/init/docker.conf
-        fi
-        service docker start
-        die_if_error
-        touch $MARKERS/provision_step_lxc_done
-        # since apparmor backport, seem we have not to reboot anymore
-        # touch $restart_marker
-        fi
-    fi
-}
-
-install_nfs() {
-    if [ ! -e $MARKERS/provision_step_nfs_done ]; then
-      output " [*] Install nfs support on guest"
-      lazy_apt_get_install nfs-common portmap
-      touch $MARKERS/provision_step_nfs_done
-    fi
-}
-
 run_boot_salt() {
     export SALT_BOOT_NOCONFIRM='1'
-    export SALT_BOOT="devhost"
+    export SALT_NODETYPE="vagrantvm"
+    export SALT_CONTROLLER="salt_master"
     bootsalt="$MS/_scripts/boot-salt.sh"
     if [[ ! -e "$bootsalt" ]];then
         output " [*] Running makina-states bootstrap directly from github"
@@ -596,8 +429,6 @@ run_boot_salt() {
     "$bootsalt" && touch "$bootsalt_marker"
     die_if_error
     . /etc/profile
-    # now done by the new devhost bootstrap
-    #initialize_devel_salt_grains
 }
 
 test_online() {
@@ -609,10 +440,7 @@ install_or_refresh_makina_states() {
     if [ -e $MS/src/salt ];then
           sed -re "s/filemode = true/filemode = false/g" -i $MS/src/*/.git/config
     fi
-    if [[ -e /srv/salt-venv ]];then
-        rm -rf /srv/salt-venv
-    fi
-    if [[ ! -e $MARKERS/salt_bootstrap_done ]];then
+    if [[ ! -e "$bootsalt_marker" ]];then
         boot_word="Bootstrap"
     else
         boot_word="Refresh"
@@ -623,7 +451,7 @@ install_or_refresh_makina_states() {
         run_boot_salt
     else
         if [[ ! -e "$bootsalt_marker" ]];then
-            bs_yellow_log " [*] Warning, we are not online, and thus boot-salt can't be installed"
+            bs_yellow_log " [*] Warning, we are not online, and thus boot-salt can't be runned"
             exit -1
         else
             bs_yellow_log " [*] Warning, we are not online, not refreshing makina-states!"
@@ -643,55 +471,34 @@ old_editor_group_stuff() {
     fi
 }
 
-cleanup_space() {
-    output " [*] Cleaning vm to reduce disk space usage"
-    output " [*] Cleaning apt"
-    apt-get clean -y
-    apt-get autoclean -y
-    # cleanup archives to preserve vm SPACE
-    if [[ $(find /var/cache/apt/archives/ -name *deb|wc -l) != "0" ]];then
-        rm -rf /var/cache/apt/archives/*deb
-    fi
-}
-
-restart_daemons() {
-    # Always start salt and docker AFTER /srv has been mounted on the VM
-    output " [*] Manage Basic daemons using /srv"
-    output " [*] /srv is mounted quite late so we must start some daemons later"
-    # kill salt that may be running
-    ps aux|egrep "salt-(master|minion|syndic)"|awk '{print $2}'|xargs kill -9 &> /dev/null
-    service salt-master start
-    #rm -rf /etc/salt/pki/minion/minion_master.pub
-    service salt-minion start
-    service docker stop
-    service docker start
-}
-
 fix_apt()   {
     apt-get -f install -y --force-yes
 }
 
-fix_apt
+cleanup_space() {
+    if [[ $IS_DEBIAN_LIKE ]];then
+        # dropeed by makina-states.nodetypes.vagrantvm
+        /sbin/system-cleanup.sh
+    fi
+}
+
+base_pckages_sanitization() {
+    if [[ $IS_DEBIAN_LIKE ]];then
+        fix_apt
+    fi
+    initial_upgrade
+}
+
 create_base_dirs
 delete_old_stuff
-write_zerofree
 old_editor_group_stuff
 cleanup_restart_marker
-cleanup_repos
 configure_network
-disable_useless_services
-configure_mirrors
-initial_upgrade
-install_backports
-install_nfs
-# done on salt side
-# configure_langs
-install_docker
-open_routes
-# done on salt side
+base_pckages_sanitization
 install_or_refresh_makina_states
-check_restart
-restart_daemons
+open_routes
 cleanup_space
+check_restart
 ready_to_run
+
 # vim:set et sts=4 ts=4 tw=0:

@@ -60,13 +60,55 @@ You need to have ``virtualbox``, ``vagrant`` and ``NFS`` (as a server).
 
 For a debian-like host this would be ok with theses commands::
 
-  sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
+
+* By default file transferts between host and guest is **really, really slow**.
+  We have improved performances by some techniques:
+
+    * Using **NFS** as sharing filesystem
+    * Increasing the **MTU to 9000** (jumbo frames) on host and guest Ethernet nics
+    * Tuning the nfs options
+    * **Increasing** the nfs worker **threads**
+
+You need to configure the nfs server to have more worker threads to speed up
+transfers or the VM will be **slow as hell**.
+
+* On Debian / Ubuntu:
+
+    * Install nfs::
+
+        sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
+
+    * Edit  **/etc/default/nfs-kernel-server** and increase the **RPCNFSDCOUNT**
+      variable to 512 or 256.
+
+    * Restart the server::
+
+        sudo /etc/init.d/nfs-kernel-server restart
+
+* On Archlinux:
+
+    * Edit  **/etc/conf.d/nfs-server.conf** and increase the **NFSD_COUNT**
+      variable to 512 or 256.
+
+    * Enable at boot / Restart the services::
+
+        modprobe nfs # may return an error if already loaded
+        for i in rpc-idmapd.service and rpc-mountd.service nfsd.service;do
+            systemctl enable $i
+            service $i start
+        done
+
+* On MacOSX:
+
+    * Edit  **/etc/nfs.conf** and increase the **nfs.server.nfsd_threads**
+      variable to 512 or 256.
+    * Select, active & restart the NFS service in server admin
 
 For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
 
 You could make you a supersudoer without password to avoid sudo questions when lauching the VMs (not required)::
 
-    # visudo    
+    # visudo
     # Allow members of group sudo to execute any command
     %sudo   ALL=(ALL:ALL) NOPASSWD:ALL
 

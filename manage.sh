@@ -53,6 +53,8 @@ test() {
         --exclude=projects --exclude=docker/ \
         --exclude=.vagrant --exclude=packer --exclude=vagrant_config.rb
     cd ${d} || exit -1
+    git checkout docker
+    git checkout packer
     if [[ "$name" == "saucy" ]];then
         num="52"
     elif [[ "$name" == "raring" ]];then
