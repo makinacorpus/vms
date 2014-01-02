@@ -482,7 +482,7 @@ cleanup_space() {
     fi
 }
 
-base_pckages_sanitization() {
+base_packages_sanitization() {
     if [[ $IS_DEBIAN_LIKE ]];then
         fix_apt
     fi
@@ -512,7 +512,7 @@ delete_old_stuff
 old_editor_group_stuff
 cleanup_restart_marker
 configure_network
-base_pckages_sanitization
+base_packages_sanitization
 install_or_refresh_makina_states
 open_routes
 cleanup_space
