@@ -98,7 +98,7 @@ NFS installation
 
     * NOTE: [RECOMMENDED] **256** threads == **~512MO** ram allocated for nfs
 
-    * NOTE: **128** threads == **~3002MO** ram allocated for nfs
+    * NOTE: **128** threads == **~302MO** ram allocated for nfs
 
     * **512** is a lot quickier but the virtualbox ethernet interfaces had some bugs
       (kernel guest oops) at this speed.
