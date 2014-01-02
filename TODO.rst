@@ -15,10 +15,9 @@ IN PROGRESS
 
 TODO
 ====
-* killer chef/puppet on start
-* saltmaster: dev: workerthread1 -> local.conf dans master.d
+
 * timeout: 120
-* yaml_utf8: true
+
 * Fix /etc/hosts editing to not have the first 127.0.0.1 appended at the end of file but at the init.
 
 * Better route teardown (do not leave a cluttered route table on exist)
@@ -34,6 +33,9 @@ TODO
 
 DONE
 ====
+* **00/12/2013**: killer chef/puppet on start
+* **00/12/2013**: saltmaster: dev: workerthread1 -> local.conf dans master.d
+* **00/12/2013**: yaml_utf8: true
 * **00/12/2013**: salt: automatic configuration
 * **00/12/2013**: vagrant+salt: begin to move the vagrant provision into makina-states.
 * **00/12/2013**: vagrant: integrate jumbo frames for NFS

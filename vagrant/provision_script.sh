@@ -489,6 +489,24 @@ base_pckages_sanitization() {
     initial_upgrade
 }
 
+disable_base_box_services() {
+    marker="$MARKERS/disabled_base_box_services"
+    if [[ ! -e "$marker" ]];then
+        for i in puppet chef-client;do
+            if [[ "$i" == "chef-client" ]];then
+                ps aux|grep -- "$i"|awk '{print $2}'|xargs kill -9
+            fi
+            if [[ -f /etc/init.d/$i ]];then
+                output " [*] Disabling $i"
+                service $i stop
+                update-rc.d -f $i remove
+            fi
+        done
+        touch "$marker"
+    fi
+}
+
+disable_base_box_services
 create_base_dirs
 delete_old_stuff
 old_editor_group_stuff

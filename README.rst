@@ -29,7 +29,6 @@ For docker, we use a docker subfolder with the appropriate stuff to build the ba
 
 Ubuntu
 ~~~~~~
-
 **WARNING** You need to comment out all the /etc/apparmor.d/usr.bin.ntpd profile and do **sudo invoke-rc.d apparmor reload**
 
 - **makinacorpus/ubuntu**: `minimal ubuntu system <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/ubuntu>`_
@@ -57,20 +56,52 @@ Prerequisites
 -------------
 You need to have ``virtualbox``, ``vagrant`` and ``NFS`` (as a server).
 
-
-For a debian-like host this would be ok with theses commands::
-
-
-* By default file transferts between host and guest is **really, really slow**.
+By default file transferts between host and guest is **really, really slow**.
   We have improved performances by some techniques:
 
     * Using **NFS** as sharing filesystem
     * Increasing the **MTU to 9000** (jumbo frames) on host and guest Ethernet nics
-    * Tuning the nfs options
+    * Tuning the nfs & kernel options on the host
     * **Increasing** the nfs worker **threads**
 
-You need to configure the nfs server to have more worker threads to speed up
-transfers or the VM will be **slow as hell**.
+Host kernel optmimisations
++++++++++++++++++++++++++++
+Take care with this part, it can prevent your system from booting.
+
+* On MacOSX, edit **/etc/sysctl.conf**
+
+    * add or edit a line::
+
+        kern.aiomax=2048
+        kern.aioprocmax=512
+        kern.aiothreads=128
+
+    * Reload the settings::
+
+        sysctl -p
+
+* On linux, edit **/etc/sysctl.conf**
+
+    * add or edit a line::
+
+        fs.aio-max-nr = 1048576
+        fs.file-max = 6815744
+
+    * Reload the settings::
+
+        sysctl -p
+
+NFS installation
+++++++++++++++++
+* The important thing here is to tuneup the number of avalaible workers for nfs
+  server operations.
+
+    * NOTE: [RECOMMENDED] **256** threads == **~512MO** ram allocated for nfs
+
+    * NOTE: **128** threads == **~3002MO** ram allocated for nfs
+
+    * **512** is a lot quickier but the virtualbox ethernet interfaces had some bugs
+      (kernel guest oops) at this speed.
 
 * On Debian / Ubuntu:
 
@@ -79,7 +110,7 @@ transfers or the VM will be **slow as hell**.
         sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
 
     * Edit  **/etc/default/nfs-kernel-server** and increase the **RPCNFSDCOUNT**
-      variable to 512 or 256.
+      variable to 256.
 
     * Restart the server::
 
@@ -88,7 +119,7 @@ transfers or the VM will be **slow as hell**.
 * On Archlinux:
 
     * Edit  **/etc/conf.d/nfs-server.conf** and increase the **NFSD_COUNT**
-      variable to 512 or 256.
+      variable to 256.
 
     * Enable at boot / Restart the services::
 
@@ -106,17 +137,18 @@ transfers or the VM will be **slow as hell**.
 
 For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
 
+Vagrant
++++++++
 You could make you a supersudoer without password to avoid sudo questions when lauching the VMs (not required)::
 
     # visudo
     # Allow members of group sudo to execute any command
     %sudo   ALL=(ALL:ALL) NOPASSWD:ALL
 
+For a Debian / Ubuntu deb-like host, version 1.3.5 64 bits::
 
-For a debian/ubuntu deb-like host, version 1.3.5 64 bits::
-
-  wget http://files.vagrantup.com/packages/a40522f5fabccb9ddabad03d836e120ff5d14093/vagrant_1.3.5_x86_64.deb
-  sudo dpkg -i vagrant_1.3.5_x86_64.deb
+    wget http://files.vagrantup.com/packages/a40522f5fabccb9ddabad03d836e120ff5d14093/vagrant_1.3.5_x86_64.deb
+    sudo dpkg -i vagrant_1.3.5_x86_64.deb
 
 Installation
 ------------
@@ -342,3 +374,4 @@ And uninstall them with
     cd /srv/docker
     ./make.sh teardown
 
+.. vim:set ts=4 sts=4:
