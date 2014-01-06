@@ -62,11 +62,11 @@ detect_os() {
         SALT_BOOT_OS="debian"
         DISTRIB_CODENAME="$(echo $OS_RELEASE_PRETTY_NAME |sed -re "s/.*\((.*)\).*/\1/g")"
     fi
-    if [[ $IS_UBUNTU ]];then
+    if [[ -n "$IS_UBUNTU" ]];then
         SALT_BOOT_OS="ubuntu"
         DISTRIB_NEXT_RELEASE="saucy"
         DISTRIB_BACKPORT="$DISTRIB_NEXT_RELEASE"
-    elif [[ $IS_DEBIAN ]];then
+    elif [[ -n "$IS_DEBIAN" ]];then
         if [[ "$DISTRIB_CODENAME"  == "wheezy" ]];then
             DISTRIB_NEXT_RELEASE="jessie"
         elif [[ "$DISTRIB_CODENAME"  == "squeeze" ]];then
@@ -74,30 +74,30 @@ detect_os() {
         fi
         DISTRIB_BACKPORT="wheezy-backports"
     fi
-    if [[ $IS_UBUNTU ]] || [[ $IS_DEBIAN ]];then
+    if [[ -n "$IS_UBUNTU" ]] || [[ -n "$IS_DEBIAN" ]];then
         IS_DEBIAN_LIKE="y"
     fi
 }
-detect_os
+ROOT="/"
+CONF_ROOT="${CONF_ROOT:-"${ROOT}etc"}"
+PREFIX="${PREFIX:-"${ROOT}srv"}"
+SALT_ROOT="${SALT_ROOT:-"$PREFIX/salt"}"
+MASTERSALT_ROOT="${MASTERSALT_ROOT:-"$PREFIX/mastersalt"}"
 # source a maybe existing settings file
-SETTINGS="${SETTINGS:-"/root/vagrant/provision_settings.sh"}"
+SETTINGS="${SETTINGS:-"${ROOT}root/vagrant/provision_settings.sh"}"
 if [[ -f "$SETTINGS" ]];then
     output " [*] Loading custom settings in $SETTINGS"
     . "$SETTINGS"
 fi
-PREFIX="${PREFIX:-"/srv"}"
-SALT_ROOT="${SALT_ROOT:-"$PREFIX/salt"}"
-MASTERSALT_ROOT="${MASTERSALT_ROOT:-"$PREFIX/mastersalt"}"
 MS="$SALT_ROOT/makina-states"
 MMS="$MASTERSALT_ROOT/makina-states"
 VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
-export SALT_BOOT='server'
-BOOT_GRAIN="makina.bootstrap.$SALT_BOOT"
 VBOX_ADD_VER="4.2.16"
 
+
 # Markers must not be on a shared folder for a new VM to be reprovisionned correctly
-VENV_PATH="/salt-venv"
-MARKERS="${MARKERS:-"/root/vagrant/markers"}"
+VENV_PATH="${ROOT}salt-venv"
+MARKERS="${MARKERS:-"${ROOT}root/vagrant/markers"}"
 DNS_SERVER="${DNS_SERVER:-"8.8.8.8"}"
 PREVIOUS_OFFICIAL_MIRROR="${PREVIOUS_OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
 PREVIOUS_LOCAL_MIRROR="${PREVIOUS_LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
@@ -119,6 +119,8 @@ restart_marker=/tmp/vagrant_provision_needs_restart
 
 # disable some useless and harmfull services
 CHRONO="$(date "+%F_%H-%M-%S")"
+
+detect_os
 
 # order is important
 LXC_PKGS="lxc apparmor apparmor-profiles"
@@ -369,7 +371,7 @@ EOF
 initial_upgrade() {
     if [[ ! -e "$MARKERS/vbox_init_global_upgrade" ]];then
         output " [*] Upgrading base imag"
-        if [[ $IS_DEBIAN_LIKE ]];then
+        if [[ -n "$IS_DEBIAN_LIKE" ]];then
             output " [*] apt-get upgrade & dist-upgrade"
             apt-get update -qq &&\
                 install_backports &&\
@@ -399,7 +401,7 @@ check_restart() {
 }
 
 install_backports() {
-    if [[ $IS_UBUNTU ]];then
+    if [[ -n "$IS_UBUNTU" ]];then
         if [[ "$DISTRIB_CODENAME" == "raring" ]]\
             || [[ "$DISTRIB_CODENAME" == "precise" ]];then
             backport_for_${DISTRIB_CODENAME}
@@ -476,14 +478,14 @@ fix_apt()   {
 }
 
 cleanup_space() {
-    if [[ $IS_DEBIAN_LIKE ]];then
+    if [[ -n "$IS_DEBIAN_LIKE" ]];then
         # dropeed by makina-states.nodetypes.vagrantvm
         /sbin/system-cleanup.sh
     fi
 }
 
 base_packages_sanitization() {
-    if [[ $IS_DEBIAN_LIKE ]];then
+    if [[ -n "$IS_DEBIAN_LIKE" ]];then
         fix_apt
     fi
     initial_upgrade
