@@ -506,8 +506,8 @@ disable_base_box_services() {
     fi
 }
 
-disable_base_box_services
 create_base_dirs
+disable_base_box_services
 delete_old_stuff
 old_editor_group_stuff
 cleanup_restart_marker
