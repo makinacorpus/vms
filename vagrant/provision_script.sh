@@ -418,9 +418,6 @@ install_backports() {
 }
 
 run_boot_salt() {
-    export SALT_BOOT_NOCONFIRM='1'
-    export SALT_NODETYPE="vagrantvm"
-    export SALT_CONTROLLER="salt_master"
     bootsalt="$MS/_scripts/boot-salt.sh"
     if [[ ! -e "$bootsalt" ]];then
         output " [*] Running makina-states bootstrap directly from github"
@@ -428,7 +425,8 @@ run_boot_salt() {
         bootsalt="/tmp/boot-salt.sh"
     fi
     chmod u+x "$bootsalt"
-    "$bootsalt" && touch "$bootsalt_marker"
+    # no confirm / saltmaster / nodetype: vagrantvm
+    "$bootsalt" -C -M -n vagrantvm && touch "$bootsalt_marker"
     die_if_error
     . /etc/profile
 }
