@@ -100,24 +100,27 @@ suspend() {
     log "Suspend !"
     vagrant suspend
 }
+
 ssh() {
     cd $c
     exec vagrant ssh $@
 }
+
 down() {
     cd $c
     log "Down !"
     vagrant halt -f
 }
+
 maybe_finish_creation() {
     ret=$?
-    marker="$(vagrant ssh -c 'test -e /tmp/vagrant42'>/dev/null;echo $?)"
+    restart_marker="/tmp/vagrant_provision_needs_restart"
     if [[ "$ret" != "0" ]] || [[ "$marker" == "0" ]];then
         for i in $(seq 3);do
+            marker="$(vagrant ssh -c 'test $restart_marker'>/dev/null;echo $?)"
             if [[ "$marker" == "0" ]];then
                 log "First runs, we issue a scheduled reload after the first up(s)"
                 vagrant reload
-                marker="$(vagrant ssh -c 'test -e /tmp/vagrant42';echo $?)"
                 ret="$?"
             elif [[ "$ret" != "0" ]];then
                 log "Error in vagrant up/reload"
@@ -128,21 +131,18 @@ maybe_finish_creation() {
 }
 up() {
     cd $c
-    not_created="$(not_created)"
     log "Up !"
     vagrant up
     maybe_finish_creation
 }
-not_created() {
-    cd $c
-    vagrant status|grep "not created (virtualbox)" 2>/dev/null|wc -l
-}
+
 reload() {
     cd $c
     log "Reload!"
     vagrant reload
     maybe_finish_creation
 }
+
 export() {
     cd $c
     local nincludes=""
