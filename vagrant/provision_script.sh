@@ -285,9 +285,9 @@ backport_for_precise() {
 }
 
 cleanup_restart_marker() {
-    if [[ -e $restart_marker ]];then
+    if [[ -e "$restart_marker" ]];then
         output " [*] Removing restart marker"
-        rm -f $restart_marker
+        rm -f "$restart_marker"
     fi
 }
 
@@ -369,7 +369,8 @@ EOF
 }
 
 initial_upgrade() {
-    if [[ ! -e "$MARKERS/vbox_init_global_upgrade" ]];then
+    marker="$MARKERS/vbox_init_global_upgrade"
+    if [[ ! -e "$marker" ]];then
         output " [*] Upgrading base image"
         if [[ -n "$IS_DEBIAN_LIKE" ]];then
             output " [*] apt-get upgrade & dist-upgrade"
@@ -377,9 +378,9 @@ initial_upgrade() {
                 install_backports &&\
                 apt-get upgrade -y &&\
                 apt-get dist-upgrade -y --force-yes
-            die_if_error
-            touch "$MARKERS/vbox_init_global_upgrade"
         fi
+        die_if_error
+        touch "$marker"
     fi
 }
 
@@ -393,7 +394,6 @@ create_base_dirs() {
 }
 
 check_restart() {
-    touch "$restart_marker"
     if [[ -e $restart_marker ]];then
         output " [*] A restart trigger to finish to provision the box has been detected."
         output " [*] For that, issue now '$0 reload'"
