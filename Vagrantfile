@@ -15,6 +15,13 @@ VSETTINGS_N="vagrant_config"
 VSETTINGS_P=File.dirname(__FILE__)+"/"+VSETTINGS_N+".rb"
 vagrant_config_lines = []
 
+def eprintf(*args)
+  $stdout = STDERR
+  printf(*args)
+  $stdout = STDOUT
+end
+
+
 # --------------------- CONFIGURATION ZONE ----------------------------------
 #
 # If you want to alter any configuration setting, put theses settings in a ./vagrant_config.rb file
@@ -197,12 +204,12 @@ if not defined?(VIRTUALBOX_VM_NAME)
     end
 end
 vagrant_config_lines << "VIRTUALBOX_VM_NAME=\"#{VIRTUALBOX_VM_NAME}\""
-printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
-printf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
-printf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
-printf(" [*] To have multiple hosts, you can change the third bits of IP (default: #{DEVHOST_NUM_DEF}) via the MAKINA_DEVHOST_NUM env variable)\n")
-printf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
-printf(" [*] if you want to share this wm, use manage.sh export | import\n")
+eprintf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
+eprintf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
+eprintf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
+eprintf(" [*] To have multiple hosts, you can change the third bits of IP (default: #{DEVHOST_NUM_DEF}) via the MAKINA_DEVHOST_NUM env variable)\n")
+eprintf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
+eprintf(" [*] if you want to share this wm, use manage.sh export | import\n")
 # Name inside the VM (as rendered by hostname command)
 VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhostxx.local by default
 
@@ -327,7 +334,7 @@ Vagrant.configure("2") do |config|
     )
   end
 
-  #printf(" [*] Checking if local group %s exists\n", newgroup )
+  #eprintf(" [*] Checking if local group %s exists\n", newgroup )
   # also search for a possible custom name
   found = false
   Etc.group {|g|
@@ -338,7 +345,7 @@ Vagrant.configure("2") do |config|
     end
   }
   if !found
-    printf(" [*] local group %s does not exists, creating it\n", newgroup)
+    eprintf(" [*] local group %s does not exists, creating it\n", newgroup)
     if os == :linux or os == :unix
       # Unix
       `sudo groupadd -g #{newgid} #{newgroup}`
@@ -347,7 +354,7 @@ Vagrant.configure("2") do |config|
       `sudo dscl . -create /groups/#{newgroup} gid #{newgid}`
     end
   end
-  #  printf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
+  #  eprintf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
   # loop on members of newgid to find our user
   found = false
   Etc.getgrgid(newgid).mem.each { |u|
@@ -357,7 +364,7 @@ Vagrant.configure("2") do |config|
     end
   }
   if !found
-    printf(" [*] User %s is not member of group %s, adding him\n", user, newgroup)
+    eprintf(" [*] User %s is not member of group %s, adding him\n", user, newgroup)
     if os == :linux or os == :unix
       # Nunux
       `sudo gpasswd -a #{user} #{newgroup}`
@@ -367,7 +374,7 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  printf(" [*] checking local routes to %s/%s via %s. If sudo password is requested then it means we need to alter local host routing...\n",DOCKER_NETWORK,DOCKER_NETWORK_MASK_NUM,BOX_PRIVATE_IP)
+  eprintf(" [*] checking local routes to %s/%s via %s. If sudo password is requested then it means we need to alter local host routing...\n",DOCKER_NETWORK,DOCKER_NETWORK_MASK_NUM,BOX_PRIVATE_IP)
   if os == :linux or os == :unix
     # Nunux
     `if ip route show|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo ip route replace #{BOX_PRIVATE_IP} via #{BOX_PRIVATE_GW}; sudo ip route replace #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} via #{BOX_PRIVATE_IP}; fi;`
@@ -375,7 +382,7 @@ Vagrant.configure("2") do |config|
     #Mac
     `if netstat -rn|grep "#{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo route -n add -host #{BOX_PRIVATE_IP} #{BOX_PRIVATE_GW};sudo route -n add -net #{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK_NUM} #{BOX_PRIVATE_IP};fi;`
   end
-  printf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
+  eprintf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
 
 # SAVING CUSTOM CONFIGURATION TO A FILE (AND ONLY CUSTOMIZED ONE)
 vagrant_config = ""
@@ -384,7 +391,7 @@ vagrant_config_lines_s = ""
 vagrant_config_lines.each{ |s| vagrant_config_lines_s += "    "+ s + "\n" }
 vagrant_config += vagrant_config_lines_s
 ["end", ""].each{ |s| vagrant_config += s + "\n" }
-printf(" [*] Saving vagrant settings:\n#{vagrant_config_lines_s}")
+eprintf(" [*] Saving vagrant settings:\n#{vagrant_config_lines_s}")
 vsettings_f=File.open(VSETTINGS_P, "w")
 vsettings_f.write(vagrant_config)
 vsettings_f.close()
@@ -457,7 +464,7 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
       if interface_hostonly.start_with?("vboxnet")
         mtu = `sudo ifconfig #{interface_hostonly}|grep -i mtu|sed -e "s/.*MTU:*//g"|awk '{print $1}'`.strip()
         if (mtu != "9000")
-          printf("Configuring jumbo frame on #{interface_hostonly}\n")
+          eprintf("Configuring jumbo frame on #{interface_hostonly}\n")
           `sudo ifconfig #{interface_hostonly} mtu 9000`
         end
       end
