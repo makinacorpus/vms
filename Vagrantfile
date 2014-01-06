@@ -413,7 +413,7 @@ if [[ ! -f /srv/Vagrantfile ]];then
       apt-get install -y --force-yes nfs-common portmap
       if [ "0" == "$?" ];then touch \\$MARKERS/provision_step_nfs_done; fi;
     fi
-    output " [*] ERROR: You do not have /srv/Vagrantfile, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it and launch 'vagrant reload'!"
+    output " [*] ERROR: You do not have /srv/Vagrantfile, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it and launch './manage.sh reload'!"
     exit 1
 fi
 EOF},

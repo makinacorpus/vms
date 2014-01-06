@@ -370,7 +370,7 @@ EOF
 
 initial_upgrade() {
     if [[ ! -e "$MARKERS/vbox_init_global_upgrade" ]];then
-        output " [*] Upgrading base imag"
+        output " [*] Upgrading base image"
         if [[ -n "$IS_DEBIAN_LIKE" ]];then
             output " [*] apt-get upgrade & dist-upgrade"
             apt-get update -qq &&\
@@ -393,9 +393,10 @@ create_base_dirs() {
 }
 
 check_restart() {
+    touch "$restart_marker"
     if [[ -e $restart_marker ]];then
         output " [*] A restart trigger to finish to provision the box has been detected."
-        output " [*] For that, issue now 'vagrant reload'"
+        output " [*] For that, issue now '$0 reload'"
         exit 1
     fi
 }
