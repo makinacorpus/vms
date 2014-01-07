@@ -15,6 +15,13 @@ VSETTINGS_N="vagrant_config"
 VSETTINGS_P=File.dirname(__FILE__)+"/"+VSETTINGS_N+".rb"
 vagrant_config_lines = []
 
+def eprintf(*args)
+  $stdout = STDERR
+  printf(*args)
+  $stdout = STDOUT
+end
+
+
 # --------------------- CONFIGURATION ZONE ----------------------------------
 #
 # If you want to alter any configuration setting, put theses settings in a ./vagrant_config.rb file
@@ -201,12 +208,12 @@ if not defined?(VIRTUALBOX_VM_NAME)
     end
 end
 vagrant_config_lines << "VIRTUALBOX_VM_NAME=\"#{VIRTUALBOX_VM_NAME}\""
-printf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
-printf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
-printf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
-printf(" [*] To have multiple hosts, you can change the third bits of IP (default: 70) via the MAKINA_DEVHOST_NUM env variable)\n")
-printf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
-printf(" [*] if you want to share this wm, use manage.sh export | import\n")
+eprintf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
+eprintf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
+eprintf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
+eprintf(" [*] To have multiple hosts, you can change the third bits of IP (default: #{DEVHOST_NUM_DEF}) via the MAKINA_DEVHOST_NUM env variable)\n")
+eprintf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
+eprintf(" [*] if you want to share this wm, use manage.sh export | import\n")
 # Name inside the VM (as rendered by hostname command)
 VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhostXX.local by default
 
@@ -268,24 +275,26 @@ Vagrant.configure("2") do |config|
   # and the "sendfile" bugs with nginx and apache
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
-  config.vm.synced_folder(
-      ".", "/srv/",
-      nfs: true,
-      nfs_udp: false,
-      linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check",],
-      bsd__nfs_options: ["maproot=root:wheel", "alldirs"],
-      mount_options: [
-          "vers=3","rw","noatime", "nodiratime",
-          #"tcp",
-          "udp", "rsize=32768", "wsize=32768",
-          #"async","soft", "noacl",
-      ],
-      #mount_options: ["vers=4", "udp", "rw", "async",
-      #                "rsize=32768", "wsize=32768",
-      #                "noacl", "noatime", "nodiratime",],
-  )
-  # disabling default vagrant mount on /vagrant as we mount it on /srv
-  config.vm.synced_folder ".", "/vagrant", disabled: true
+  #
+  mountpoints = {
+      "./" => "/vagrant",
+      "/etc" => "/mnt/parent_etc",
+      File.expand_path('~') => "/mnt/parent_home"
+  }
+  mountpoints.each do |mountpoint, target|
+      config.vm.synced_folder(
+          mountpoint, target,
+          nfs: true,
+          nfs_udp: false,
+          linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check",],
+          bsd__nfs_options: ["maproot=root:wheel", "alldirs"],
+          mount_options: [
+              "vers=3","rw","noatime", "nodiratime",
+              "udp", "rsize=32768", "wsize=32768",
+          ],
+      )
+  end
+  # config.vm.synced_folder ".", "/vagrant", disabled: true
   # dev: mount of etc, so we can alter current host /etc/hosts from the guest (insecure by definition)
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
 
@@ -331,7 +340,7 @@ Vagrant.configure("2") do |config|
     )
   end
 
-  #printf(" [*] Checking if local group %s exists\n", newgroup )
+  #eprintf(" [*] Checking if local group %s exists\n", newgroup )
   # also search for a possible custom name
   found = false
   Etc.group {|g|
@@ -342,7 +351,7 @@ Vagrant.configure("2") do |config|
     end
   }
   if !found
-    printf(" [*] local group %s does not exists, creating it\n", newgroup)
+    eprintf(" [*] local group %s does not exists, creating it\n", newgroup)
     if os == :linux or os == :unix
       # Unix
       `sudo groupadd -g #{newgid} #{newgroup}`
@@ -351,7 +360,7 @@ Vagrant.configure("2") do |config|
       `sudo dscl . -create /groups/#{newgroup} gid #{newgid}`
     end
   end
-  #  printf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
+  #  eprintf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
   # loop on members of newgid to find our user
   found = false
   Etc.getgrgid(newgid).mem.each { |u|
@@ -361,7 +370,7 @@ Vagrant.configure("2") do |config|
     end
   }
   if !found
-    printf(" [*] User %s is not member of group %s, adding him\n", user, newgroup)
+    eprintf(" [*] User %s is not member of group %s, adding him\n", user, newgroup)
     if os == :linux or os == :unix
       # Nunux
       `sudo gpasswd -a #{user} #{newgroup}`
@@ -371,7 +380,7 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  printf(" [*] checking local routes to %s/%s via %s. If sudo password is requested then it means we need to alter local host routing...\n",DOCKER_NETWORK,DOCKER_NETWORK_MASK_NUM,BOX_PRIVATE_IP)
+  eprintf(" [*] checking local routes to %s/%s via %s. If sudo password is requested then it means we need to alter local host routing...\n",DOCKER_NETWORK,DOCKER_NETWORK_MASK_NUM,BOX_PRIVATE_IP)
   if os == :linux or os == :unix
     # Nunux
     `if ip route show|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo ip route replace #{BOX_PRIVATE_IP} via #{BOX_PRIVATE_GW}; sudo ip route replace #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} via #{BOX_PRIVATE_IP}; fi;`
@@ -379,7 +388,7 @@ Vagrant.configure("2") do |config|
     #Mac
     `if netstat -rn|grep "#{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo route -n add -host #{BOX_PRIVATE_IP} #{BOX_PRIVATE_GW};sudo route -n add -net #{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK_NUM} #{BOX_PRIVATE_IP};fi;`
   end
-  printf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
+  eprintf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
 
 # SAVING CUSTOM CONFIGURATION TO A FILE (AND ONLY CUSTOMIZED ONE)
 vagrant_config = ""
@@ -388,7 +397,7 @@ vagrant_config_lines_s = ""
 vagrant_config_lines.each{ |s| vagrant_config_lines_s += "    "+ s + "\n" }
 vagrant_config += vagrant_config_lines_s
 ["end", ""].each{ |s| vagrant_config += s + "\n" }
-printf(" [*] Saving vagrant settings:\n#{vagrant_config_lines_s}")
+eprintf(" [*] Saving vagrant settings:\n#{vagrant_config_lines_s}")
 vsettings_f=File.open(VSETTINGS_P, "w")
 vsettings_f.write(vagrant_config)
 vsettings_f.close()
@@ -403,15 +412,10 @@ pkg_cmd = [
     "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
     %{cat > /root/vagrant/provision_nfs.sh  << EOF
 #!/usr/bin/env bash
-MARKERS="/srv/root/vagrant/markers"
+MARKERS="/root/vagrant/markers"
 die_if_error() { if [[ "\\$?" != "0" ]];then output "There were errors";exit 1;fi; };
-fix_apt()   {
-    apt-get -f install -y --force-yes
-}
-fix_apt
-if [[ ! -f /srv/Vagrantfile ]];then
+if [[ ! -e /vagrant/Vagrantfile ]];then
     output() { echo "\\$@" >&2; };
-    if [ ! -d "/srv" ]; then mkdir /srv;fi;
     if [ ! -f \\$MARKERS/provision_step_nfs_done ];then
       if [[ ! -e \\$MARKERS ]];then
         mkdir -pv "\\$MARKERS"
@@ -421,7 +425,7 @@ if [[ ! -f /srv/Vagrantfile ]];then
       apt-get install -y --force-yes nfs-common portmap
       if [ "0" == "$?" ];then touch \\$MARKERS/provision_step_nfs_done; fi;
     fi
-    output " [*] ERROR: You do not have /srv/Vagrantfile, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it and launch 'vagrant reload'!"
+    output " [*] ERROR: You do not have /vagrant/vagrant/Vagrantfile, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it and launch './manage.sh reload'!"
     exit 1
 fi
 EOF},
@@ -443,9 +447,9 @@ DOCKER_NETWORK_MASK="#{DOCKER_NETWORK_MASK}"
 DOCKER_NETWORK_MASK_NUM="#{DOCKER_NETWORK_MASK_NUM}"
 VB_NAME="#{VIRTUALBOX_VM_NAME}"
 EOF},
-      "chmod 700 /root/vagrant/provision_nfs.sh /srv/vagrant/provision_script.sh;",
+      "chmod 700 /root/vagrant/provision_nfs.sh /vagrant/vagrant/provision_script.sh;",
       "/root/vagrant/provision_nfs.sh;",
-      "/srv/vagrant/provision_script.sh",
+      "/vagrant/vagrant/provision_script.sh",
   ]
   config.vm.provision :shell, :inline => pkg_cmd.join("\n")
 end
@@ -465,7 +469,7 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
       if interface_hostonly.start_with?("vboxnet")
         mtu = `sudo ifconfig #{interface_hostonly}|grep -i mtu|sed -e "s/.*MTU:*//g"|awk '{print $1}'`.strip()
         if (mtu != "9000")
-          printf("Configuring jumbo frame on #{interface_hostonly}\n")
+          eprintf("Configuring jumbo frame on #{interface_hostonly}\n")
           `sudo ifconfig #{interface_hostonly} mtu 9000`
         end
       end
