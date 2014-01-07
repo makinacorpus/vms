@@ -258,12 +258,15 @@ File edition and access
 
 Base file operations
 ~~~~~~~~~~~~~~~~~~~~~~~~
-To edit or access the files from your host system, youn ll just  have to use **./VM**
+- To edit or access the files from your host system, youn ll just  have to use **./VM**
 which is a mountpoint for the``/`` of the vm exported from
 the vm as the **root** user.
 
-For example, you can configure **<here>/VM/srv/projects/foo** as the project
+- For example, you can configure **<here>/VM/srv/projects/foo** as the project
 workspace root for your eclipse setup.
+
+- ** You should do git or large operations from within the VM as it will not use
+  the shared network and will be faster **
 
 ssh (git) credential
 ~~~~~~~~~~~~~~~~~~~~~~
