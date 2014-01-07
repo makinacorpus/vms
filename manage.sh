@@ -74,7 +74,7 @@ test() {
         num="53"
     elif [[ "$name" == "precise" ]];then
         num="55"
-    elif [[ "$name" == "wheezy" ]];then
+    elif [[ "$dname" == "wheezy" ]];then
         num="56"
     else
         die "invalid test"
