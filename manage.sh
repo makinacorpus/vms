@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-actions="up reload destroy down export export_nude import import_nude suspend do_zerofree ssh test install_keys mount_vm umount_vm"
+actions="status up reload destroy down export export_nude import import_nude suspend do_zerofree ssh test install_keys mount_vm umount_vm"
 a_eximmodes="full nude"
 RED="\\033[31m"
 CYAN="\\033[36m"
@@ -41,6 +41,14 @@ module MyConfig
     VIRTUALBOX_VM_NAME="Docker DevHost $num Ubuntu ${name}64"
 end
 EOF
+}
+
+status_() {
+    vagrant status 2> /dev/null
+}
+
+status() {
+    status_|egrep "^default"|awk '{print $2}'
 }
 
 test() {
@@ -125,6 +133,9 @@ install_keys() {
 }
 
 ssh() {
+    if [[ "$(status)" != "ssh" ]];then
+        reload
+    fi
     install_keys
     mount_vm
     ssh_ $@
@@ -173,6 +184,11 @@ umount_vm() {
     if [[ "$(mount|awk '{print $3}'|egrep "$VM$" | wc -l)" != "0" ]];then
         fusermount -u "$VM"
     fi
+    if [[ "$(mount|awk '{print $3}'|egrep "$VM$" | wc -l)" != "0" ]];then
+        log "forcing umounting of $VM"
+        ps aux|grep "$VM"|grep sshfs|awk '{print $2}'|xargs kill -9
+        fusermount -u "$VM"
+    fi
 }
 
 up() {
@@ -187,7 +203,11 @@ reload() {
     cd $c
     log "Reload!"
     umount_vm
-    vagrant reload
+    if [[ "$(status)" != "running" ]];then
+        vagrant up
+    else
+        vagrant reload
+    fi
     maybe_finish_creation
     mount_vm
 }
