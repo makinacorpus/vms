@@ -175,6 +175,8 @@ maybe_finish_creation() {
             elif [[ "$ret" != "0" ]];then
                 log "Error in vagrant up/reload"
                 exit 1
+            else
+                break
             fi
         done
     fi
