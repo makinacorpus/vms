@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-actions="status up reload destroy down export export_nude import import_nude suspend do_zerofree ssh test install_keys mount_vm umount_vm"
+actions="status up reload destroy down export export_nude import import_nude suspend do_zerofree ssh test install_keys cleanup_keys mount_vm umount_vm"
 a_eximmodes="full nude"
 RED="\\033[31m"
 CYAN="\\033[36m"
@@ -131,6 +131,11 @@ gen_ssh_config() {
 ssh_() {
     cd $c
     $(which ssh) -F "$ssh_config" default -- $@
+}
+
+cleanup_keys() {
+    ssh_pre_reqs
+    ssh_ sudo /vagrant/vagrant/cleanup_keys.sh
 }
 
 install_keys() {
@@ -279,7 +284,9 @@ export() {
             down;\
             sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
             log "Be patient, exporting now the full box" &&\
-            vagrant package --vagrantfile Vagrantfile --output package-full.box
+            cleanup_keys &&\
+            vagrant package --vagrantfile Vagrantfile --output package-full.box &&\
+            install_keys
         else
             log "$c/package-full.box exists, delete it to redo"
         fi\
@@ -298,7 +305,9 @@ export() {
         if [[ ! -f package-nude.box ]];then
             log "Be patient, exporting now the nude box" &&\
             sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
-            vagran package --vagrantfile Vagrantfile --output package-nude.box
+            cleanup_keys &&\
+            vagran package --vagrantfile Vagrantfile --output package-nude.box &&\
+            install_keys
         else
             log "$c/package-nude.box exists, delete it to redo"
         fi &&\

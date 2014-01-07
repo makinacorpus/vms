@@ -441,7 +441,7 @@ run_boot_salt() {
     # no confirm / saltmaster / nodetype: vagrantvm
     #
     # for now we disable automatic updates when we have done at least one salt deployment
-    # 
+    #
     if [[ ! -e "$bootsalt_marker" ]];then
         "$bootsalt" $boot_args && touch "$bootsalt_marker"
     fi
@@ -526,6 +526,29 @@ migrate_old_stuff() {
     delete_old_stuff
     # no more vms with that old stuff
     # old_editor_group_stuff
+}
+
+cleanup_keys() {
+    lazy_apt_get_install rsync
+    for user_home in $(awk -F: -v v="$user" '{if ($6!="") print $1 ":" $6}' /etc/passwd);do
+        user="$(echo $user_home|awk -F: '{print $1}')"
+        home="$(echo $user_home|awk -F: '{print $2}')"
+        sshf="$home/.ssh"
+        if [[ -e "$sshf" ]];then
+            for i in $(ls $sshf);do
+                fulli="$sshf/$i"
+                cleanup=y
+                # only keep authorized* files
+                case $i in
+                    author*) cleanup="";
+                        ;;
+                esac
+                if [[ -n $cleanup ]];then
+                    rm -fvr "$fulli"
+                fi
+            done
+        fi
+    done
 }
 
 install_keys() {
