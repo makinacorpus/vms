@@ -54,42 +54,29 @@ Following theses instructions you can install this git repository on a directory
 
 Prerequisites
 -------------
-You need to have ``virtualbox``, ``vagrant`` and ``NFS`` (as a server).
+You need to have ``virtualbox``, ``vagrant``, ``sshfs`` and ``NFS`` (as a server).
+
+On macosx, sshfs is also known as MacFuse or MacFusion.
 
 By default file transferts between host and guest is **really, really slow**.
-  We have improved performances by some techniques:
+We have improved performances by some techniques:
 
-    * Using **NFS** as sharing filesystem
     * Increasing the **MTU to 9000** (jumbo frames) on host and guest Ethernet nics
-    * Tuning the nfs & kernel options on the host
-    * **Increasing** the nfs worker **threads**
+    * Leaving most of files on the guest side, leaving up to you to access the files
+      on the guest. We recommend andalso  integrate this access to be via sshfs.
 
-Host kernel optmimisations
-+++++++++++++++++++++++++++
-Take care with this part, it can prevent your system from booting.
 
-* On MacOSX, edit **/etc/sysctl.conf**
+SSHFS DOCUMENTATION
++++++++++++++++++++++
+Linux / *BSD
+~~~~~~~~~~~~~~
+- Install your sshfs distribution package (surely **sshfs**.
+- Relog into a new session or reboot
 
-    * add or edit a line::
-
-        kern.aiomax=2048
-        kern.aioprocmax=512
-        kern.aiothreads=128
-
-    * Reload the settings::
-
-        sysctl -p
-
-* On linux, edit **/etc/sysctl.conf**
-
-    * add or edit a line::
-
-        fs.aio-max-nr = 1048576
-        fs.file-max = 6815744
-
-    * Reload the settings::
-
-        sysctl -p
+MacOSX
+~~~~~~
+- Install `macfusion <http://macfusionapp.org>`_
+- Relog into a new session or reboot
 
 NFS installation
 ++++++++++++++++
@@ -137,6 +124,7 @@ NFS installation
 
 For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
 
+
 Vagrant
 +++++++
 You could make you a supersudoer without password to avoid sudo questions when lauching the VMs (not required)::
@@ -149,6 +137,40 @@ For a Debian / Ubuntu deb-like host, version 1.3.5 64 bits::
 
     wget http://files.vagrantup.com/packages/a40522f5fabccb9ddabad03d836e120ff5d14093/vagrant_1.3.5_x86_64.deb
     sudo dpkg -i vagrant_1.3.5_x86_64.deb
+
+Host kernel optmimisations (optional but recommended)
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Take care with this part, it can prevent your system from booting.
+
+We need to speed up things to:
+
+    * Tuning the nfs & kernel options on the host
+    * **Increasing** the nfs worker **threads**
+    * Using **NFS** as sharing filesystem
+
+* On MacOSX, edit **/etc/sysctl.conf**
+
+    * add or edit a line::
+
+        kern.aiomax=2048
+        kern.aioprocmax=512
+        kern.aiothreads=128
+
+    * Reload the settings::
+
+        sysctl -p
+
+* On linux, edit **/etc/sysctl.conf**
+
+    * add or edit a line::
+
+        fs.aio-max-nr = 1048576
+        fs.file-max = 6815744
+
+    * Reload the settings::
+
+        sysctl -p
+
 
 Installation
 ------------
@@ -188,6 +210,9 @@ Daily usage
 ------------
 
 Now that vagrant as created a virtualbox image for you, you should always manipulate this virtualbox VM with ``vagrant`` command.
+
+Please note that when the vm is running, we will try to mount the VM root as
+root user with sshfs in the ``./VM`` folder.
 
 To launch a Vagrant command always ``cd`` to the VM base directory::
 
@@ -373,5 +398,4 @@ And uninstall them with
     sudo su
     cd /srv/docker
     ./make.sh teardown
-
 .. vim:set ts=4 sts=4:
