@@ -210,6 +210,8 @@ Now you can start the vm installation with vagrant. Note that this repository wi
 
 Daily usage
 ------------
+VM control
+++++++++++++
 
 Now that vagrant as created a virtualbox image for you, you should always manipulate this virtualbox VM with ``vagrant`` command.
 
@@ -252,8 +254,13 @@ directory and issue::
 
 Note that all the files mounted on the ``/srv`` vm directory are in fact stored on the base directory of this project and will not be removed after a vagrant destroy. so you can easily destroy a VM without loosing really important files. Then redo a ``vagrant up`` to rebuild a new VM with all needed dependencies.
 
+File edition and access
+++++++++++++++++++++++++++++
+To edit the files, use **./VM** which is the filesystem of the vm exported from
+the vm as the **root** user
+
 Manage several Virtualboxes
-----------------------------
++++++++++++++++++++++++++++
 
 The default install cloned the git repository in ~makina/vms.
 By cloning this same git repository on another place you can manage another vagrant based virtualbox vm.
