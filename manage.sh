@@ -204,6 +204,7 @@ umount_vm() {
     if [[ "$(mount|awk '{print $3}'|egrep "$VM$" | wc -l)" != "0" ]];then
         log "forcing umounting of $VM"
         ps aux|grep "$VM"|grep sshfs|awk '{print $2}'|xargs kill -9
+        lsof 2> /dev/null|grep -- "$VM"|awk '{print $2}'|xargs kill -9
         fusermount -u "$VM"
     fi
 }
