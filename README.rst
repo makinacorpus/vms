@@ -255,6 +255,16 @@ Note that all the files mounted on the ``/srv`` vm directory are in fact stored 
 
 File edition and access
 ++++++++++++++++++++++++++++
+Base mountpoints and folders
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- **/mnt/parent_etc**: Host /etc folder
+- **/mnt/parent_home**: Host user Home folder
+- **/vagrant**: Current working directory in the host (where ./manage.sh up has
+                been done
+- **/srv/salt**: Salt state tree
+- **/srv/projects**: makina Salt projects installation root
+- **/srv/pillar**: Pillar data
 
 Base file operations
 ~~~~~~~~~~~~~~~~~~~~~~~~
