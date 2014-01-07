@@ -65,9 +65,8 @@ We have improved performances by some techniques:
     * Leaving most of files on the guest side, leaving up to you to access the files
       on the guest. We recommend andalso  integrate this access to be via sshfs.
 
-
-SSHFS DOCUMENTATION
-+++++++++++++++++++++
+sshfs documentation
+++++++++++++++++++++
 Linux / *BSD
 ~~~~~~~~~~~~~~
 - Install your sshfs distribution package (surely **sshfs**).
