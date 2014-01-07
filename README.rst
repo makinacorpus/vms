@@ -63,7 +63,7 @@ We have improved performances by some techniques:
 
     * Increasing the **MTU to 9000** (jumbo frames) on host and guest Ethernet nics
     * Leaving most of files on the guest side, leaving up to you to access the files
-      on the guest. We recommend andalso  integrate this access to be via sshfs.
+      on the guest. We recommend and also  integrate this access to be via sshfs.
 
 sshfs documentation
 ++++++++++++++++++++

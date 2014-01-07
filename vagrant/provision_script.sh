@@ -8,6 +8,10 @@
 # as it backport a lot of saucy packages, see ../backport-pgks.sh
 # for backporting things on a bare metal machine
 #
+# In there we have only core configuration (network, ssh access, salt init)
+# The rest is done salt side, see makina-states.nodetypes.vagrantvm
+#
+#
 YELLOW='\e[1;33m'
 RED="\\033[31m"
 CYAN="\\033[36m"
@@ -138,13 +142,12 @@ src_l="/etc/apt/sources.list"
 bootsalt_marker="$MARKERS/salt_bootstrap_done"
 
 ready_to_run() {
-    output " [*] VM is now ready for 'vagrant ssh' or other usages..."
+    output " [*] VM is now ready for './manage.sh ssh' or other usages..."
     output " ------------------------------- [ OK] -----------------------------------------"
     output " 'Once connected as root in the vm with \"vagrant ssh\" and \"sudo su -\""
-    output "   * You can upgrade all your projects with \"salt '*' state.highstate\""
-    output "   * You can run one specific state with \"salt-call [-l debug] state.sls makina-state.name-of-state\""
-    output "   * You can upgrade the base salt infrastructure with \"salt '*' state.sls setup\""
-    output " 'Stop vm with 'vagrant [-f] halt', connect it with 'vagrant ssh'"
+    output "   * You can upgrade all your projects with \"salt-call [-l all] state.highstate\""
+    output "   * You can run one specific state with \"salt-call [-l all] state.sls name-of-state\""
+    output " 'Stop vm with './manage.sh down', connect it with './manage.sh ssh'"
 }
 
 deactivate_ifup_debugging() {
@@ -436,8 +439,12 @@ run_boot_salt() {
     fi
     chmod u+x "$bootsalt"
     # no confirm / saltmaster / nodetype: vagrantvm
-    echo "$bootsalt"  $boot_args 
-    "$bootsalt"  $boot_args && touch "$bootsalt_marker"
+    #
+    # for now we disable automatic updates when we have done at least one salt deployment
+    # 
+    if [[ ! -e "$bootsalt_marker" ]];then
+        "$bootsalt" $boot_args && touch "$bootsalt_marker"
+    fi
     die_if_error
     . /etc/profile
 }
@@ -517,7 +524,8 @@ migrate_old_stuff() {
         cp -f /root/vagrant_provision_settings.sh /root/vagrant/provision_settings.sh
     fi
     delete_old_stuff
-    old_editor_group_stuff
+    # no more vms with that old stuff
+    # old_editor_group_stuff
 }
 
 install_keys() {

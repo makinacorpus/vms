@@ -18,6 +18,7 @@ g=editor
 c=$(dirname $0)
 cd $c
 c=$PWD
+internal_ssh_config=$c/.vagrant/internal-ssh-config
 ssh_config=$c/.vagrant/ssh-config
 VM=$c/VM
 
@@ -119,12 +120,16 @@ gen_ssh_config() {
     if [[ ! -d .vagrant ]];then
         mkdir .vagrant
     fi
-    vagrant ssh-config 2>/dev/null > "$ssh_config"
+    vagrant ssh-config 2>/dev/null > "$internal_ssh_config"
+    # replace the ip by the hostonly interface one in our ssh wrappers
+    hostip=$(vagrant ssh -c "ip addr show dev eth1" 2> /dev/null|awk '/inet / {gsub("/.*", "", $2);print $2}')
+    cp -f "$internal_ssh_config" "$ssh_config"
+    sed -i "s/HostName.*/HostName $hostip/g" "$ssh_config"
+    sed -i "s/Port.*//g" "$ssh_config"
 }
 
 ssh_() {
     cd $c
-    gen_ssh_config
     $(which ssh) -F "$ssh_config" default -- $@
 }
 
@@ -132,11 +137,15 @@ install_keys() {
     ssh_ sudo /vagrant/vagrant/install_keys.sh
 }
 
-ssh() {
-    if [[ "$(status)" != "ssh" ]];then
-        reload
+ssh_pre_reqs() {
+    if [[ "$(status)" != "running" ]];then
+        up
     fi
+    gen_ssh_config
     install_keys
+}
+
+ssh() {
     mount_vm
     ssh_ $@
 }
@@ -167,11 +176,12 @@ maybe_finish_creation() {
 }
 
 mount_vm() {
-    cd $c
-    if [[ ! -e "$VM" ]];then
-        mkdir "$VM"
-    fi
     if [[ ! -e "$VM/home/vagrant/.ssh" ]];then
+        ssh_pre_reqs
+        cd $c
+        if [[ ! -e "$VM" ]];then
+            mkdir "$VM"
+        fi
         sshfs -F $ssh_config root@default:/ -o nonempty "$VM"
     fi
 }
