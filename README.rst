@@ -255,12 +255,38 @@ Note that all the files mounted on the ``/srv`` vm directory are in fact stored 
 
 File edition and access
 ++++++++++++++++++++++++++++
+
+Base file operations
+~~~~~~~~~~~~~~~~~~~~~~~~
 To edit or access the files from your host system, youn ll just  have to use **./VM**
 which is a mountpoint for the``/`` of the vm exported from
 the vm as the **root** user.
 
 For example, you can configure **<here>/VM/srv/projects/foo** as the project
 workspace root for your eclipse setup.
+
+ssh (git) credential
+~~~~~~~~~~~~~~~~~~~~~~
+- At each vm access
+
+    - We copy to the **root** and **vagrant** users:
+
+        - the current user ssh-keys
+        - the current user ssh-config
+
+    - We copy **vagrant** authorized_keys to **root/.ssh**.
+    - All of this is managed in **/vagrant/vagrant/install_keys.sh**
+
+This allow you from the host:
+
+    - To log as vagrant or root user
+    - To mount the guest filesystem as root (used in the core setup)
+    - git push/pull from the guest as if you were on the host
+
+If your project has custom users, just either (via saltstates):
+
+    - copy the **vagrant** ssh keys to your user $HOME
+    - Use an identity parameter pointing to the **vagrant** key pair
 
 Manage several Virtualboxes
 +++++++++++++++++++++++++++
