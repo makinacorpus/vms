@@ -265,8 +265,8 @@ the vm as the **root** user.
 - For example, you can configure **<here>/VM/srv/projects/foo** as the project
 workspace root for your eclipse setup.
 
-- ** You should do git or large operations from within the VM as it will not use
-  the shared network and will be faster **
+- **You should do git or large operations from within the VM as it will not use
+  the shared network and will be faster**
 
 ssh (git) credential
 ~~~~~~~~~~~~~~~~~~~~~~
