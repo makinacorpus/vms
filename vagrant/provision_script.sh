@@ -541,11 +541,11 @@ install_keys() {
             for i in /home/vagrant/.ssh/author*;do
                 dest=$home/.ssh/$(basename $i)
                 if [[ "$i" != "$dest" ]];then
-                    cp -rf $i $dest
+                    cp -rf "$i" "$dest"
                 fi
             done
-            chmod -Rf 700 $home/.ssh
-            chown -Rf $user $home/.ssh
+            chmod -Rf 700 "$home/.ssh"
+            chown -Rf $user "$home/.ssh"
         fi
     done
 }
