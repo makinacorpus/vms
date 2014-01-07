@@ -408,7 +408,7 @@ pkg_cmd = [
     "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
     %{cat > /root/vagrant/provision_nfs.sh  << EOF
 #!/usr/bin/env bash
-MARKERS="/srv/root/vagrant/markers"
+MARKERS="/root/vagrant/markers"
 die_if_error() { if [[ "\\$?" != "0" ]];then output "There were errors";exit 1;fi; };
 if [[ ! -e /vagrant/Vagrantfile ]];then
     output() { echo "\\$@" >&2; };
