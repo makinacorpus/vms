@@ -225,10 +225,6 @@ Starting the VM is simple::
 
   ./manage.sh up
 
-Connecting to the VM in ssh with the ``vagrant`` user (sudoer) is::
-
-  ./manage.sh ssh
-
 Stoping the VM can be done like that::
 
   ./manage.sh down # classical
@@ -241,6 +237,23 @@ Reloading the vm is::
 To remove an outdated or broken VM::
 
   ./manage.sh destroy
+
+Connecting to the vm
++++++++++++++++++++++
+- We have made a wrapper similar to ``vagrant ssh`` but this one use the hostonly
+interface to improve transfer and shell reactivty.
+- We also configured the vm to accept the current host user to connect as **root** and **vagrant** users.
+
+Thus, you can sonnect to the VM in ssh with either ``root`` or the ``vagrant`` user (sudoer) is::
+
+  ./manage.sh ssh (default to vagrant)
+
+Or::
+
+  ./manage.sh ssh -l root
+
+Export/Import
+++++++++++++++
 
 To export in **package.tar.bz2**, to share this development host with someone::
 
