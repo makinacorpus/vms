@@ -255,8 +255,9 @@ Note that all the files mounted on the ``/srv`` vm directory are in fact stored 
 
 File edition and access
 ++++++++++++++++++++++++++++
-To edit the files, use **./VM** which is the filesystem of the vm exported from
-the vm as the **root** user
+To edit the files from your host system, youn ll just  have to use **./VM**
+which is a mountpoint for the``/`` of the vm exported from
+the vm as the **root** user.
 
 Manage several Virtualboxes
 +++++++++++++++++++++++++++
