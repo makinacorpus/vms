@@ -70,7 +70,7 @@ SSHFS DOCUMENTATION
 +++++++++++++++++++++
 Linux / *BSD
 ~~~~~~~~~~~~~~
-- Install your sshfs distribution package (surely **sshfs**.
+- Install your sshfs distribution package (surely **sshfs**).
 - Relog into a new session or reboot
 
 MacOSX
@@ -78,8 +78,24 @@ MacOSX
 - Install `macfusion <http://macfusionapp.org>`_
 - Relog into a new session or reboot
 
-NFS installation
-++++++++++++++++
+Vagrant
++++++++
+You could make you a supersudoer without password to avoid sudo questions when lauching the VMs (not required)::
+
+    # visudo
+    # Allow members of group sudo to execute any command
+    %sudo   ALL=(ALL:ALL) NOPASSWD:ALL
+
+For a Debian / Ubuntu deb-like host, version 1.3.5 64 bits::
+
+    wget http://files.vagrantup.com/packages/a40522f5fabccb9ddabad03d836e120ff5d14093/vagrant_1.3.5_x86_64.deb
+    sudo dpkg -i vagrant_1.3.5_x86_64.deb
+
+Optimizations (optional but recommended)
+++++++++++++++++++++++++++++++++++++++++
+
+NFS Optmimisations
+~~~~~~~~~~~~~~~~~~~
 * The important thing here is to tuneup the number of avalaible workers for nfs
   server operations.
 
@@ -124,22 +140,8 @@ NFS installation
 
 For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
 
-
-Vagrant
-+++++++
-You could make you a supersudoer without password to avoid sudo questions when lauching the VMs (not required)::
-
-    # visudo
-    # Allow members of group sudo to execute any command
-    %sudo   ALL=(ALL:ALL) NOPASSWD:ALL
-
-For a Debian / Ubuntu deb-like host, version 1.3.5 64 bits::
-
-    wget http://files.vagrantup.com/packages/a40522f5fabccb9ddabad03d836e120ff5d14093/vagrant_1.3.5_x86_64.deb
-    sudo dpkg -i vagrant_1.3.5_x86_64.deb
-
-Host kernel optmimisations (optional but recommended)
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Host kernel optimisations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Take care with this part, it can prevent your system from booting.
 
 We need to speed up things to:
