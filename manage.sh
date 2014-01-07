@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-actions="up reload destroy down export export_nude import import_nude suspend do_zerofree ssh test"
+actions="up reload destroy down export export_nude import import_nude suspend do_zerofree ssh test install_keys mount_vm umount_vm"
 a_eximmodes="full nude"
 RED="\\033[31m"
 CYAN="\\033[36m"
 NORMAL="\\033[0m"
+RSYNC=$(which rsync)
+
 log(){
     echo -e "${RED} [manage] ${@}${NORMAL}"
 }
@@ -16,6 +18,8 @@ g=editor
 c=$(dirname $0)
 cd $c
 c=$PWD
+ssh_config=$c/.vagrant/ssh-config
+VM=$c/VM
 
 die() { echo $@; exit -1; }
 
@@ -95,20 +99,41 @@ destroy() {
     vagrant halt -f
     vagrant destroy -f
 }
+
 suspend() {
     cd $c
     log "Suspend !"
     vagrant suspend
 }
 
-ssh() {
+gen_ssh_config() {
     cd $c
-    exec vagrant ssh $@
+    if [[ ! -d .vagrant ]];then
+        mkdir .vagrant
+    fi
+    vagrant ssh-config 2>/dev/null > "$ssh_config"
+}
+
+ssh_() {
+    cd $c
+    gen_ssh_config
+    $(which ssh) -F "$ssh_config" default -- $@
+}
+
+install_keys() {
+    ssh_ sudo /vagrant/vagrant/install_keys.sh
+}
+
+ssh() {
+    install_keys
+    mount_vm
+    ssh_ $@
 }
 
 down() {
     cd $c
     log "Down !"
+    umount_vm
     vagrant halt -f
 }
 
@@ -129,18 +154,42 @@ maybe_finish_creation() {
         done
     fi
 }
+
+mount_vm() {
+    cd $c
+    if [[ ! -e "$VM" ]];then
+        mkdir "$VM"
+    fi
+    if [[ ! -e "$VM/home/vagrant/.ssh" ]];then
+        sshfs -F $ssh_config root@default:/ -o nonempty "$VM"
+    fi
+}
+
+umount_vm() {
+    cd $c
+    if [[ ! -e "$VM" ]];then
+        mkdir "$VM"
+    fi
+    if [[ "$(mount|awk '{print $3}'|egrep "$VM$" | wc -l)" != "0" ]];then
+        fusermount -u "$VM"
+    fi
+}
+
 up() {
     cd $c
     log "Up !"
     vagrant up
     maybe_finish_creation
+    mount_vm
 }
 
 reload() {
     cd $c
     log "Reload!"
+    umount_vm
     vagrant reload
     maybe_finish_creation
+    mount_vm
 }
 
 export() {
@@ -243,12 +292,15 @@ export() {
         log "End of export"
     fi
 }
+
 export_nude() {
     export nude
 }
+
 import_nude() {
     import nude
 }
+
 import() {
     cd $c
     local gtouched=""
@@ -325,13 +377,19 @@ import() {
         log "Box $box imported !"
     fi
 }
+
 do_zerofree() {
     log "Zerofreing" &&\
     up &&\
     vagrant ssh -c "sudo /root/vagrant/zerofree.sh" &&\
     log " [*] WM Zerofreed"
 }
+
 action=$1
+if [[ -z "$RSYNC" ]];then
+    log "Please install rsync"
+    exit -1
+fi
 test="$(echo "$actions" | sed -e "s/.* $action .*/match/g")"
 if [[ "$test" == "match" ]];then
     shift

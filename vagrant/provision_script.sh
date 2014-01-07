@@ -20,12 +20,6 @@ die_if_error() { if [[ "$?" != "0" ]];then output "There were errors";exit 1;fi;
 output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
 output " [*] You can safely relaunch this script from within the vm"
 
-# migrate old settings location
-if [[ ! -e /root/vagrant/provision_settings.sh ]];then
-    cp -f /root/vagrant_provision_settings.sh /root/vagrant/provision_settings.sh
-fi
-
-
 detect_os() {
     # make as a function to be copy/pasted as-is in multiple scripts
     IS_UBUNTU=""
@@ -93,7 +87,6 @@ MS="$SALT_ROOT/makina-states"
 MMS="$MASTERSALT_ROOT/makina-states"
 VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
 VBOX_ADD_VER="4.2.16"
-
 
 # Markers must not be on a shared folder for a new VM to be reprovisionned correctly
 VENV_PATH="${ROOT}salt-venv"
@@ -391,6 +384,14 @@ create_base_dirs() {
             mkdir -pv "$p"
         fi
     done
+    ## disabled as now this part is NFS shared whereas
+    ## salt & projects parts are not
+    ## # initial sync which will be done by unison later
+    ## rsync -Aazv /nfs-srv/ /srv/\
+    ##     --exclude=docker/ubuntu-*-server-cloudimg-amd64-root*\
+    ##     --exclude=docker/cache/*\
+    ##     --exclude=docker/*/*/deboostrap*\
+    ##     --exclude=packer/*cache/*
 }
 
 check_restart() {
@@ -420,6 +421,14 @@ install_backports() {
 
 run_boot_salt() {
     bootsalt="$MS/_scripts/boot-salt.sh"
+    boot_args="-C -M -n vagrantvm"
+    if [[ ! -e "$bootsalt_marker" ]];then
+        boot_word="Bootstrap"
+    else
+        boot_word="Refresh"
+        boot_args="-S $boot_args"
+    fi
+    output " [*] $boot_word makina-states..."
     if [[ ! -e "$bootsalt" ]];then
         output " [*] Running makina-states bootstrap directly from github"
         wget "http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh" -O "/tmp/boot-salt.sh"
@@ -427,7 +436,8 @@ run_boot_salt() {
     fi
     chmod u+x "$bootsalt"
     # no confirm / saltmaster / nodetype: vagrantvm
-    "$bootsalt" -C -M -n vagrantvm && touch "$bootsalt_marker"
+    echo "$bootsalt"  $boot_args 
+    "$bootsalt"  $boot_args && touch "$bootsalt_marker"
     die_if_error
     . /etc/profile
 }
@@ -441,14 +451,8 @@ install_or_refresh_makina_states() {
     if [ -e $MS/src/salt ];then
           sed -re "s/filemode = true/filemode = false/g" -i $MS/src/*/.git/config
     fi
-    if [[ ! -e "$bootsalt_marker" ]];then
-        boot_word="Bootstrap"
-    else
-        boot_word="Refresh"
-    fi
     # upgrade salt only if online
     if [[ $(test_online) == "0" ]];then
-        output " [*] $boot_word makina-states..."
         run_boot_salt
     else
         if [[ ! -e "$bootsalt_marker" ]];then
@@ -507,17 +511,49 @@ disable_base_box_services() {
     fi
 }
 
-create_base_dirs
-disable_base_box_services
-delete_old_stuff
-old_editor_group_stuff
-cleanup_restart_marker
-configure_network
-base_packages_sanitization
-install_or_refresh_makina_states
-open_routes
-cleanup_space
-check_restart
-ready_to_run
+migrate_old_stuff() {
+    # migrate old settings location
+    if [[ ! -e /root/vagrant/provision_settings.sh ]];then
+        cp -f /root/vagrant_provision_settings.sh /root/vagrant/provision_settings.sh
+    fi
+    delete_old_stuff
+    old_editor_group_stuff
+}
 
+install_keys() {
+    lazy_apt_get_install rsync
+    users="vagrant root"
+    for user in $users;do
+        home=$(awk -F: -v v="$user" '{if ($1==v && $6!="") print $6}' /etc/passwd)
+        if [[ -e "$home" ]];then
+            rsync\
+                -a\
+                --exclude=authorized_keys* \
+                /mnt/parent_home/.ssh/ "$home/.ssh/"
+            for i in /home/vagrant/.ssh/author*;do
+                dest=$home/.ssh/$(basename $i)
+                if [[ "$i" != "$dest" ]];then
+                    cp -rf $i $dest
+                fi
+            done
+            chmod -Rf 700 $home/.ssh
+            chown -Rf $user $home/.ssh
+        fi
+    done
+}
+
+if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
+    install_keys
+    create_base_dirs
+    disable_base_box_services
+    cleanup_restart_marker
+    migrate_old_stuff
+    configure_network
+    base_packages_sanitization
+    install_or_refresh_makina_states
+    open_routes
+    cleanup_space
+    check_restart
+    ready_to_run
+fi
 # vim:set et sts=4 ts=4 tw=0:

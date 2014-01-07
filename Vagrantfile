@@ -272,24 +272,26 @@ Vagrant.configure("2") do |config|
   # and the "sendfile" bugs with nginx and apache
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
-  config.vm.synced_folder(
-      ".", "/srv/",
-      nfs: true,
-      nfs_udp: false,
-      linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check",],
-      bsd__nfs_options: ["maproot=root:wheel", "alldirs"],
-      mount_options: [
-          "vers=3","rw","noatime", "nodiratime",
-          #"tcp",
-          "udp", "rsize=32768", "wsize=32768",
-          #"async","soft", "noacl",
-      ],
-      #mount_options: ["vers=4", "udp", "rw", "async",
-      #                "rsize=32768", "wsize=32768",
-      #                "noacl", "noatime", "nodiratime",],
-  )
-  # disabling default vagrant mount on /vagrant as we mount it on /srv
-  config.vm.synced_folder ".", "/vagrant", disabled: true
+  #
+  mountpoints = {
+      "./" => "/vagrant",
+      "/etc" => "/mnt/parent_etc",
+      File.expand_path('~') => "/mnt/parent_home"
+  }
+  mountpoints.each do |mountpoint, target|
+      config.vm.synced_folder(
+          mountpoint, target,
+          nfs: true,
+          nfs_udp: false,
+          linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check",],
+          bsd__nfs_options: ["maproot=root:wheel", "alldirs"],
+          mount_options: [
+              "vers=3","rw","noatime", "nodiratime",
+              "udp", "rsize=32768", "wsize=32768",
+          ],
+      )
+  end
+  # config.vm.synced_folder ".", "/vagrant", disabled: true
   # dev: mount of etc, so we can alter current host /etc/hosts from the guest (insecure by definition)
   config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
 
@@ -408,9 +410,8 @@ pkg_cmd = [
 #!/usr/bin/env bash
 MARKERS="/srv/root/vagrant/markers"
 die_if_error() { if [[ "\\$?" != "0" ]];then output "There were errors";exit 1;fi; };
-if [[ ! -f /srv/Vagrantfile ]];then
+if [[ ! -e /vagrant/Vagrantfile ]];then
     output() { echo "\\$@" >&2; };
-    if [ ! -d "/srv" ]; then mkdir /srv;fi;
     if [ ! -f \\$MARKERS/provision_step_nfs_done ];then
       if [[ ! -e \\$MARKERS ]];then
         mkdir -pv "\\$MARKERS"
@@ -420,7 +421,7 @@ if [[ ! -f /srv/Vagrantfile ]];then
       apt-get install -y --force-yes nfs-common portmap
       if [ "0" == "$?" ];then touch \\$MARKERS/provision_step_nfs_done; fi;
     fi
-    output " [*] ERROR: You do not have /srv/Vagrantfile, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it and launch './manage.sh reload'!"
+    output " [*] ERROR: You do not have /vagrant/vagrant/Vagrantfile, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it and launch './manage.sh reload'!"
     exit 1
 fi
 EOF},
@@ -442,9 +443,9 @@ DOCKER_NETWORK_MASK="#{DOCKER_NETWORK_MASK}"
 DOCKER_NETWORK_MASK_NUM="#{DOCKER_NETWORK_MASK_NUM}"
 VB_NAME="#{VIRTUALBOX_VM_NAME}"
 EOF},
-      "chmod 700 /root/vagrant/provision_nfs.sh /srv/vagrant/provision_script.sh;",
+      "chmod 700 /root/vagrant/provision_nfs.sh /vagrant/vagrant/provision_script.sh;",
       "/root/vagrant/provision_nfs.sh;",
-      "/srv/vagrant/provision_script.sh",
+      "/vagrant/vagrant/provision_script.sh",
   ]
   config.vm.provision :shell, :inline => pkg_cmd.join("\n")
 end

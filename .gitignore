@@ -1,4 +1,5 @@
 packer_cache
+VM/
 salt26
 lxcbin
 mastersalt-pillar/
