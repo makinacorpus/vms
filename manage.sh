@@ -250,6 +250,8 @@ export() {
             nincludes="$i $nincludes"
         fi
     done
+    # we use to have salt on a shared folder
+    # this is not the case anymore, so the folling loop is just a NOOP
     includes="$nincludes"
     for i in pillar projects salt;do
         if [[ -e $i ]];then
