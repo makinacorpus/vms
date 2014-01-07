@@ -240,15 +240,14 @@ To remove an outdated or broken VM::
 
 Connecting to the vm
 +++++++++++++++++++++
-- We have made a wrapper similar to ``vagrant ssh`` but this one use the hostonly
-interface to improve transfer and shell reactivty.
+- We have made a wrapper similar to ``vagrant ssh``.
+- but this one use the hostonly interface to improve transfer and shell reactivity.
 - We also configured the vm to accept the current host user to connect as **root** and **vagrant** users.
-
-Thus, you can sonnect to the VM in ssh with either ``root`` or the ``vagrant`` user (sudoer) is::
+- Thus, you can sonnect to the VM in ssh with either ``root`` or the ``vagrant`` user (sudoer) is::
 
   ./manage.sh ssh (default to vagrant)
 
-Or::
+- Or::
 
   ./manage.sh ssh -l root
 
