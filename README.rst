@@ -255,9 +255,12 @@ Note that all the files mounted on the ``/srv`` vm directory are in fact stored 
 
 File edition and access
 ++++++++++++++++++++++++++++
-To edit the files from your host system, youn ll just  have to use **./VM**
+To edit or access the files from your host system, youn ll just  have to use **./VM**
 which is a mountpoint for the``/`` of the vm exported from
 the vm as the **root** user.
+
+For example, you can configure **<here>/VM/srv/projects/foo** as the project
+workspace root for your eclipse setup.
 
 Manage several Virtualboxes
 +++++++++++++++++++++++++++
