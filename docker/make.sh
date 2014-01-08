@@ -28,10 +28,10 @@ UBUNTU_PRECISE_IMG="http://cloud-images.ubuntu.com/releases/12.04.3/release/ubun
 lxc_bins="lxc-stop lxc-start lxc-info lxc-attach lxc-kill lxc-restart lxc-execute"
 CURRENT_UBUNTU="saucy"
 CURRENT_URL="$UBUNTU_SAUCY_IMG"
-c=$(dirname $0)
-cd $c
-c=$PWD
-markers=$c/.done
+where="`dirname "$0"`"
+cd "${where}" || exit 1
+CURPATH=$PWD
+markers="${CURPATH}/.done"
 RED="\\033[31m"
 CYAN="\\033[36m"
 NORMAL="\\033[0m"
@@ -118,7 +118,7 @@ install_lxc() {
     log "Bootstrapping sources"
     init_src
     save_lxc
-    cd $c/lxc || die "docker src not there"
+    cd "${CURPATH}/lxc" || die "docker src not there"
     lazy_apt_get_install autopoint
     sudo apt-get build-dep -y --force-yes lxc
     ./autogen.sh -ifv && ./configure --with-distro=ubuntu --prefix=/lxc/ && make && sudo make install &&\
@@ -145,7 +145,7 @@ install_docker() {
     done
     log "Bootstrapping sources"
     init_src $nopull
-    cd $c/docker || die "docker src not there"
+    cd "${CURPATH}/docker" || die "docker src not there"
     save_docker
     sudo service docker stop
     sudo rm -rf /var/run/docker.sock
@@ -153,13 +153,13 @@ install_docker() {
     sudo cp -f /usr/bin/docker.ubuntu /usr/bin/docker
     sudo service docker start
     sleep 2
-    cd $c/docker || die "docker src not there"
+    cd "${CURPATH}/docker" || die "docker src not there"
     chrono=$(date +"%Y%m%d%H%M%S")
     old="$PWD/bundles/old/$chrono"
     if [[ ! -d "$old" ]];then
         mkdir -pv "$old"
     fi
-    mv -vf $PWD/bundles/* $old/
+    mv -vf "$PWD/bundles/*" "$old/"
     if [[ $(docker images|awk '{print $1}'|egrep '^docker$'|wc -l) == "0" ]];then
         sudo docker build -t docker .
         if [[ $? != 0 ]];then
@@ -167,8 +167,8 @@ install_docker() {
         fi
     fi
     log "Building docker"
-    sudo /usr/bin/docker run -privileged -v `pwd`:/go/src/github.com/dotcloud/docker docker hack/make.sh binary
-    bin="$(find $PWD/bundles|grep -v "old"|grep "docker-"|xargs ls -r1t|tail -n1)"
+    sudo /usr/bin/docker run -privileged -v "$(pwd)":/go/src/github.com/dotcloud/docker docker hack/make.sh binary
+    bin="$(find "$PWD/bundles"|grep -v "old"|grep "docker-"|xargs ls -r1t|tail -n1)"
     echo $bin
     sudo service docker stop
     sudo rm -rf /var/run/docker.sock
@@ -198,14 +198,14 @@ init_src() {
         d_origin="o"
         d_branch="master"
         warn "Upgrading sources"
-        cd $c/docker && git remote add o https://github.com:makinacorpus/docker.git
-        cd $c/docker && git remote add k https://github.com/kiorky/docker.git
+        cd "${CURPATH}/docker" && git remote add o https://github.com:makinacorpus/docker.git
+        cd "${CURPATH}/docker" && git remote add k https://github.com/kiorky/docker.git
         warn "Upgrading lxc"
-        cd $c/lxc && git pull
+        cd "${CURPATH}/lxc" && git pull
         warn "Upgrading docker"
-        cd $c/docker && git pull $d_origin $d_branch
+        cd "${CURPATH}/docker" && git pull $d_origin $d_branch
     fi
-    sed -re "s/filemode.*/filemode=false/g" -i $c/*/.git/config
+    sed -re "s/filemode.*/filemode=false/g" -i "${CURPATH}/*/.git/config"
 }
 
 restart_dockers() {
@@ -266,13 +266,13 @@ fix_perms() {
     u="";g="editor"
     if [[ "$(whoami)" != "root" ]];then u="$(whoami)";fi
     fics=""
-    fics="$fics $(find $c/docker $c/lxc -maxdepth 0 -type f -print)"
-    fics="$fics $(find $c/docker -type f -print)"
+    fics="$fics $(find "${CURPATH}/docker" "${CURPATH}/lxc" -maxdepth 0 -type f -print)"
+    fics="$fics $(find "${CURPATH}/docker" -type f -print)"
     directories=""
-    directories="$directories $(find $c/docker $c/lxc -type d -print)"
-    directories="$directories $c/.."
-    directories="$directories $(find $c/debian -type d -print|egrep -v "/debian/(debootstrap|cache)")"
-    directories="$directories $(find $c/ubuntu-debootstrap -type d -print|egrep -v "/ubuntu-debootstrap/(debootstrap|cache)")"
+    directories="$directories $(find "${CURPATH}/docker" "${CURPATH}/lxc" -type d -print)"
+    directories="$directories "${CURPATH}/..""
+    directories="$directories $(find "${CURPATH}/debian" -type d -print|egrep -v "/debian/(debootstrap|cache)")"
+    directories="$directories $(find "${CURPATH}/ubuntu-debootstrap" -type d -print|egrep -v "/ubuntu-debootstrap/(debootstrap|cache)")"
     sudo chmod g-s $directories
     sudo chmod g+rwx $fics $directories
     sudo chown $u:$g $fics $directories
@@ -301,27 +301,27 @@ tar_image() {
     w=$PWD
     src="$1";tar="${2:-${1}.tar.gz}";
     log "Tarballing $src to $tar"
-    cd $src && tar czfp "$tar" . --numeric-owner
-    cd $w
+    cd "$src" && tar czfp "$tar" . --numeric-owner
+    cd "$w"
 }
 
 make_image_from_path() {
     src="$1";tag="$2"
     log "Building docker $tag from path: $src"
-    tar_image $src ${src}.tar.gz
-    make_image_from_tarball ${src}.tar.gz $tag
+    tar_image "$src" "${src}.tar.gz"
+    make_image_from_tarball "${src}.tar.gz" "$tag"
 }
 
 make_image_from_deboostrap() {
-    debootstrap="$1";tag="$2";dst="$c/$tag/deboostrap"
+    debootstrap="$1";tag="$2";dst="${CURPATH}/$tag/deboostrap"
     iid="$(get_iid $tag)"
     if [[ -n $iid ]];then
         log "Already built image '$tag' from deboostrap: $debootstrap ($iid)"
     else
-        if [[ -e $debootstrap ]];then chmod +x $debootstrap;fi
+        if [[ -e "$debootstrap" ]];then chmod +x "$debootstrap";fi
         log "Build image '$tag' from deboostrap: $debootstrap"
-        cook $debootstrap -p $dst
-        make_image_from_path $dst $tag
+        cook "$debootstrap" -p "$dst"
+        make_image_from_path "$dst" "$tag"
     fi
 }
 
@@ -342,16 +342,16 @@ make_image_from_tarball() {
             log "Building docker from tarball: $tar"
             import_image $tar ${tag}_base
         fi
-        log "Building docker image $c/$tag from imported tarball"
-        docker build -t="${tag}" $c/$tag
+        log "Building docker image ${CURPATH}/$tag from imported tarball"
+        docker build -t="${tag}" "${CURPATH}/$tag"
     fi
 }
 
 make_image_from_remote_tarball() {
-    tag="$2";url="$1";tar="$c/$(basename $url)"
+    tag="$2";url="$1";tar="${CURPATH}/$(basename $url)"
     log "Building $tag from remote tarball: $url"
     wget -c $url
-    make_image_from_tarball $tar $tag
+    make_image_from_tarball "$tar" "$tag"
 }
 
 make_image_generic() {
@@ -364,7 +364,7 @@ make_image_generic() {
 }
 
 ubuntu_dockerfile() {
-    sed -re "s|^FROM.*|FROM ${tag}_base|g" $c/$tag/Dockerfile.in > $c/$tag/Dockerfile
+    sed -re "s|^FROM.*|FROM ${tag}_base|g" "${CURPATH}/$tag/Dockerfile.in" > "${CURPATH}/$tag/Dockerfile"
 }
 
 get_iid() {
@@ -378,7 +378,7 @@ make_image_with_postinst() {
         log "Already Builded image $tag with postinst: $postinst (tag: $iid) set DOCKER_IMAGE_POSTINST_BUILD_FORCE=1"
     else
         log "Building image $tag with postinst: $postinst"
-        docker build -no-cache=true -rm=true -t ${tag}_tmp $c/${tag}
+        docker build -no-cache=true -rm=true -t ${tag}_tmp "${CURPATH}/${tag}"
         ret="$?"
         if [[ "$ret" != "0" ]];then die "failed tmp build $tag";fi
         MID=$(docker run -d -privileged ${tag}_tmp)
@@ -412,19 +412,19 @@ make_image_ubuntu_upstart() {
 make_image_ubuntu_deboostrap() {
     tag="makinacorpus/ubuntu_deboostrap"
     ubuntu_dockerfile $tag
-    make_image_from_deboostrap $c/lxc-ubuntu $tag
+    make_image_from_deboostrap "${CURPATH}/lxc-ubuntu" $tag
 }
 
 make_image_debian() {
-    make_image_from_deboostrap $c/lxc-debian makinacorpus/debian
+    make_image_from_deboostrap "${CURPATH}/lxc-debian" makinacorpus/debian
 }
 
 make_image_debian_salt() {
-    make_image_from_deboostrap $c/lxc-debian makinacorpus/debian_salt
+    make_image_from_deboostrap "${CURPATH}/lxc-debian" makinacorpus/debian_salt
 }
 
 make_image_debian() {
-    make_image_from_deboostrap $c/lxc-debian makinacorpus/debian_mastersalt
+    make_image_from_deboostrap "${CURPATH}/lxc-debian" makinacorpus/debian_mastersalt
 }
 
 dattach() {
@@ -445,7 +445,7 @@ make_image_ubuntu_saucy() {
 make_image_ubuntu() {
     ctag="makinacorpus/ubuntu_${CURRENT_UBUNTU}"
     btag="${ctag}_base"
-    ctar="$c/$(basename $CURRENT_URL)"
+    ctar="${CURPATH}/$(basename $CURRENT_URL)"
     make_image_ubuntu_$CURRENT_UBUNTU || die "building current ubuntu failed"
     # get image id of current image
     bid=$(docker images|egrep "^${ctag} "|awk '{print $3}')
@@ -486,7 +486,7 @@ make_image() {
 }
 
 usage() {
-    cd $c
+    cd "${CURPATH}"
     log "make_image [ $(echo $(ls makinacorpus/* -d)|sed -re "s/ / | /g" -e "s/makinacorpus\///g") ]"
     for i in $actions_main_usage;do
         if [[ "$i" != "make_image" ]];then
