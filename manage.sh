@@ -10,7 +10,7 @@ log(){
     echo -e "${RED} [manage] ${@}${NORMAL}"
 }
 
-where="`dirname \"$0\"`"
+where="$(dirname "$0")"
 cd "${where}" || exit 1
 VMPATH=$PWD
 internal_ssh_config=${VMPATH}/.vagrant/internal-ssh-config
