@@ -254,6 +254,10 @@ reload() {
     mount_vm
 }
 
+clean_buf_vm() {
+    vagrant box remove devhost
+}
+
 export() {
     cd "${VMPATH}"
     local nincludes=""
@@ -299,10 +303,12 @@ export() {
         fi &&\
         down;\
         sed -i -e 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
+        gtouched="1" &&\
+        clean_buf_vm
         log "Be patient, exporting now" &&\
         ssh sudo /vagrant/vagrant/exported.sh &&\
-        cat Vagrantfile &&\
         vagrant package --vagrantfile Vagrantfile --output $BOX 2> /dev/null
+        echo "--------- $?"
         if [[ -f $BOX ]];then
             install_keys
         else
@@ -311,9 +317,8 @@ export() {
         fi
     else
         log "${VMPATH}/$BOX exists, delete it to redo"
-    fi &&\
-    gtouched="1" &&\
-    if [[ ! -f ${ABOX} ]];then
+    fi
+    if [[ -f "$BOX" ]] && [[ ! -f "${ABOX}" ]];then
         log "Be patient, archiving now the whole full box package" &&\
         tar $tar_preopts ${ABOX} $BOX  $includes $tar_postopts &&\
         log "Export done of full box: ${VMPATH}/$ABOX"
@@ -379,6 +384,7 @@ import() {
     fi
     sed -ie "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
     sed -ie "/DEVHOST_NUM/d" ./vagrant_config.rb &&\
+    clean_buf_vm
     log "Importing $box (mode: $mode) into vagrant bases boxes as 'devhost' box" &&\
     vagrant box add -f devhost "$box" &&\
     log "Initialiasing host from $box" &&\
