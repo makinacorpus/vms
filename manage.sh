@@ -16,6 +16,7 @@ VMPATH=$PWD
 internal_ssh_config=${VMPATH}/.vagrant/internal-ssh-config
 ssh_config=${VMPATH}/.vagrant/ssh-config
 VM=${VMPATH}/VM
+NOINPUT=""
 
 die() { echo $@; exit -1; }
 
@@ -189,6 +190,27 @@ mount_vm() {
     fi
 }
 
+get_pid_line() {
+    pid="$1"
+    ps -eo pid,user,comm,args --no-headers|egrep "^\s*${pid}\s"
+}
+
+smartkill() {
+    for pid in $PIDS;do
+        while [[ $(get_pid_line $pid|wc -l) != "0" ]];do
+            if [[ -z "$NOINPUT" ]] || [[ "$input" == "y" ]];then
+                log "Do you really want to kill:"
+                log "$(get_pid_line $pid)"
+                log "[press y nthen enter control C to abort]";read input
+            fi
+            if [[ -n "$NOINPUT" ]] || [[ "$input" == "y" ]];then
+                log "killing $pid"
+                kill -9 $pid
+            fi
+        done
+    done
+}
+
 umount_vm() {
     cd "${VMPATH}"
     if [[ ! -e "$VM" ]];then
@@ -199,8 +221,10 @@ umount_vm() {
     fi
     if [[ "$(mount|awk '{print $3}'|egrep "$VM$" | wc -l)" != "0" ]];then
         log "forcing umounting of $VM"
-        ps aux|grep "$VM"|grep sshfs|awk '{print $2}'|xargs kill -9
-        lsof 2> /dev/null|grep -- "$VM"|awk '{print $2}'|xargs kill -9
+        PIDS="$(ps aux|grep "$VM"|grep sshfs|awk '{print $2}')"
+        smartkill $PIDS
+        PIDS="$(lsof 2> /dev/null|grep -- "$VM"|awk '{print $2}')"
+        smartkill $PIDS
         fusermount -u "$VM"
     fi
 }
