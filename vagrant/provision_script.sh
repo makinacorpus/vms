@@ -512,6 +512,9 @@ disable_base_box_services() {
                 output " [*] Disabling $i"
                 service $i stop
                 update-rc.d -f $i remove
+                # seems that some package updates are re-enabling it
+                # enforce inactivation
+                echo "START=no" > /etc/default/$i
             fi
         done
         touch "$marker"
