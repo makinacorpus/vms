@@ -563,7 +563,7 @@ install_keys() {
             rsync\
                 -a\
                 --exclude=authorized_keys* \
-                /mnt/parent_home/.ssh/ "$home/.ssh/"
+                /mnt/parent_ssh/ "$home/.ssh/"
             for i in /home/vagrant/.ssh/author*;do
                 dest=$home/.ssh/$(basename $i)
                 if [[ "$i" != "$dest" ]];then

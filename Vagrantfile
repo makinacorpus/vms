@@ -276,7 +276,8 @@ Vagrant.configure("2") do |config|
   mountpoints = {
       "./" => "/vagrant",
       "/etc" => "/mnt/parent_etc",
-      File.expand_path('~') => "/mnt/parent_home"
+#      File.expand_path('~') => "/mnt/parent_home"
+      File.expand_path('~/.ssh') => "/mnt/parent_ssh"
   }
   mountpoints.each do |mountpoint, target|
       config.vm.synced_folder(
