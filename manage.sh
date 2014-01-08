@@ -48,7 +48,7 @@ status() {
 }
 
 test() {
-    where="`dirname \"$0\"`"
+    where="$(dirname "$0")"
     cd "${where}" || exit 1
     VMPATH=$PWD
     name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
