@@ -118,7 +118,20 @@ end
 # Be sure to have only one unique subnet per devhost per physical host
 #
 VBOX_SUBNET_FILE=File.dirname(__FILE__) + "/.vb_subnet"
-DEVHOST_NUM_DEF="42"
+consumed_nums = `VBoxManage list vms|grep -i devhost|awk '{print $3}'`.split().sort()
+devhost_num_def = nil
+skipped_nums = ["1", "254"]
+("1".."254").each do |num|
+  if !consumed_nums.include?(num) && !skipped_nums.include?(num)
+    devhost_num_def=num
+    break
+  end
+end
+if not devhost_num_def
+  raise "There is no devhosts numbers left in (#{consumed_nums})"
+else
+  DEVHOST_NUM_DEF=devhost_num_def
+end
 if not defined?(DEVHOST_NUM)
     devhost_num=ENV.fetch("MAKINA_DEVHOST_NUM", "").strip()
     if devhost_num.empty? and File.exist?(VBOX_SUBNET_FILE)
