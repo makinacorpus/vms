@@ -309,7 +309,7 @@ export() {
             down;\
             sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
             log "Be patient, exporting now the full box" &&\
-            cleanup_keys &&\
+            ssh /vagrant/vagrant/exported.sh &&\
             vagrant package --vagrantfile Vagrantfile --output package-full.box &&\
             install_keys
         else
@@ -330,8 +330,8 @@ export() {
         if [[ ! -f package-nude.box ]];then
             log "Be patient, exporting now the nude box" &&\
             sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
-            cleanup_keys &&\
-            vagran package --vagrantfile Vagrantfile --output package-nude.box &&\
+            ssh /vagrant/vagrant/exported.sh &&\
+            vagrant package --vagrantfile Vagrantfile --output package-nude.box &&\
             install_keys
         else
             log "${VMPATH}/package-nude.box exists, delete it to redo"
