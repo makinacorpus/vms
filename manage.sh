@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-actions="up reload destroy down export export_nude import import_nude suspend do_zerofree ssh test"
+actions="status up reload destroy down export export_nude import import_nude suspend do_zerofree ssh test install_keys cleanup_keys mount_vm umount_vm"
 a_eximmodes="full nude"
 RED="\\033[31m"
 CYAN="\\033[36m"
 NORMAL="\\033[0m"
+RSYNC=$(which rsync)
+
 log(){
     echo -e "${RED} [manage] ${@}${NORMAL}"
 }
+
 u=""
 if [[ "$(whoami)" != "root" ]];then
     u=$(whoami)
@@ -15,106 +18,218 @@ g=editor
 c=$(dirname $0)
 cd $c
 c=$PWD
+internal_ssh_config=$c/.vagrant/internal-ssh-config
+ssh_config=$c/.vagrant/ssh-config
+VM=$c/VM
+
 die() { echo $@; exit -1; }
+
 actions=" $actions "
+
 actions_main_usage="$actions"
+
 usage() {
     for i in $actions_main_usage;do
         echo "$0 $i"
     done
 }
-test() {
-    cd $(dirname $0)
-    c=$PWD
-    name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
-    echo $name
-    d="$c-test"
-    sudo rsync -azv $c/ $d/ \
-        --exclude=salt/ \
-        --exclude=mastersalt --exclude=mastersalt-pillar \
-        --exclude=pillar \
-        --exclude=projects --exclude=docker/ \
-        --exclude=.vagrant --exclude=packer --exclude=vagrant_config.rb
-    cd ${d} || exit -1
-    if [[ -n "$NOCLEAN" ]];then
-        log "Warning, no clean!"
-    else
-        ./manage.sh destroy
-    fi
-    rm -rf salt projects pillar .vagrant
-    if [[ "$name" == "saucy" ]];then
-        num="52"
-    elif [[ "$name" == "raring" ]];then
-        num="53"
-    elif [[ "$name" == "precise" ]];then
-        num="55"
-    fi
+
+write_test_config() {
+    num="$1"
     cat > vagrant_config.rb << EOF
 module MyConfig
     DEVHOST_NUM="$num"
     VIRTUALBOX_VM_NAME="Docker DevHost $num Ubuntu ${name}64"
 end
 EOF
+}
+
+status_() {
+    vagrant status 2> /dev/null
+}
+
+status() {
+    status_|egrep "^default"|awk '{print $2}'
+}
+
+test() {
+    cd $(dirname $0)
+    c=$PWD
+    name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
+    dname=$(grep ' DEBIAN_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
+    echo $name
+    d="$c-test"
+    sudo rsync -av $c/ $d/ \
+        --exclude=salt/ \
+        --exclude=mastersalt --exclude=mastersalt-pillar \
+        --exclude=pillar \
+        --exclude=projects --exclude=docker/ \
+        --exclude=.vagrant --exclude=packer --exclude=vagrant_config.rb
+    cd ${d} || exit -1
+    git checkout docker
+    git checkout packer
+    if [[ "$name" == "saucy" ]];then
+        num="52"
+    elif [[ "$name" == "raring" ]];then
+        num="53"
+    elif [[ "$name" == "precise" ]];then
+        num="55"
+    elif [[ "$name" == "wheezy" ]];then
+        num="56"
+    else
+        die "invalid test"
+    fi
+    if [[ ! -e vagrant_config.rb ]];then
+        write_test_config $num
+    fi
+    if [[ -n "$NOCLEAN" ]];then
+        log "Warning, no clean!"
+    else
+        if [[ -n "$NODESTROY" ]];then
+            log "Warning, no destroy!"
+        else
+            ./manage.sh destroy
+        fi
+        sudo rm -rf salt projects pillar
+    fi
+    if [[ ! -e vagrant_config.rb ]];then
+        write_test_config $num
+    fi
     if [[ -n "$NOCLEAN" ]];then
         ./manage.sh down
     fi
     ./manage.sh up
     exit $?
 }
+
 destroy() {
     cd $c
     log "Destroy !"
     vagrant halt -f
     vagrant destroy -f
 }
+
 suspend() {
     cd $c
     log "Suspend !"
     vagrant suspend
 }
-ssh() {
+
+gen_ssh_config() {
     cd $c
-    exec vagrant ssh $@
+    if [[ ! -d .vagrant ]];then
+        mkdir .vagrant
+    fi
+    vagrant ssh-config 2>/dev/null > "$internal_ssh_config"
+    # replace the ip by the hostonly interface one in our ssh wrappers
+    hostip=$(vagrant ssh -c "ip addr show dev eth1" 2> /dev/null|awk '/inet / {gsub("/.*", "", $2);print $2}')
+    cp -f "$internal_ssh_config" "$ssh_config"
+    sed -i "s/HostName.*/HostName $hostip/g" "$ssh_config"
+    sed -i "s/Port.*//g" "$ssh_config"
 }
+
+ssh_() {
+    cd $c
+    $(which ssh) -F "$ssh_config" default $@
+}
+
+cleanup_keys() {
+    ssh_pre_reqs
+    ssh_ sudo /vagrant/vagrant/cleanup_keys.sh
+}
+
+install_keys() {
+    ssh_ sudo /vagrant/vagrant/install_keys.sh
+}
+
+ssh_pre_reqs() {
+    if [[ "$(status)" != "running" ]];then
+        up
+    fi
+    gen_ssh_config
+    install_keys
+}
+
+ssh() {
+    mount_vm
+    ssh_ $@
+}
+
 down() {
     cd $c
     log "Down !"
+    umount_vm
     vagrant halt -f
 }
+
 maybe_finish_creation() {
     ret=$?
-    marker="$(vagrant ssh -c 'test -e /tmp/vagrant42'>/dev/null;echo $?)"
+    restart_marker="/tmp/vagrant_provision_needs_restart"
     if [[ "$ret" != "0" ]] || [[ "$marker" == "0" ]];then
         for i in $(seq 3);do
+            marker="$(vagrant ssh -c "test -e $restart_marker" &> /dev/null;echo $?)"
             if [[ "$marker" == "0" ]];then
                 log "First runs, we issue a scheduled reload after the first up(s)"
                 vagrant reload
-                marker="$(vagrant ssh -c 'test -e /tmp/vagrant42';echo $?)"
                 ret="$?"
             elif [[ "$ret" != "0" ]];then
                 log "Error in vagrant up/reload"
                 exit 1
+            else
+                break
             fi
         done
     fi
 }
+
+mount_vm() {
+    if [[ ! -e "$VM/home/vagrant/.ssh" ]];then
+        ssh_pre_reqs
+        cd $c
+        if [[ ! -e "$VM" ]];then
+            mkdir "$VM"
+        fi
+        sshfs -F $ssh_config root@default:/ -o nonempty "$VM"
+    fi
+}
+
+umount_vm() {
+    cd $c
+    if [[ ! -e "$VM" ]];then
+        mkdir "$VM"
+    fi
+    if [[ "$(mount|awk '{print $3}'|egrep "$VM$" | wc -l)" != "0" ]];then
+        fusermount -u "$VM"
+    fi
+    if [[ "$(mount|awk '{print $3}'|egrep "$VM$" | wc -l)" != "0" ]];then
+        log "forcing umounting of $VM"
+        ps aux|grep "$VM"|grep sshfs|awk '{print $2}'|xargs kill -9
+        lsof 2> /dev/null|grep -- "$VM"|awk '{print $2}'|xargs kill -9
+        fusermount -u "$VM"
+    fi
+}
+
 up() {
     cd $c
-    not_created="$(not_created)"
     log "Up !"
     vagrant up
     maybe_finish_creation
+    mount_vm
 }
-not_created() {
-    cd $c
-    vagrant status|grep "not created (virtualbox)" 2>/dev/null|wc -l
-}
+
 reload() {
     cd $c
     log "Reload!"
-    vagrant reload
+    umount_vm
+    if [[ "$(status)" != "running" ]];then
+        vagrant up
+    else
+        vagrant reload
+    fi
     maybe_finish_creation
+    mount_vm
 }
+
 export() {
     cd $c
     local nincludes=""
@@ -138,6 +253,8 @@ export() {
             nincludes="$i $nincludes"
         fi
     done
+    # we use to have salt on a shared folder
+    # this is not the case anymore, so the folling loop is just a NOOP
     includes="$nincludes"
     for i in pillar projects salt;do
         if [[ -e $i ]];then
@@ -172,7 +289,9 @@ export() {
             down;\
             sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
             log "Be patient, exporting now the full box" &&\
-            vagrant package --vagrantfile Vagrantfile --output package-full.box
+            cleanup_keys &&\
+            vagrant package --vagrantfile Vagrantfile --output package-full.box &&\
+            install_keys
         else
             log "$c/package-full.box exists, delete it to redo"
         fi\
@@ -191,7 +310,9 @@ export() {
         if [[ ! -f package-nude.box ]];then
             log "Be patient, exporting now the nude box" &&\
             sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
-            vagran package --vagrantfile Vagrantfile --output package-nude.box
+            cleanup_keys &&\
+            vagran package --vagrantfile Vagrantfile --output package-nude.box &&\
+            install_keys
         else
             log "$c/package-nude.box exists, delete it to redo"
         fi &&\
@@ -215,12 +336,15 @@ export() {
         log "End of export"
     fi
 }
+
 export_nude() {
     export nude
 }
+
 import_nude() {
     import nude
 }
+
 import() {
     cd $c
     local gtouched=""
@@ -297,13 +421,19 @@ import() {
         log "Box $box imported !"
     fi
 }
+
 do_zerofree() {
     log "Zerofreing" &&\
     up &&\
     vagrant ssh -c "sudo /root/vagrant/zerofree.sh" &&\
     log " [*] WM Zerofreed"
 }
+
 action=$1
+if [[ -z "$RSYNC" ]];then
+    log "Please install rsync"
+    exit -1
+fi
 test="$(echo "$actions" | sed -e "s/.* $action .*/match/g")"
 if [[ "$test" == "match" ]];then
     shift

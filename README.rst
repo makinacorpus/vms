@@ -29,7 +29,6 @@ For docker, we use a docker subfolder with the appropriate stuff to build the ba
 
 Ubuntu
 ~~~~~~
-
 **WARNING** You need to comment out all the /etc/apparmor.d/usr.bin.ntpd profile and do **sudo invoke-rc.d apparmor reload**
 
 - **makinacorpus/ubuntu**: `minimal ubuntu system <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/ubuntu>`_
@@ -55,26 +54,124 @@ Following theses instructions you can install this git repository on a directory
 
 Prerequisites
 -------------
-You need to have ``virtualbox``, ``vagrant`` and ``NFS`` (as a server).
+You need to have ``virtualbox``, ``vagrant``, ``sshfs`` and ``NFS`` (as a server).
 
+On macosx, sshfs is also known as MacFuse or MacFusion.
 
-For a debian-like host this would be ok with theses commands::
+By default file transferts between host and guest is **really, really slow**.
+We have improved performances by some techniques:
 
-  sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
+    * Increasing the **MTU to 9000** (jumbo frames) on host and guest Ethernet nics
+    * Leaving most of files on the guest side, leaving up to you to access the files
+      on the guest. We recommend and also  integrate this access to be via sshfs.
 
-For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
+sshfs documentation
+++++++++++++++++++++
+Linux / *BSD
+~~~~~~~~~~~~~~
+- Install your sshfs distribution package (surely **sshfs**).
+- Relog into a new session or reboot
 
+MacOSX
+~~~~~~
+- Install `macfusion <http://macfusionapp.org>`_
+- Relog into a new session or reboot
+
+Vagrant
++++++++
 You could make you a supersudoer without password to avoid sudo questions when lauching the VMs (not required)::
 
-    # visudo    
+    # visudo
     # Allow members of group sudo to execute any command
     %sudo   ALL=(ALL:ALL) NOPASSWD:ALL
 
+For a Debian / Ubuntu deb-like host, version 1.3.5 64 bits::
 
-For a debian/ubuntu deb-like host, version 1.3.5 64 bits::
+    wget http://files.vagrantup.com/packages/a40522f5fabccb9ddabad03d836e120ff5d14093/vagrant_1.3.5_x86_64.deb
+    sudo dpkg -i vagrant_1.3.5_x86_64.deb
 
-  wget http://files.vagrantup.com/packages/a40522f5fabccb9ddabad03d836e120ff5d14093/vagrant_1.3.5_x86_64.deb
-  sudo dpkg -i vagrant_1.3.5_x86_64.deb
+Optimizations (optional but recommended)
+++++++++++++++++++++++++++++++++++++++++
+
+NFS Optmimisations
+~~~~~~~~~~~~~~~~~~~
+* The important thing here is to tuneup the number of avalaible workers for nfs
+  server operations.
+
+    * NOTE: [RECOMMENDED] **256** threads == **~512MO** ram allocated for nfs
+
+    * NOTE: **128** threads == **~302MO** ram allocated for nfs
+
+    * **512** is a lot faster but the virtualbox ethernet interfaces had some bugs
+      (kernel guest oops) at this speed.
+
+* On Debian / Ubuntu:
+
+    * Install nfs::
+
+        sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
+
+    * Edit  **/etc/default/nfs-kernel-server** and increase the **RPCNFSDCOUNT**
+      variable to 256.
+
+    * Restart the server::
+
+        sudo /etc/init.d/nfs-kernel-server restart
+
+* On Archlinux:
+
+    * Edit  **/etc/conf.d/nfs-server.conf** and increase the **NFSD_COUNT**
+      variable to 256.
+
+    * Enable at boot / Restart the services::
+
+        modprobe nfs # may return an error if already loaded
+        for i in rpc-idmapd.service and rpc-mountd.service nfsd.service;do
+            systemctl enable $i
+            service $i start
+        done
+
+* On MacOSX:
+
+    * Edit  **/etc/nfs.conf** and increase the **nfs.server.nfsd_threads**
+      variable to 512 or 256.
+    * Select, active & restart the NFS service in server admin
+
+For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
+
+Host kernel optimisations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Take care with this part, it can prevent your system from booting.
+
+We need to speed up things to:
+
+    * Tuning the nfs & kernel options on the host
+    * **Increasing** the nfs worker **threads**
+    * Using **NFS** as sharing filesystem
+
+* On MacOSX, edit **/etc/sysctl.conf**
+
+    * add or edit a line::
+
+        kern.aiomax=2048
+        kern.aioprocmax=512
+        kern.aiothreads=128
+
+    * Reload the settings::
+
+        sysctl -p
+
+* On linux, edit **/etc/sysctl.conf**
+
+    * add or edit a line::
+
+        fs.aio-max-nr = 1048576
+        fs.file-max = 6815744
+
+    * Reload the settings::
+
+        sysctl -p
+
 
 Installation
 ------------
@@ -112,8 +209,13 @@ Now you can start the vm installation with vagrant. Note that this repository wi
 
 Daily usage
 ------------
+VM control
+++++++++++++
 
 Now that vagrant as created a virtualbox image for you, you should always manipulate this virtualbox VM with ``vagrant`` command.
+
+Please note that when the vm is running, we will try to mount the VM root as
+root user with sshfs in the ``./VM`` folder.
 
 To launch a Vagrant command always ``cd`` to the VM base directory::
 
@@ -122,10 +224,6 @@ To launch a Vagrant command always ``cd`` to the VM base directory::
 Starting the VM is simple::
 
   ./manage.sh up
-
-Connecting to the VM in ssh with the ``vagrant`` user (sudoer) is::
-
-  ./manage.sh ssh
 
 Stoping the VM can be done like that::
 
@@ -140,6 +238,22 @@ To remove an outdated or broken VM::
 
   ./manage.sh destroy
 
+Connecting to the vm
++++++++++++++++++++++
+- We have made a wrapper similar to ``vagrant ssh``.
+- but this one use the hostonly interface to improve transfer and shell reactivity.
+- We also configured the vm to accept the current host user to connect as **root** and **vagrant** users.
+- Thus, you can sonnect to the VM in ssh with either ``root`` or the ``vagrant`` user (sudoer) is::
+
+  ./manage.sh ssh (default to vagrant)
+
+- or::
+
+  ./manage.sh ssh -l root
+
+Export/Import
+++++++++++++++
+
 To export in **package.tar.bz2**, to share this development host with someone::
 
   ./manage.sh export
@@ -149,10 +263,57 @@ directory and issue::
 
   ./manage.sh import
 
-Note that all the files mounted on the ``/srv`` vm directory are in fact stored on the base directory of this project and will not be removed after a vagrant destroy. so you can easily destroy a VM without loosing really important files. Then redo a ``vagrant up`` to rebuild a new VM with all needed dependencies.
+Note that all the files mounted on the ``/vagrant`` vm directory are in fact stored on the base directory of this project.
+
+File edition and access
+++++++++++++++++++++++++++++
+Base mountpoints and folders
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- **/mnt/parent_etc**: Host /etc folder
+- **/mnt/parent_home**: Host user Home folder
+- **/vagrant**: Current working directory in the host (where ./manage.sh up has been done
+- **/srv/salt**: Salt state tree
+- **/srv/projects**: makina Salt projects installation root
+- **/srv/pillar**: Pillar data
+
+Base file operations
+~~~~~~~~~~~~~~~~~~~~~~~~
+- To edit or access the files from your host system, youn ll just  have to use **./VM**
+which is a mountpoint for the``/`` of the vm exported from
+the vm as the **root** user.
+
+- For example, you can configure **<here>/VM/srv/projects/foo** as the project
+workspace root for your eclipse setup.
+
+- **You should do git or large operations from within the VM as it will not use
+  the shared network and will be faster**
+
+ssh (git) credential
+~~~~~~~~~~~~~~~~~~~~~~
+- At each vm access
+
+    - We copy to the **root** and **vagrant** users:
+
+        - the current user ssh-keys
+        - the current user ssh-config
+
+    - We copy **vagrant** authorized_keys to **root/.ssh**.
+    - All of this is managed in **/vagrant/vagrant/install_keys.sh**
+
+This allow you from the host:
+
+    - To log as vagrant or root user
+    - To mount the guest filesystem as root (used in the core setup)
+    - git push/pull from the guest as if you were on the host
+
+If your project has custom users, just either (via saltstates):
+
+    - copy the **vagrant** ssh keys to your user $HOME
+    - Use an identity parameter pointing to the **vagrant** key pair
 
 Manage several Virtualboxes
-----------------------------
++++++++++++++++++++++++++++
 
 The default install cloned the git repository in ~makina/vms.
 By cloning this same git repository on another place you can manage another vagrant based virtualbox vm.
@@ -191,8 +352,10 @@ If the provision script of the vm halt on nfs mounts you will have to check seve
 
 * do you have some sort of firewalling preventing NFS from your host to the vm? Maybe also apparmor orselinux?
 * do you have a correct /etc/hosts with a first 127.0.[0|1].1 record associated with localhost name and your short and long hostname?
+* did you clone this repository in an encrypted folder (e.g.: home folder on Ubuntu)?
 * On Mac OS X you can try `sudo nfsd checkexports`
 * try to run the vagrant up with `VAGRANT_LOG=INFO vagrant up`
+* try to run `sudo exportfs -a` for more debug information on host side.
 
 Mac OS
 -------
@@ -297,4 +460,4 @@ And uninstall them with
     sudo su
     cd /srv/docker
     ./make.sh teardown
-
+.. vim:set ts=4 sts=4:

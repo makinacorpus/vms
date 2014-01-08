@@ -1,4 +1,9 @@
 packer_cache
+VM/
+salt26
+lxcbin
+mastersalt-pillar/
+mastersalt/
 packer/**/*.box
 debian/cache/
 docker/makinacorpus/*/deboostrap.tar.gz
