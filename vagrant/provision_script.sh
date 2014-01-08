@@ -541,7 +541,7 @@ migrate_old_stuff() {
 
 cleanup_keys() {
     lazy_apt_get_install rsync
-    for user_home in $(awk -F: -v v="$user" '{if ($6!="") print $1 ":" $6}' /etc/passwd);do
+    for user_home in $(awk -F: '{if ($6!="") print $1 ":" $6}' /etc/passwd);do
         user="$(echo $user_home|awk -F: '{print $1}')"
         home="$(echo $user_home|awk -F: '{print $2}')"
         sshf="$home/.ssh"
@@ -598,7 +598,7 @@ cleanup_salt() {
 mark_export() {
     output " [*] Cleaning and marking vm as exported"
     cleanup_keys
-    cleanup_salt
+    # cleanup_salt
     touch  "$export_marker"
 }
 

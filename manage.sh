@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-actions="status up reload destroy down export export_nude import import_nude suspend do_zerofree ssh test install_keys cleanup_keys mount_vm umount_vm"
-a_eximmodes="full nude"
+actions="init status up reload destroy down export export_nude import import_nude suspend do_zerofree ssh test install_keys cleanup_keys mount_vm umount_vm"
+import_export_modes="full nude"
 RED="\\033[31m"
 CYAN="\\033[36m"
 NORMAL="\\033[0m"
@@ -10,6 +10,7 @@ log(){
     echo -e "${RED} [manage] ${@}${NORMAL}"
 }
 
+
 where="$(dirname "$0")"
 cd "${where}" || exit 1
 VMPATH=$PWD
@@ -17,6 +18,9 @@ internal_ssh_config=${VMPATH}/.vagrant/internal-ssh-config
 ssh_config=${VMPATH}/.vagrant/ssh-config
 VM=${VMPATH}/VM
 NOINPUT=""
+DEFAULT_URL=""
+BOX=package.box
+ABOX=$BOX.tar.tbz2
 
 die() { echo $@; exit -1; }
 
@@ -119,7 +123,7 @@ gen_ssh_config() {
     fi
     vagrant ssh-config 2>/dev/null > "$internal_ssh_config"
     # replace the ip by the hostonly interface one in our ssh wrappers
-    hostip=$(vagrant ssh -c "ip addr show dev eth1" 2> /dev/null|awk '/inet / {gsub("/.*", "", $2);print $2}')
+    hostip=$(vagrant ssh -c "ip addr show dev eth1" 2> /dev/null|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
     cp -f "$internal_ssh_config" "$ssh_config"
     sed -i "s/HostName.*/HostName $hostip/g" "$ssh_config"
     sed -i "s/Port.*//g" "$ssh_config"
@@ -255,11 +259,7 @@ export() {
     local nincludes=""
     local includes=""
     local gtouched=""
-    mode="full"
     for i in $@;do
-        if [[ $i == "nude" ]];then
-            mode="nude"
-        fi
         if [[ $i == "nozerofree" ]];then
             nozerofree=y
         fi
@@ -271,14 +271,6 @@ export() {
     for i in .vb_* vagrant_config.rb;do
         if [[ -e "$i" ]];then
             nincludes="$i $nincludes"
-        fi
-    done
-    # we use to have salt on a shared folder
-    # this is not the case anymore, so the folling loop is just a NOOP
-    includes="$nincludes"
-    for i in pillar projects salt;do
-        if [[ -e $i ]];then
-            includes="$i $includes"
         fi
     done
     tar_preopts="cjvf"
@@ -299,51 +291,35 @@ export() {
     else
         log "Skip zerofree on export"
     fi &&\
-    if [[ "$mode" == "full" ]];then \
-        if [[ ! -f package-full.box ]];then
-            if [[ -z $nosed ]];then \
-                up &&\
-                vagrant ssh \
-                   -c 'sudo sed -ire "s/^SUBSYSTEM/#SUBSYSTEM/g" /etc/udev/rules.d/70-persistent-net.rules';\
-            fi &&\
-            down;\
-            sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
-            log "Be patient, exporting now the full box" &&\
-            ssh /vagrant/vagrant/exported.sh &&\
-            vagrant package --vagrantfile Vagrantfile --output package-full.box &&\
+    if [[ ! -f $BOX ]];then
+        if [[ -z $nosed ]];then \
+            up &&\
+            vagrant ssh \
+               -c 'sudo sed -ire "s/^SUBSYSTEM/#SUBSYSTEM/g" /etc/udev/rules.d/70-persistent-net.rules';\
+        fi &&\
+        down;\
+        sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
+        log "Be patient, exporting now" &&\
+        ssh sudo /vagrant/vagrant/exported.sh &&\
+        cat Vagrantfile &&\
+        vagrant package --vagrantfile Vagrantfile --output $BOX 2> /dev/null
+        if [[ -f $BOX ]];then
             install_keys
         else
-            log "${VMPATH}/package-full.box exists, delete it to redo"
-        fi\
+            log "missing $BOX"
+            exit 1
+        fi
+    else
+        log "${VMPATH}/$BOX exists, delete it to redo"
     fi &&\
     gtouched="1" &&\
-    if [[ "$mode" == "full" ]];then \
-        if [[ ! -f package-full.tar.bz2 ]];then
-            log "Be patient, archiving now the whole full box package" &&\
-            tar $tar_preopts package-full.tar.bz2 package-full.box $includes $tar_postopts &&\
-            log "Export done of full box: ${VMPATH}/package-full.tar.bz2"
-        else
-            log "${VMPATH}/package-full.tar.bz2 exists, delete it to redo"
-        fi \
+    if [[ ! -f ${ABOX} ]];then
+        log "Be patient, archiving now the whole full box package" &&\
+        tar $tar_preopts ${ABOX} $BOX  $includes $tar_postopts &&\
+        log "Export done of full box: ${VMPATH}/$ABOX"
+    else
+        log "${VMPATH}/$ABOX, delete it to redo"
     fi &&\
-    if [[ "$mode" == "nude" ]];then \
-        if [[ ! -f package-nude.box ]];then
-            log "Be patient, exporting now the nude box" &&\
-            sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
-            ssh /vagrant/vagrant/exported.sh &&\
-            vagrant package --vagrantfile Vagrantfile --output package-nude.box &&\
-            install_keys
-        else
-            log "${VMPATH}/package-nude.box exists, delete it to redo"
-        fi &&\
-        if [[ ! -f package-nude.tar.bz2 ]];then
-            log "Be patient, archiving now the whole nude box package" &&\
-            tar $tar_preopts package-nude.tar.bz2 package-nude.box $nincludes $tar_postopts  &&\
-            log "Export done of nude box: ${VMPATH}/package-nude.tar.bz2"
-        else
-            log "${VMPATH}/package-nude.tar.bz2 exists, delete it to redo"
-        fi
-    fi
     ret=$?
     # reseting Vagrantfile in any case
     if [[ -n $gtouched ]];then
@@ -369,61 +345,40 @@ import() {
     cd "${VMPATH}"
     local gtouched=""
     mode=""
+    image=$1
+    shift
     args=${@}
-    for amode in $a_eximmodes;do
-        for arg in $args;do
-            if [[ "$amode" == "$arg" ]] && [[ -z $mode ]];then
-                mode=$arg
-            fi
-        done
-    done
-    if [[ -z $mode ]];then
-        for i in $a_eximmodes;do
-            if [[ -e package-$i.tar.bz2 ]];then
-                mode=$i
-                log "No specified mode, defaulting to $mode"
-                break
-            fi
-        done
-    fi
-    if [[ -z $mode ]];then
-        log "No import archive found"
+    if [[ -e "$image" ]];then
+        arc="$image"
+    elif [[ -e "$ABOX" ]];then
+        arc="$ABOX"
+    else
+        log "invalid image file $1"
         exit -1
     fi
-    box="${VMPATH}/package-$mode.box"
-    arc="${VMPATH}/package-$mode.tar.bz2"
+    box=$(sudo tar -tf "$arc"|egrep "\.box$"|head -n1)
     tar_preopts="-xjvpf"
     tar_postopts="--numeric-owner"
-    #if [[ $(uname) == "Darwin" ]];then
-    #    tar_postopts=""
-    #fi
     if [[ ! -e "$arc" ]];then
         log "Missing $arc"
         exit -1
     fi
+    sudo tar $tar_preopts "$arc" $tar_postopts
     if [[ ! -e "$box" ]];then
         log "Unarchiving $arc"
         # need to sudo to restore sticky GID
-        sudo tar $tar_preopts "$arc" $tar_postopts
         if [[ $? != 0 ]];then
             log "Error unarchiving $arc"
-        fi
-        if [[ ! -e "$box" ]];then
-            log "Missing $box"
-            exit -1
         fi
     else
         log "Existing $box, if you want to unarchive again, delete it"
     fi
-    if [[ -f "./vagrant_config.rb" ]];then
-        EXPORTED_VM="$(ruby  -e 'require File.expand_path("./vagrant_config.rb");include MyConfig;printf("%s", VIRTUALBOX_VM_NAME)' 2>/dev/null)"
+    if [[ ! -e "$box" ]];then
+        log "Missing $box"
+        exit -1
     fi
-    if [[ $(VBoxManage list vms|grep "\"$EXPORTED_VM\""|wc -l) != "0" ]];then
-        log "This virtualbox already exists, please rename or delete it"
-        VBoxManage list vms|grep "\"$EXPORTED_VM\""
-        uid=$(VBoxManage list vms|grep "\"$EXPORTED_VM\""|awk -F'{' '{print $2}'|sed -e 's/}//g')
-        log "You can try VBoxManage modifyvm $uid --name \"sav_$EXPORTED_VM\""
-    fi
+    sed -ie "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
+    sed -ie "/DEVHOST_NUM/d" ./vagrant_config.rb &&\
     log "Importing $box (mode: $mode) into vagrant bases boxes as 'devhost' box" &&\
     vagrant box add -f devhost "$box" &&\
     log "Initialiasing host from $box" &&\
@@ -445,7 +400,7 @@ import() {
 do_zerofree() {
     log "Zerofreing" &&\
     up &&\
-    vagrant ssh -c "sudo /root/vagrant/zerofree.sh" &&\
+    ssh "sudo /sbin/zerofree.sh" &&\
     log " [*] WM Zerofreed"
 }
 
