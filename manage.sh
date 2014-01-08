@@ -295,10 +295,10 @@ export() {
         if [[ -z $nosed ]];then \
             up &&\
             vagrant ssh \
-               -c 'sudo sed -ire "s/^SUBSYSTEM/#SUBSYSTEM/g" /etc/udev/rules.d/70-persistent-net.rules';\
+               -c 'sudo sed -re "s/^SUBSYSTEM/#SUBSYSTEM/g" -i /etc/udev/rules.d/70-persistent-net.rules';\
         fi &&\
         down;\
-        sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
+        sed -i -e 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
         log "Be patient, exporting now" &&\
         ssh sudo /vagrant/vagrant/exported.sh &&\
         cat Vagrantfile &&\
