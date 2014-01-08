@@ -152,7 +152,7 @@ bootsalt_marker="$MARKERS/salt_bootstrap_done"
 ready_to_run() {
     output " [*] VM is now ready for './manage.sh ssh' or other usages..."
     output " ------------------------------- [ OK] -----------------------------------------"
-    output " 'Once connected as root in the vm with \"vagrant ssh\" and \"sudo su -\""
+    output " 'Once connected as root in the vm with \"./manage.sh ssh\" and \"sudo su -\""
     output "   * You can upgrade all your projects with \"salt-call [-l all] state.highstate\""
     output "   * You can run one specific state with \"salt-call [-l all] state.sls name-of-state\""
     output " 'Stop vm with './manage.sh down', connect it with './manage.sh ssh'"
@@ -471,10 +471,10 @@ install_or_refresh_makina_states() {
         run_boot_salt
     else
         if [[ ! -e "$bootsalt_marker" ]];then
-            bs_yellow_log " [*] Warning, we are not online, and thus boot-salt can't be runned"
+            output " [*] Warning, we are not online, and thus boot-salt can't be runned"
             exit -1
         else
-            bs_yellow_log " [*] Warning, we are not online, not refreshing makina-states!"
+            output " [*] Warning, we are not online, not refreshing makina-states!"
         fi
     fi
 }
