@@ -127,7 +127,9 @@ install_lxc() {
 }
 
 post_build() {
+    # noop as we do not have anymore any postbuild step
     for i in $@;do
+       echo ""
         if [[ $i == "fix_perms" ]];then
             fix_perms
         fi
