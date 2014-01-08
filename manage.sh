@@ -10,17 +10,12 @@ log(){
     echo -e "${RED} [manage] ${@}${NORMAL}"
 }
 
-u=""
-if [[ "$(whoami)" != "root" ]];then
-    u=$(whoami)
-fi
-g=editor
-c=$(dirname $0)
-cd $c
-c=$PWD
-internal_ssh_config=$c/.vagrant/internal-ssh-config
-ssh_config=$c/.vagrant/ssh-config
-VM=$c/VM
+where="`dirname \"$0\"`"
+cd "${where}" || exit 1
+VMPATH=$PWD
+internal_ssh_config=${VMPATH}/.vagrant/internal-ssh-config
+ssh_config=${VMPATH}/.vagrant/ssh-config
+VM=${VMPATH}/VM
 
 die() { echo $@; exit -1; }
 
@@ -53,19 +48,20 @@ status() {
 }
 
 test() {
-    cd $(dirname $0)
-    c=$PWD
+    where="`dirname \"$0\"`"
+    cd "${where}" || exit 1
+    VMPATH=$PWD
     name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
     dname=$(grep ' DEBIAN_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
     echo $name
-    d="$c-test"
-    sudo rsync -av $c/ $d/ \
+    TESTPATH="${VMPATH}-test"
+    sudo rsync -av "${VMPATH}/" "${TESTPATH}/" \
         --exclude=salt/ \
         --exclude=mastersalt --exclude=mastersalt-pillar \
         --exclude=pillar \
         --exclude=projects --exclude=docker/ \
         --exclude=.vagrant --exclude=packer --exclude=vagrant_config.rb
-    cd ${d} || exit -1
+    cd "${TESTPATH}" || exit -1
     git checkout docker
     git checkout packer
     if [[ "$name" == "saucy" ]];then
@@ -103,20 +99,20 @@ test() {
 }
 
 destroy() {
-    cd $c
+    cd "${VMPATH}"
     log "Destroy !"
     vagrant halt -f
     vagrant destroy -f
 }
 
 suspend() {
-    cd $c
+    cd "${VMPATH}"
     log "Suspend !"
     vagrant suspend
 }
 
 gen_ssh_config() {
-    cd $c
+    cd "${VMPATH}"
     if [[ ! -d .vagrant ]];then
         mkdir .vagrant
     fi
@@ -129,7 +125,7 @@ gen_ssh_config() {
 }
 
 ssh_() {
-    cd $c
+    cd "${VMPATH}"
     $(which ssh) -F "$ssh_config" default $@
 }
 
@@ -156,7 +152,7 @@ ssh() {
 }
 
 down() {
-    cd $c
+    cd "${VMPATH}"
     log "Down !"
     umount_vm
     vagrant halt -f
@@ -185,7 +181,7 @@ maybe_finish_creation() {
 mount_vm() {
     if [[ ! -e "$VM/home/vagrant/.ssh" ]];then
         ssh_pre_reqs
-        cd $c
+        cd "${VMPATH}"
         if [[ ! -e "$VM" ]];then
             mkdir "$VM"
         fi
@@ -194,7 +190,7 @@ mount_vm() {
 }
 
 umount_vm() {
-    cd $c
+    cd "${VMPATH}"
     if [[ ! -e "$VM" ]];then
         mkdir "$VM"
     fi
@@ -210,7 +206,7 @@ umount_vm() {
 }
 
 up() {
-    cd $c
+    cd "${VMPATH}"
     log "Up !"
     vagrant up
     maybe_finish_creation
@@ -218,7 +214,7 @@ up() {
 }
 
 reload() {
-    cd $c
+    cd "${VMPATH}"
     log "Reload!"
     umount_vm
     if [[ "$(status)" != "running" ]];then
@@ -231,7 +227,7 @@ reload() {
 }
 
 export() {
-    cd $c
+    cd "${VMPATH}"
     local nincludes=""
     local includes=""
     local gtouched=""
@@ -293,7 +289,7 @@ export() {
             vagrant package --vagrantfile Vagrantfile --output package-full.box &&\
             install_keys
         else
-            log "$c/package-full.box exists, delete it to redo"
+            log "${VMPATH}/package-full.box exists, delete it to redo"
         fi\
     fi &&\
     gtouched="1" &&\
@@ -301,9 +297,9 @@ export() {
         if [[ ! -f package-full.tar.bz2 ]];then
             log "Be patient, archiving now the whole full box package" &&\
             tar $tar_preopts package-full.tar.bz2 package-full.box $includes $tar_postopts &&\
-            log "Export done of full box: $c/package-full.tar.bz2"
+            log "Export done of full box: ${VMPATH}/package-full.tar.bz2"
         else
-            log "$c/package-full.tar.bz2 exists, delete it to redo"
+            log "${VMPATH}/package-full.tar.bz2 exists, delete it to redo"
         fi \
     fi &&\
     if [[ "$mode" == "nude" ]];then \
@@ -314,14 +310,14 @@ export() {
             vagran package --vagrantfile Vagrantfile --output package-nude.box &&\
             install_keys
         else
-            log "$c/package-nude.box exists, delete it to redo"
+            log "${VMPATH}/package-nude.box exists, delete it to redo"
         fi &&\
         if [[ ! -f package-nude.tar.bz2 ]];then
             log "Be patient, archiving now the whole nude box package" &&\
             tar $tar_preopts package-nude.tar.bz2 package-nude.box $nincludes $tar_postopts  &&\
-            log "Export done of nude box: $c/package-nude.tar.bz2"
+            log "Export done of nude box: ${VMPATH}/package-nude.tar.bz2"
         else
-            log "$c/package-nude.tar.bz2 exists, delete it to redo"
+            log "${VMPATH}/package-nude.tar.bz2 exists, delete it to redo"
         fi
     fi
     ret=$?
@@ -346,7 +342,7 @@ import_nude() {
 }
 
 import() {
-    cd $c
+    cd "${VMPATH}"
     local gtouched=""
     mode=""
     args=${@}
@@ -370,8 +366,8 @@ import() {
         log "No import archive found"
         exit -1
     fi
-    box="$c/package-$mode.box"
-    arc="$c/package-$mode.tar.bz2"
+    box="${VMPATH}/package-$mode.box"
+    arc="${VMPATH}/package-$mode.tar.bz2"
     tar_preopts="-xjvpf"
     tar_postopts="--numeric-owner"
     #if [[ $(uname) == "Darwin" ]];then
