@@ -425,7 +425,7 @@ import() {
     vagrant box add -f devhost "$box" &&\
     log "Initialiasing host from $box" &&\
     sed -i -e 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' \
-    Vagrantfile;gtouched="1" && up;down
+    Vagrantfile;gtouched="1" && rm -f "$box" && up;down
     ret=$?
     # reseting Vagrantfile in any case
     if [[ -n $gtouched ]];then

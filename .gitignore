@@ -1,4 +1,6 @@
 packer_cache
+package.box.tar.tbz2
+salt-jenkins
 VM/
 salt26
 lxcbin
