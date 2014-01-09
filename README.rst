@@ -225,7 +225,13 @@ Downloading and initialasing a vm is simple::
 
   ./manage.sh init
 
-Starting the VM is even more simple::
+
+Initialisaing from the low level base image rather than from preconfigured
+makina corpus image::
+
+  ./manage.sh up
+
+Starting the VM after creation is even more simple::
 
   ./manage.sh up
 
@@ -262,10 +268,15 @@ To export in **package.tar.bz2**, to share this development host with someone::
 
   ./manage.sh export
 
-To  import from a **package.tar.bz2** file, simply place the package in the working
-directory and issue::
+To import from a **package.tar.bz2** file, either:
 
-  ./manage.sh import
+    - Give an url to the archive
+    - Give an absolute path to the archive
+    - place the archive in ./package.box.tar.bz2
+
+Then issue::
+
+  ./manage.sh import [ FILE_ARCHiVE | URL | ./package.box.tar.bz2 ]
 
 Note that all the files mounted on the ``/vagrant`` vm directory are in fact stored on the base directory of this project.
 
