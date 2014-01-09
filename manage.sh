@@ -372,7 +372,7 @@ download() {
     fi
     $wget "$fname" "$url"
     if [[ "$?" != "0" ]];then
-        log "Error downloading $url/$fname"
+        log "Error downloading $url -> $fname"
         exit 1
     fi
 }
