@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-actions="init status up reload destroy down export export_nude import import_nude suspend do_zerofree ssh test install_keys cleanup_keys mount_vm umount_vm"
+actions="init status up reload destroy down export suspend do_zerofree ssh test install_keys cleanup_keys mount_vm umount_vm"
 import_export_modes="full nude"
 RED="\\033[31m"
 CYAN="\\033[36m"
@@ -18,7 +18,7 @@ internal_ssh_config=${VMPATH}/.vagrant/internal-ssh-config
 ssh_config=${VMPATH}/.vagrant/ssh-config
 VM=${VMPATH}/VM
 NOINPUT=""
-DEFAULT_URL=""
+BASE_URL="http://downloads.sourceforge.net/project/makinacorpus/vms"
 BOX=package.box
 ABOX=$BOX.tar.tbz2
 
@@ -49,7 +49,7 @@ status_() {
 }
 
 status() {
-    status_|egrep "^default"|awk '{print $2}'
+    status_|egrep "^default    "|sed -e "s/^default\s*//"|sed -e "s/\s*[(].*//"
 }
 
 test() {
@@ -183,6 +183,24 @@ maybe_finish_creation() {
     fi
 }
 
+git_branch() {
+    cd $1 &> /dev/null
+    br=`git branch | grep "*"`
+    echo ${br/* /}
+    cd - &> /dev/null
+}
+
+init() {
+    cd "$VMPATH"
+    branch="$(git_branch .)"
+    status="$(status)"
+    if [[ $(status) == "not created" ]];then
+        url="$BASE_URL/$branch/$ABOX"
+        import "$url"
+    fi
+    up
+}
+
 mount_vm() {
     if [[ ! -e "$VM/home/vagrant/.ssh" ]];then
         ssh_pre_reqs
@@ -308,11 +326,10 @@ export() {
         log "Be patient, exporting now" &&\
         ssh sudo /vagrant/vagrant/exported.sh &&\
         vagrant package --vagrantfile Vagrantfile --output $BOX 2> /dev/null
-        echo "--------- $?"
-        if [[ -f $BOX ]];then
-            install_keys
-        else
-            log "missing $BOX"
+        ret="$?"
+        install_keys
+        if [[ "$ret" != "0" ]];then
+            log "error exporting $BOX"
             exit 1
         fi
     else
@@ -321,6 +338,7 @@ export() {
     if [[ -f "$BOX" ]] && [[ ! -f "${ABOX}" ]];then
         log "Be patient, archiving now the whole full box package" &&\
         tar $tar_preopts ${ABOX} $BOX  $includes $tar_postopts &&\
+        rm -f "$BOX" &&\
         log "Export done of full box: ${VMPATH}/$ABOX"
     else
         log "${VMPATH}/$ABOX, delete it to redo"
@@ -338,13 +356,27 @@ export() {
     fi
 }
 
-export_nude() {
-    export nude
+download() {
+    url="$1"
+    fname="${2:-${basename url}}"
+    # freebsd
+    if [[ $(uname) == "FreeBSD" ]];then
+        if [[ -f $(which fetch 2>&1) ]];then
+            wget="$(which fetch) -pra -o"
+        fi
+    #another macosx hack
+    elif [[ -f $(which wget) ]];then
+        wget="$(which wget) --no-check-certificate  -c -O"
+    elif [[ -f $(which curl 2>&1) ]];then
+        wget="$(which curl) -C - -a -o"
+    fi
+    $wget "$fname" "$url"
+    if [[ "$?" != "0" ]];then
+        log "Error downloading $url/$fname"
+        exit 1
+    fi
 }
 
-import_nude() {
-    import nude
-}
 
 import() {
     cd "${VMPATH}"
@@ -353,7 +385,10 @@ import() {
     image=$1
     shift
     args=${@}
-    if [[ -e "$image" ]];then
+    if [[ "$image" == http* ]];then
+        arc="$(basename $image)"
+        download "$image" "$arc"
+    elif [[ -e "$image" ]];then
         arc="$image"
     elif [[ -e "$ABOX" ]];then
         arc="$ABOX"
@@ -361,6 +396,7 @@ import() {
         log "invalid image file $1"
         exit -1
     fi
+    log "Getting box name from $arc (takes a while)"
     box=$(sudo tar -tf "$arc"|egrep "\.box$"|head -n1)
     tar_preopts="-xjvpf"
     tar_postopts="--numeric-owner"
@@ -368,10 +404,10 @@ import() {
         log "Missing $arc"
         exit -1
     fi
-    sudo tar $tar_preopts "$arc" $tar_postopts
     if [[ ! -e "$box" ]];then
         log "Unarchiving $arc"
         # need to sudo to restore sticky GID
+        sudo tar $tar_preopts "$arc" $tar_postopts
         if [[ $? != 0 ]];then
             log "Error unarchiving $arc"
         fi
@@ -382,14 +418,14 @@ import() {
         log "Missing $box"
         exit -1
     fi
-    sed -ie "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
-    sed -ie "/DEVHOST_NUM/d" ./vagrant_config.rb &&\
+    sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
+    sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb &&\
     clean_buf_vm
     log "Importing $box (mode: $mode) into vagrant bases boxes as 'devhost' box" &&\
     vagrant box add -f devhost "$box" &&\
     log "Initialiasing host from $box" &&\
-    sed -ie 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' \
-    Vagrantfile;gtouched="1" && up && down
+    sed -i -e 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' \
+    Vagrantfile;gtouched="1" && up;down
     ret=$?
     # reseting Vagrantfile in any case
     if [[ -n $gtouched ]];then

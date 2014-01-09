@@ -297,6 +297,12 @@ cleanup_restart_marker() {
 
 configure_network() {
     output " [*] Temporary DNs overrides in /etc/resolv.conf : ${DNS_SERVER}, 8.8.8.8 & 4.4.4.4"
+    if [[ "$(grep "\s+localhost" /etc/hsots|wc -l)" == "0" ]];then
+        # add localhost if missing
+        sed "/127.0.0.1/ {
+a 127.0.0.1 localhost
+}" -i /etc/hosts
+    fi
     # DNS TMP OVERRIDE
     cat > /etc/resolv.conf << DNSEOF
 nameserver ${DNS_SERVER}

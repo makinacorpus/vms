@@ -221,7 +221,11 @@ To launch a Vagrant command always ``cd`` to the VM base directory::
 
   cd ~/makina/vms
 
-Starting the VM is simple::
+Downloading and initialasing a vm is simple::
+
+  ./manage.sh init
+
+Starting the VM is even more simple::
 
   ./manage.sh up
 
