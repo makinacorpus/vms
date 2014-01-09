@@ -17,7 +17,7 @@ YELLOW='\e[1;33m'
 RED="\\033[31m"
 CYAN="\\033[36m"
 NORMAL="\\033[0m"
-if [[ -n $NO_COLOR ]];then
+if [[ -n $NO_COLORS ]];then
     YELLOW=""
     RED=""
     CYAN=""
@@ -297,7 +297,7 @@ cleanup_restart_marker() {
 
 configure_network() {
     output " [*] Temporary DNs overrides in /etc/resolv.conf : ${DNS_SERVER}, 8.8.8.8 & 4.4.4.4"
-    if [[ "$(grep "\s+localhost" /etc/hsots|wc -l)" == "0" ]];then
+    if [[ "$(grep "\s+localhost" /etc/hosts|wc -l)" == "0" ]];then
         # add localhost if missing
         sed "/127.0.0.1/ {
 a 127.0.0.1 localhost
@@ -590,15 +590,17 @@ install_keys() {
     done
 }
 
-
 cleanup_salt() {
-    output " [*] Resetting all salt configuration information" &&\
-        rm -f /srv/*pillar/{mastersalt,salt}.sls &&\
-        rm -f /etc/*salt/minion_id "$bootsalt_marker" &&\
-        find /etc/*salt/pki -type f -delete &&\
-        sed -re /"\s*- salt/ d" -i /srv/pillar/top.sls &&\
-        sed -re /"\s*- mastersalt/ d" -i /srv/mastersalt-pillar/top.sls &&\
-        rm -f "$bootsalt_marker"
+    output " [*] Resetting all salt configuration information"
+    rm -f /srv/*pillar/{mastersalt,salt}.sls
+    rm -f /etc/*salt/minion_id "$bootsalt_marker"
+    find /etc/*salt/pki -type f -delete
+    if [[ -e /srv/pillar/top.sls ]];then
+        sed -re /"\s*- salt/ d" -i /srv/pillar/top.sls
+    fi
+    if [[ -e /srv/mastersalt-pillar/top.sls ]];then
+        sed -re /"\s*- mastersalt/ d" -i /srv/mastersalt-pillar/top.sls
+    fi
 }
 
 mark_export() {
@@ -606,6 +608,11 @@ mark_export() {
     cleanup_keys
     # cleanup_salt
     touch  "$export_marker"
+}
+
+unmark_exported() {
+    output " [*] Cleaning and unmarking vm as exported"
+    rm -f  "$export_marker"
 }
 
 handle_export() {
@@ -621,6 +628,7 @@ handle_export() {
         # no auto update
         export SALT_BOOT_SKIP_CHECKOUTS=1
         export SALT_BOOT_SKIP_HIGHSTATES=1
+        unmark_exported
     fi
 }
 

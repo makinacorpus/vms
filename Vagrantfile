@@ -273,7 +273,9 @@ Vagrant.configure("2") do |config|
   # 1st network is bridging (public DHCP) on eth0 of yout machine
   # If you do not have an eth0 Vagrant will ask you for an interface
   #config.vm.network "public_network", :bridge => 'eth0'
-  config.vm.network "private_network", ip: BOX_PRIVATE_IP
+  # we force the nic id slot to be sure not to have doublons of this
+  # interface on multiple restarts (vagrant bug)
+  config.vm.network "private_network", ip: BOX_PRIVATE_IP, adapter: 2
   # NAT PORTS, if you want...
   #config.vm.network "forwarded_port", guest: 80, host: 8080
   #config.vm.network "forwarded_port", guest: 22, host: 2222
@@ -382,7 +384,7 @@ Vagrant.configure("2") do |config|
   if !found
     eprintf(" [*] User %s is not member of group %s, adding him\n", user, newgroup)
     if os == :linux or os == :unix
-      # Nunux
+      # Linux
       `sudo gpasswd -a #{user} #{newgroup}`
     else
       #Mac
@@ -392,7 +394,7 @@ Vagrant.configure("2") do |config|
 
   eprintf(" [*] checking local routes to %s/%s via %s. If sudo password is requested then it means we need to alter local host routing...\n",DOCKER_NETWORK,DOCKER_NETWORK_MASK_NUM,BOX_PRIVATE_IP)
   if os == :linux or os == :unix
-    # Nunux
+    # Linux
     `if ip route show|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo ip route replace #{BOX_PRIVATE_IP} via #{BOX_PRIVATE_GW}; sudo ip route replace #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} via #{BOX_PRIVATE_IP}; fi;`
   else
     #Mac

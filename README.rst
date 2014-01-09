@@ -394,6 +394,17 @@ check the Install part on this documentation for installation instructions
 
 Notes for specific ubuntu release packages:
 
+Do a release
+++++++++++++++
+
+- Run ./manage.sh release which will at once:
+
+    - Edit and increment version.txt's version
+    - Do a snapshot of the current vm to the desired release name
+      (devhost-$branch_$ver.tar.tbz2)
+    - Upload the tarball to the CDN, actually sourceforge
+
+
 Ubuntu
 +++++++
 All the images are constructed from ubuntu cloud archives images.

@@ -1,28 +1,35 @@
 #!/usr/bin/env bash
-actions="init status up reload destroy down export suspend do_zerofree ssh test install_keys cleanup_keys mount_vm umount_vm"
-import_export_modes="full nude"
+actions="init status up reload destroy down export suspend do_zerofree ssh test install_keys cleanup_keys mount_vm umount_vm release import"
+
 RED="\\033[31m"
 CYAN="\\033[36m"
 NORMAL="\\033[0m"
-RSYNC=$(which rsync)
+
+if [[ -n $NO_COLORS ]];then
+    RED=""
+    CYAN=""
+    NORMAL=""
+fi
 
 log(){
-    echo -e "${RED} [manage] ${@}${NORMAL}"
+    echo -e "${RED} [manage] ${@}${NORMAL}" 1>&2
 }
 
-
-where="$(dirname "$0")"
+THIS="$0"
+where="${VAGRANT_VM_PATH:-$(dirname "$THIS")}"
 cd "${where}" || exit 1
+RSYNC=$(which rsync)
 VMPATH=$PWD
 internal_ssh_config=${VMPATH}/.vagrant/internal-ssh-config
 ssh_config=${VMPATH}/.vagrant/ssh-config
 VM=${VMPATH}/VM
 NOINPUT=""
-BASE_URL="http://downloads.sourceforge.net/project/makinacorpus/vms"
-BOX=package.box
-ABOX=$BOX.tar.tbz2
+PROJECT_PATH="project/makinacorpus/vms/devhost"
+BASE_URL="${DEVHOST_BASE_URL:-"http://downloads.sourceforge.net/${PROJECT_PATH}"}"
+SFTP_URL=frs.sourceforge.net:/home/frs/$PROJECT_PATH
+PROVISION_WRAPPER="/vagrant/vagrant/provision_script_wrapper.sh"
 
-die() { echo $@; exit -1; }
+die() { echo $@ 1>&2; exit -1; }
 
 actions=" $actions "
 
@@ -30,8 +37,19 @@ actions_main_usage="$actions"
 
 usage() {
     for i in $actions_main_usage;do
-        echo "$0 $i"
+        echo "$THIS $i" 1>&2
     done
+}
+
+gen_uuid() {
+    python << EOF
+import uuid, base64
+u = uuid.uuid4().bytes
+u = base64.urlsafe_b64encode(u)
+u = u.replace('=', '').replace('_', '').replace('-', '')
+print u[:16]
+EOF
+
 }
 
 write_test_config() {
@@ -53,13 +71,12 @@ status() {
 }
 
 test() {
-    where="$(dirname "$0")"
+    where="$(dirname "$THIS")"
     cd "${where}" || exit 1
-    VMPATH=$PWD
-    name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
-    dname=$(grep ' DEBIAN_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
-    echo $name
-    TESTPATH="${VMPATH}-test"
+    local VMPATH=$PWD
+    local name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
+    local dname=$(grep ' DEBIAN_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
+    local TESTPATH="${VMPATH}-test"
     sudo rsync -av "${VMPATH}/" "${TESTPATH}/" \
         --exclude=salt/ \
         --exclude=mastersalt --exclude=mastersalt-pillar \
@@ -123,10 +140,15 @@ gen_ssh_config() {
     fi
     vagrant ssh-config 2>/dev/null > "$internal_ssh_config"
     # replace the ip by the hostonly interface one in our ssh wrappers
-    hostip=$(vagrant ssh -c "ip addr show dev eth1" 2> /dev/null|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
+    local hostip=$(internal_ssh_ ip addr show dev eth1 2> /dev/null|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
     cp -f "$internal_ssh_config" "$ssh_config"
     sed -i "s/HostName.*/HostName $hostip/g" "$ssh_config"
     sed -i "s/Port.*//g" "$ssh_config"
+}
+
+internal_ssh_() {
+    cd "${VMPATH}"
+    $(which ssh) -F "$internal_ssh_config" default $@
 }
 
 ssh_() {
@@ -136,11 +158,11 @@ ssh_() {
 
 cleanup_keys() {
     ssh_pre_reqs
-    ssh_ sudo /vagrant/vagrant/cleanup_keys.sh
+    internal_ssh_ sudo $PROVISION_WRAPPER cleanup_keys
 }
 
 install_keys() {
-    ssh_ sudo /vagrant/vagrant/install_keys.sh
+    internal_ssh_ sudo $PROVISION_WRAPPER install_keys
 }
 
 ssh_pre_reqs() {
@@ -164,16 +186,16 @@ down() {
 }
 
 maybe_finish_creation() {
-    ret=$?
-    restart_marker="/tmp/vagrant_provision_needs_restart"
-    if [[ "$ret" != "0" ]] || [[ "$marker" == "0" ]];then
+    local lret=$?
+    local restart_marker="/tmp/vagrant_provision_needs_restart"
+    if [[ "$lret" != "0" ]] || [[ "$marker" == "0" ]];then
         for i in $(seq 3);do
-            marker="$(vagrant ssh -c "test -e $restart_marker" &> /dev/null;echo $?)"
+            local marker="$(vagrant ssh -c "test -e $restart_marker" &> /dev/null;echo $?)"
             if [[ "$marker" == "0" ]];then
                 log "First runs, we issue a scheduled reload after the first up(s)"
-                vagrant reload
-                ret="$?"
-            elif [[ "$ret" != "0" ]];then
+                reload $@
+                lret="$?"
+            elif [[ "$lret" != "0" ]];then
                 log "Error in vagrant up/reload"
                 exit 1
             else
@@ -183,37 +205,119 @@ maybe_finish_creation() {
     fi
 }
 
-git_branch() {
+get_version_file() {
+    local br=$(get_git_branch .)
+    echo "version_${br}.txt"
+}
+get_version() {
+    release_suf="$(if [[ -f "$(get_version_file)" ]];then cat version.txt;else echo "0"; fi)"
+}
+
+
+get_next_version() {
+    release_suf="$(if [[ -f "$(get_version_file)" ]];then cat version.txt;else echo "0"; fi)"
+    echo "$(($(get_version) +1 ))"
+}
+
+get_release_name_() {
+    release_suf=$1
+    if [[ -n "$release_suf" ]];then
+        release_suf="_${release_suf}"
+    fi
+    echo "$(get_box_name)${release_suf}.tar.bz2"
+}
+
+get_release_name() {
+    get_release_name_ "$(get_version)"
+}
+
+get_next_release_name() {
+    get_release_name_ "$(get_next_version)"
+}
+
+get_git_branch() {
     cd $1 &> /dev/null
-    br=`git branch | grep "*"`
+    local br=$(git branch | grep "*")
     echo ${br/* /}
     cd - &> /dev/null
 }
 
+release() {
+    local rfile="$(get_version_file)"
+    local rname="$(get_next_release_name)"
+    local rver="$(get_next_version)"
+    local nocommit=""
+    for i in $@;do
+        case $i in
+            --no-commit) nocommit=1
+                ;;
+        esac
+    done
+    cd "$VMPATH"
+    log "Releasing $rname" &&\
+        export_ "$rname" nozerofree && \
+        scp "$rname.tar.bz2" $SFTP_URL/"$rname.tar.bz2"
+    local lret=$?
+    if [[ $lret != 0 ]];then
+        log "Error while uploading images"
+        exit $lret
+    else
+        echo $rev > "$rfile"
+        git add "$rfile"
+        git commit -am "RELEASE: $rname" && git push
+        log "End of release"
+    fi
+
+}
+
 init() {
     cd "$VMPATH"
-    branch="$(git_branch .)"
-    status="$(status)"
+    local branch="$(get_git_branch .)"
+    local status="$(status)"
+    local url="$BASE_URL/$(get_release_name)"
     if [[ $(status) == "not created" ]];then
-        url="$BASE_URL/$branch/$ABOX"
         import "$url"
     fi
     up
 }
 
+get_sshfs_pids() {
+    ps aux|egrep "sshfs.*$VM"|grep -v grep|awk '{print $2}'
+}
+
+
+is_mounted() {
+    local mounted=""
+    if [[ "$(mount|awk '{print $3}'|egrep "$VM$" | wc -l)" != "0" ]]\
+        || [[ "$(ps aux|egrep "sshfs.*$VM"| wc -l)" != "0" ]];then
+        mounted="1"
+    fi
+    echo $mounted
+}
+
 mount_vm() {
+    cd "${VMPATH}"
+    # something is wrong with the mountpath, killing it
+    test_not_connected="$(LANG=C ls VM 2>&1)"
+    if [[ ! -e "$VM/home/vagrant/.ssh" ]]\
+        || [[ "$test_not_connected"  == *"is not connected"* ]];then
+        umount_vm
+    fi
     if [[ ! -e "$VM/home/vagrant/.ssh" ]];then
-        ssh_pre_reqs
-        cd "${VMPATH}"
         if [[ ! -e "$VM" ]];then
             mkdir "$VM"
         fi
+        ssh_pre_reqs
+        if [[ ! -e "$VM" ]];then
+            mkdir "$VM"
+        fi
+        log "Mounting $VM -> devhost:/"
         sshfs -F $ssh_config root@default:/ -o nonempty "$VM"
     fi
 }
 
 get_pid_line() {
-    pid="$1"
+    local pid="$1"
     ps -eo pid,user,comm,args --no-headers|egrep "^\s*${pid}\s"
 }
 
@@ -233,29 +337,43 @@ smartkill() {
     done
 }
 
+do_fusermount () {
+    local lret=$(fusermount -u "$VM" 2>&1)
+    if [[ $lret  == *"not found"* ]];then
+        if [[ "$(mount|awk '{print $3}'|grep $VM|wc -l)" != 0 ]];then
+            sudo umount -f "$VM" 2>&1
+        fi
+    fi
+    if [[ $lret  == *"Permission denied"* ]];then
+        sudo fusermount -u "$VM" 2>&1
+    fi
+}
+
 umount_vm() {
     cd "${VMPATH}"
-    if [[ ! -e "$VM" ]];then
-        mkdir "$VM"
+    if [[ -n "$(is_mounted)" ]];then
+        log "Umounting of $VM"
+        do_fusermount
     fi
-    if [[ "$(mount|awk '{print $3}'|egrep "$VM$" | wc -l)" != "0" ]];then
-        fusermount -u "$VM"
-    fi
-    if [[ "$(mount|awk '{print $3}'|egrep "$VM$" | wc -l)" != "0" ]];then
+    if [[ -n "$(is_mounted)" ]];then
         log "forcing umounting of $VM"
-        PIDS="$(ps aux|grep "$VM"|grep sshfs|awk '{print $2}')"
+        PIDS="$(get_sshfs_pids)"
         smartkill $PIDS
-        PIDS="$(lsof 2> /dev/null|grep -- "$VM"|awk '{print $2}')"
+        PIDS="$(get_sshfs_pids)"
         smartkill $PIDS
-        fusermount -u "$VM"
+        do_fusermount
+    fi
+    if [[ "$?" != 0 ]];then
+        log "Can't umount vm"
+        exit $?
     fi
 }
 
 up() {
     cd "${VMPATH}"
     log "Up !"
-    vagrant up
-    maybe_finish_creation
+    vagrant up $@
+    maybe_finish_creation $@
     mount_vm
 }
 
@@ -264,45 +382,58 @@ reload() {
     log "Reload!"
     umount_vm
     if [[ "$(status)" != "running" ]];then
-        vagrant up
+        up
     else
-        vagrant reload
+        down
+        vagrant reload $@
     fi
-    maybe_finish_creation
+    maybe_finish_creation $@
     mount_vm
 }
-
-clean_buf_vm() {
-    vagrant box remove devhost
+generate_packaged_vagrantfile() {
+    local packaged_vagrantfile="Vagrantfile-$(gen_uuid)"
+    touch $packaged_vagrantfile
+    echo $packaged_vagrantfile
 }
 
-export() {
+export_() {
     cd "${VMPATH}"
+    export NOCONFIRM=1
+    local bname="$(get_box_name)-$(gen_uuid)"
     local nincludes=""
     local includes=""
     local gtouched=""
+    local tar_preopts="cjvf"
+    local tar_postopts="--numeric-owner"
+    #
+    # be sure to package a blank vagrantfile along with the box to not conflict with our Vagrantfile
+    # at import time
+    #
+    local packaged_vagrantfile="$(generate_packaged_vagrantfile)"
     for i in $@;do
         if [[ $i == "nozerofree" ]];then
             nozerofree=y
-        fi
-        if [[ $i == "nosed" ]];then
+        elif [[ $i == "nosed" ]];then
             nosed=y
+        else
+            bname="$1"
         fi
     done
+    local box="${bname}.box"
+    local abox="${bname}.tar.bz2"
     nincludes=""
     for i in .vb_* vagrant_config.rb;do
         if [[ -e "$i" ]];then
             nincludes="$i $nincludes"
         fi
     done
-    tar_preopts="cjvf"
-    tar_postopts="--numeric-owner"
     if [[ $(uname) == "Darwin" ]];then
         tar_postopts=""
     fi
     if [[ $(uname) != "Darwin" ]];then
         tar_preopts="${tar_preopts}p"
     fi
+
     if [[ -z "$nozerofree" ]];then
         log "Zerofree starting in 20 seconds, you can control C before the next log"
         log "and relaunch with the same cmdline with nozerofree appended: eg ./manage.sh export nozerofree"
@@ -313,53 +444,56 @@ export() {
     else
         log "Skip zerofree on export"
     fi &&\
-    if [[ ! -f $BOX ]];then
-        if [[ -z $nosed ]];then \
-            up &&\
-            vagrant ssh \
-               -c 'sudo sed -re "s/^SUBSYSTEM/#SUBSYSTEM/g" -i /etc/udev/rules.d/70-persistent-net.rules';\
-        fi &&\
-        down;\
-        sed -i -e 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' Vagrantfile &&\
-        gtouched="1" &&\
-        clean_buf_vm
-        log "Be patient, exporting now" &&\
-        ssh sudo /vagrant/vagrant/exported.sh &&\
-        vagrant package --vagrantfile Vagrantfile --output $BOX 2> /dev/null
-        ret="$?"
-        install_keys
-        if [[ "$ret" != "0" ]];then
-            log "error exporting $BOX"
+    if [[ ! -f "$box" ]];then
+        vagrant box remove $bname
+        down && up &&\
+            if [[ -z $nosed ]];then \
+                vagrant ssh \
+                -c 'if [[ -e /etc/udev/rules.d/70-persistent-net.rules ]];then sudo sed -re "s/^SUBSYSTEM/#SUBSYSTEM/g" -i /etc/udev/rules.d/70-persistent-net.rules;fi';\
+            fi &&\
+            vagrant ssh -c "sudo $PROVISION_WRAPPER mark_export" &&\
+            down
+            sed -i -e "s/config\.vm\.box\s*=.*/config.vm.box = \"$bname\"/g" Vagrantfile &&\
+            gtouched="1" &&\
+            log "Be patient, exporting now" &&\
+            vagrant package --vagrantfile "$packaged_vagrantfile" --output "$box" 2> /dev/null
+            rm -f "$packaged_vagrantfile"
+        local lret="$?"
+        down
+        vagrant up --no-provision && install_keys && vagrant ssh -c "sudo $PROVISION_WRAPPER unmark_exported" && down
+        if [[ "$lret" != "0" ]];then
+            log "error exporting $box"
             exit 1
         fi
     else
-        log "${VMPATH}/$BOX exists, delete it to redo"
+        log "${VMPATH}/$box exists, delete it to redo"
     fi
     # XXX: REALLY IMPORTANT TO NOTE IS THAT THE BOC MUST BE THE FIRST TARED FILE !!!
-    if [[ -f "$BOX" ]] && [[ ! -f "${ABOX}" ]];then
+    if [[ -f "$box" ]] && [[ ! -f "${abox}" ]];then
         log "Be patient, archiving now the whole full box package" &&\
-        tar $tar_preopts ${ABOX} $BOX  $includes $tar_postopts &&\
-        rm -f "$BOX" &&\
-        log "Export done of full box: ${VMPATH}/$ABOX"
+        tar $tar_preopts ${abox} $box $includes $tar_postopts &&\
+        rm -f "$box" &&\
+        log "Export done of full box: ${VMPATH}/$abox"
     else
-        log "${VMPATH}/$ABOX, delete it to redo"
+        log "${VMPATH}/$abox, delete it to redo"
     fi &&\
-    ret=$?
+    local lret=$?
     # reseting Vagrantfile in any case
     if [[ -n $gtouched ]];then
         git checkout Vagrantfile 2>/dev/null
     fi
-    if [[ $ret != 0 ]];then
+    if [[ $lret != 0 ]];then
         log "Error while exporting"
-        exit $ret
+        exit $lret
     else
         log "End of export"
     fi
 }
 
 download() {
-    url="$1"
-    fname="${2:-${basename url}}"
+    local wget=""
+    local url="$1"
+    local fname="${2:-${basename url}}"
     # freebsd
     if [[ $(uname) == "FreeBSD" ]];then
         if [[ -f $(which fetch 2>&1) ]];then
@@ -369,7 +503,7 @@ download() {
     elif [[ -f $(which wget) ]];then
         wget="$(which wget) --no-check-certificate  -c -O"
     elif [[ -f $(which curl 2>&1) ]];then
-        wget="$(which curl) -C - -a -o"
+        wget="$(which curl) --insecure -C - -a -o"
     fi
     $wget "$fname" "$url"
     if [[ "$?" != "0" ]];then
@@ -378,65 +512,90 @@ download() {
     fi
 }
 
+get_box_name() {
+    local path="${1:-"."}"
+    local bname="devhost-$(get_git_branch $path)"
+    echo $bname
+}
 
 import() {
     cd "${VMPATH}"
+    local box=""
     local gtouched=""
-    mode=""
-    image=$1
+    local bname="$(get_box_name)"
+    local abox="${bname}.tar.bz2"
+    local image="${1:-"$abox"}"
+    local tar_preopts="-xjvpf"
+    local tar_postopts="--numeric-owner"
+    local boxes=" $(vagrant box list 2> /dev/null|awk '{print " " $1 " "}') "
     shift
-    args=${@}
-    if [[ "$image" == http* ]];then
-        arc="$(basename $image)"
-        download "$image" "$arc"
-    elif [[ -e "$image" ]];then
-        arc="$image"
-    elif [[ -e "$ABOX" ]];then
-        arc="$ABOX"
+    local args=${@}
+    if [[ "$(status)" != "not created" ]];then
+        log "VM already imported,"
+        log "   - Run it with: $THIS up"
+        log "   - Delete it with: $THIS destroy"
     else
-        log "invalid image file $1"
-        exit -1
-    fi
-    log "Getting box name from $arc (takes a while)"
-    box="$(dd if=package.box.tar.tbz2 bs=1024 count=10000 2>/dev/null|tar -tjf - 2>/dev/null)"
-    tar_preopts="-xjvpf"
-    tar_postopts="--numeric-owner"
-    if [[ ! -e "$arc" ]];then
-        log "Missing $arc"
-        exit -1
-    fi
-    if [[ ! -e "$box" ]];then
-        log "Unarchiving $arc"
-        # need to sudo to restore sticky GID
-        sudo tar $tar_preopts "$arc" $tar_postopts
-        if [[ $? != 0 ]];then
-            log "Error unarchiving $arc"
+        if [[ "$image" == http* ]];then
+            local url="$image"
+            image="$(basename $image)"
+            download "$url" "$image"
         fi
-    else
-        log "Existing $box, if you want to unarchive again, delete it"
-    fi
-    if [[ ! -e "$box" ]];then
-        log "Missing $box"
-        exit -1
-    fi
-    sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
-    sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb &&\
-    clean_buf_vm
-    log "Importing $box (mode: $mode) into vagrant bases boxes as 'devhost' box" &&\
-    vagrant box add -f devhost "$box" &&\
-    log "Initialiasing host from $box" &&\
-    sed -i -e 's/config\.vm\.box\s*=.*/config.vm.box = "devhost"/g' \
-    Vagrantfile;gtouched="1" && rm -f "$box" && up;down
-    ret=$?
-    # reseting Vagrantfile in any case
-    if [[ -n $gtouched ]];then
-        git checkout Vagrantfile 2>/dev/null
-    fi
-    if [[ $ret != 0 ]];then
-        log "Error while importing $box"
-        exit $ret
-    else
-        log "Box $box imported !"
+        if [[ "$image" == *".tar.bz2" ]] && [[ -e "$image" ]];then
+            bname="$(basename "$image" .tar.bz2)"
+        else
+            log "invalid image file $1 (must be a regular bzip2 tarfile end with .tar.bz2)"
+            exit -1
+        fi
+        log "Getting box name from $image"
+        if [[ ! -e "$image" ]];then
+            log "Missing file: $image"
+            exit -1
+        else
+            box="$(dd if=$image bs=1024 count=10000 2>/dev/null|tar -tjf - 2>/dev/null)"
+        fi
+        if [[ $boxes == *" ${bname} "* ]];then
+            log "BASE VM already imported, redo base vm import by issuing:"
+            log "  vagrant box remove '$bname' && $THIS init"
+        else
+            if [[ ! -e "$box" ]];then
+                log "Unarchiving $image"
+                # need to sudo to restore sticky GID
+                sudo tar $tar_preopts "$image" $tar_postopts
+                if [[ $? != 0 ]];then
+                    log "Error unarchiving $image"
+                fi
+                if [[ ! -e "$box" ]];then
+                    log "Missing $box"
+                    exit -1
+                fi
+            else
+                log "Existing $box, if you want to unarchive again, delete it"
+            fi
+            log "Importing $box into vagrant bases boxes as '$bname' box"
+            vagrant box add -f "$bname" "$box" && rm -f "$box"
+            if [[ "$?" != "0" ]];then
+                log "Error while importing $box"
+                exit $?
+            fi
+        fi
+        log "Initialiasing host from $box" &&\
+            sed -i -e "s/config\.vm\.box\s*=.*/config.vm.box = \"$bname\"/g" Vagrantfile &&\
+            sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
+            sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb
+        gtouched="1"
+        # load initial box image & do initial provisionning
+        up && lret="0"
+        down
+        # reseting Vagrantfile in any case
+        if [[ -n $gtouched ]];then
+            git checkout Vagrantfile 2>/dev/null
+        fi
+        if [[ "$lret" != "0" ]];then
+            log "Error while importing $box"
+            exit $lret
+        else
+            log "Box $box imported !"
+        fi
     fi
 }
 
@@ -448,19 +607,25 @@ do_zerofree() {
 }
 
 action=$1
-if [[ -z "$RSYNC" ]];then
-    log "Please install rsync"
-    exit -1
+
+if [[ -z $MANAGE_AS_FUNCS ]];then
+    if [[ -z "$RSYNC" ]];then
+        log "Please install rsync"
+        exit -1
+    fi
+    test="$(echo "$actions" | sed -e "s/.* $action .*/match/g")"
+    if [[ "$test" == "match" ]];then
+        shift
+        if [[ $action == 'export' ]];then
+            action="export_"
+        fi
+        $action $@
+        exit $?
+    else
+        echo "invalid invocation: $0 $@" 1>&2
+        usage;exit -1
+    fi
+    usage
+    exit 0
 fi
-test="$(echo "$actions" | sed -e "s/.* $action .*/match/g")"
-if [[ "$test" == "match" ]];then
-    shift
-    $action $@
-    exit $?
-else
-    echo "invalid invocation: $0 $@"
-    usage;exit -1
-fi
-usage
-exit 0
 # vim:set et sts=4 ts=4 tw=0:
