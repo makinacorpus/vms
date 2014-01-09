@@ -335,6 +335,7 @@ export() {
     else
         log "${VMPATH}/$BOX exists, delete it to redo"
     fi
+    # XXX: REALLY IMPORTANT TO NOTE IS THAT THE BOC MUST BE THE FIRST TARED FILE !!!
     if [[ -f "$BOX" ]] && [[ ! -f "${ABOX}" ]];then
         log "Be patient, archiving now the whole full box package" &&\
         tar $tar_preopts ${ABOX} $BOX  $includes $tar_postopts &&\
@@ -397,7 +398,7 @@ import() {
         exit -1
     fi
     log "Getting box name from $arc (takes a while)"
-    box=$(sudo tar -tf "$arc"|egrep "\.box$"|head -n1)
+    box="$(dd if=package.box.tar.tbz2 bs=1024 count=10000 2>/dev/null|tar -tjf - 2>/dev/null)"
     tar_preopts="-xjvpf"
     tar_postopts="--numeric-owner"
     if [[ ! -e "$arc" ]];then
