@@ -241,7 +241,6 @@ get_version() {
     echo "$ver"
 }
 
-
 get_next_version() {
     echo "$(($(get_version) +1 ))"
 }
@@ -251,7 +250,7 @@ get_release_name_() {
     if [[ -n "$release_suf" ]];then
         release_suf="_${release_suf}"
     fi
-    echo "$(get_box_name)${release_suf}"
+    echo "$(get_box_name "$VMPATH" ${release_suf})"
 }
 
 get_release_name() {
@@ -272,6 +271,7 @@ get_git_branch() {
 release() {
     local rfile="$(get_version_file)"
     local rname="$(get_next_release_name)"
+    local rarc="$(get_devhost_archive_name $rname)"
     local rver="$(get_next_version)"
     local nocommit=""
     for i in $@;do
@@ -283,7 +283,7 @@ release() {
     cd "$VMPATH"
     log "Releasing $rname" &&\
         export_ "$rname" nozerofree && \
-        scp "$rname.tar.bz2" $SFTP_URL/"$rname.tar.bz2"
+        scp "$rarc" $SFTP_URL/"$rarc"
     local lret=$?
     if [[ $lret != 0 ]];then
         log "Error while uploading images"
@@ -299,9 +299,8 @@ release() {
 
 init() {
     cd "$VMPATH"
-    local branch="$(get_git_branch .)"
+    local url="$BASE_URL/$(get_devhost_archive_name $(get_release_name))"
     local status="$(status)"
-    local url="$BASE_URL/$(get_release_name)"
     if [[ $(status) == "not created" ]];then
         import "$url"
     fi
@@ -467,10 +466,39 @@ generate_packaged_vagrantfile() {
     echo $packaged_vagrantfile
 }
 
+get_box_name() {
+    local path="${1:-"."}"
+    local suf="${2:-"-$(gen_uuid)"}"
+    if [[ $suf == "nosuf" ]];then
+        suf=""
+    fi
+    local bname="devhost-$(get_git_branch $path)${suf}"
+    echo $bname
+}
+
+get_vagrant_box_name() {
+    echo "${1:-"$(get_box_name $2)"}.box"
+}
+
+get_devhost_archive_name() {
+    echo "${1:-"$(get_box_name $2)"}.tar.bz2"
+}
+
 export_() {
+    for i in $@;do
+        if [[ $i == "nozerofree" ]];then
+            local nozerofree=y
+        elif [[ $i == "nosed" ]];then
+            local nosed=y
+        else
+            local bname="$i"
+        fi
+    done
     cd "${VMPATH}"
     export NOCONFIRM=1
-    local bname="$(get_box_name)-$(gen_uuid)"
+    local bname="${bname:-"$(get_box_name)"}"
+    local box="$(get_vagrant_box_name $bname)"
+    local abox="$(get_devhost_archive_name $bname)"
     local nincludes=""
     local includes=""
     local gtouched=""
@@ -481,17 +509,6 @@ export_() {
     # at import time
     #
     local packaged_vagrantfile="$(generate_packaged_vagrantfile)"
-    for i in $@;do
-        if [[ $i == "nozerofree" ]];then
-            nozerofree=y
-        elif [[ $i == "nosed" ]];then
-            nosed=y
-        else
-            bname="$1"
-        fi
-    done
-    local box="${bname}.box"
-    local abox="${bname}.tar.bz2"
     nincludes=""
     for i in .vb_* vagrant_config.rb;do
         if [[ -e "$i" ]];then
@@ -504,7 +521,6 @@ export_() {
     if [[ $(uname) != "Darwin" ]];then
         tar_preopts="${tar_preopts}p"
     fi
-
     if [[ -z "$nozerofree" ]];then
         log "Zerofree starting in 20 seconds, you can control C before the next log"
         log "and relaunch with the same cmdline with nozerofree appended: eg ./manage.sh export nozerofree"
@@ -587,19 +603,10 @@ download() {
     fi
 }
 
-get_box_name() {
-    local path="${1:-"."}"
-    local bname="devhost-$(get_git_branch $path)"
-    echo $bname
-}
-
 import() {
     cd "${VMPATH}"
-    local box=""
     local gtouched=""
-    local bname="$(get_box_name)"
-    local abox="${bname}.tar.bz2"
-    local image="${1:-"$abox"}"
+    local image="$(get_devhost_archive_name $(get_release_name))"
     local tar_preopts="-xjvpf"
     local tar_postopts="--numeric-owner"
     local boxes=" $(vagrant box list 2> /dev/null|awk '{print " " $1 " "}') "
@@ -621,6 +628,8 @@ import() {
             log "invalid image file $1 (must be a regular bzip2 tarfile end with .tar.bz2)"
             exit -1
         fi
+        local bname="${bname:-$(get_box_name)}"
+        local abox="$image"
         log "Getting box name from $image"
         if [[ ! -e "$image" ]];then
             log "Missing file: $image"
