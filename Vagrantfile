@@ -230,7 +230,7 @@ if devhost_debug
   eprintf(" [*] To have multiple hosts, you can change the third bits of IP (default: #{DEVHOST_NUM_DEF}) via the MAKINA_DEVHOST_NUM env variable)\n")
   eprintf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
 end
-eprintf(" [*] if you want to share this wm, use manage.sh export | import\n")
+eprintf(" [*] if you want to share this wm, use ./manage.sh export | import\n")
 # Name inside the VM (as rendered by hostname command)
 VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhostxx.local by default
 
