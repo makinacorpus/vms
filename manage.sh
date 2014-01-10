@@ -507,7 +507,7 @@ export_() {
 download() {
     local wget=""
     local url="$1"
-    local fname="${2:-${basename url}}"
+    local fname="${2:-${basename $url}}"
     # freebsd
     if [[ $(uname) == "FreeBSD" ]];then
         if [[ -f $(which fetch 2>&1) ]];then
