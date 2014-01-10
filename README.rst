@@ -182,30 +182,38 @@ We need to speed up things to:
 Installation
 ------------
 
-Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projects source code managment::
+Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projects source code managment
 
-
-initialisation
-+++++++++++++++
-  # Take a base location on your home
+- Take a base location on your home::
   mkdir -p ~/makina/
   cd ~/makina/
-  # get this project in the vms subdirectory of this base place
-  # note that you can alter the last name to choose another
-  # directory
+
+- get this project in the vms subdirectory of this base place
+  note that you can alter the last name to choose another
+  directory::
+
   git clone https://github.com/makinacorpus/vms.git vms
   cd vms
-  # Alternatively if you want the precise64 LTS ubuntu server use:
+
+- Alternatively if you want the precise64 LTS ubuntu server use::
+
   git clone https://github.com/makinacorpus/vms.git -b vagrant-ubuntu-lts-precise64 vms-precise
   cd vms-precise
-  # Or for Debian (see that the last word is up to you, it's the destination directory):
+
+- Or for Debian (see that the last word is up to you, it's the destination directory)::
+
   git clone https://github.com/makinacorpus/vms.git -b vagrant-debian-7-wheezy64 vmfoo
   cd vmfoo
-  # Optionnaly preload the base image
+
+- Optionnaly preload the base image::
   vagrant box add saucy64 http://cloud-images.ubuntu.com/vagrant/saucy/current/saucy-server-cloudimg-amd64-vagrant-disk1.box
-  # start the VM a first time, this will launch the VM creation and provisioning
+- start the VM a first time, this will launch the VM creation and
+  provisioning::
+
   ./manage.sh up
-  # you will certainly need one or to reload to finish the provision steps (normally the first time, the script do it for you) but to do it on your own you could use:
+
+- you will certainly need one or to reload to finish the provision steps (normally the first time, the script do it for you) but to do it on your own you could use::
+
   ./manage.sh reload
 
 Daily usage
