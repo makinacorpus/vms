@@ -209,7 +209,7 @@ down() {
 maybe_finish_creation() {
     local lret=$?
     local restart_marker="/tmp/vagrant_provision_needs_restart"
-    if [[ "$lret" != "0" ]] || [[ "$marker" == "0" ]];then
+    if [[ "$lret" != "0" ]];then
         for i in $(seq 3);do
             local marker="$(vagrant ssh -c "test -e $restart_marker" &> /dev/null;echo $?)"
             if [[ "$marker" == "0" ]];then
