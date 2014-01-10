@@ -400,7 +400,7 @@ do_fusermount () {
                 ;;
         esac
     done
-    if [[ $lret  == *"not found"* ]] && [[ -n "$(is_mounted)" ]];then
+    if [[ $lret == *"not found"* ]] && [[ -n "$(is_mounted)" ]];then
         if [[ -z $noumount ]];then
             do_umount
         fi
