@@ -161,9 +161,17 @@ gen_ssh_config() {
     fi
 }
 
+is_wrapper_present(){
+    local present=""
+    if [[ "$(internal_ssh test -e "$PROVISION_WRAPPER";echo $?)" == "0" ]];then
+        present="1"
+    fi
+    echo $present
+}
+
 cleanup_keys() {
     ssh_pre_reqs
-    if [[ "$(internal_ssh test -e "$PROVISION_WRAPPER";echo $?)" == "0" ]];then
+    if [[ -n "$(is_wrapper_present)" ]];then
         internal_ssh sudo $PROVISION_WRAPPER cleanup_keys
     else
         log "Warning: could not cleanup ssh keys, shared folder mountpoint seems not present"
@@ -171,7 +179,7 @@ cleanup_keys() {
 }
 
 install_keys() {
-    if [[ "$(internal_ssh test -e "$PROVISION_WRAPPER";echo $?)" == "0" ]];then
+    if [[ -n "$(is_wrapper_present)" ]];then
         internal_ssh sudo $PROVISION_WRAPPER install_keys
     else
         log "Warning: could not install ssh keys, shared folder mountpoint seems not present"
