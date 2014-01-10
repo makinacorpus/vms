@@ -492,6 +492,10 @@ export_() {
     if [[ ! -e "$box" ]];then
         vagrant box remove $bname
         down && up &&\
+            if [[ -z $(is_wrapper_present) ]];then \
+                log "$PROVISION_WRAPPER is not there in the VM"
+                exit -1
+            fi &&\
             if [[ -z $nosed ]];then \
                 internal_ssh \
                 'if [[ -e /etc/udev/rules.d/70-persistent-net.rules ]];then sudo sed -re "s/^SUBSYSTEM/#SUBSYSTEM/g" -i /etc/udev/rules.d/70-persistent-net.rules;fi';\
