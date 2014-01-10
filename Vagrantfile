@@ -13,6 +13,12 @@ require 'rbconfig'
 CWD=File.dirname(__FILE__)
 VSETTINGS_N="vagrant_config"
 VSETTINGS_P=File.dirname(__FILE__)+"/"+VSETTINGS_N+".rb"
+devhost_debug=ENV.fetch("MAKINA_DEVHOST_DEBUG", "").strip()
+if devhost_debug.to_s.strip.length == 0
+  devhost_debug=false
+else
+  devhost_debug=true
+end
 vagrant_config_lines = []
 
 def eprintf(*args)
@@ -220,8 +226,10 @@ vagrant_config_lines << "VIRTUALBOX_VM_NAME=\"#{VIRTUALBOX_VM_NAME}\""
 eprintf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 eprintf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
 eprintf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
-eprintf(" [*] To have multiple hosts, you can change the third bits of IP (default: #{DEVHOST_NUM_DEF}) via the MAKINA_DEVHOST_NUM env variable)\n")
-eprintf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
+if devhost_debug
+  eprintf(" [*] To have multiple hosts, you can change the third bits of IP (default: #{DEVHOST_NUM_DEF}) via the MAKINA_DEVHOST_NUM env variable)\n")
+  eprintf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
+end
 eprintf(" [*] if you want to share this wm, use manage.sh export | import\n")
 # Name inside the VM (as rendered by hostname command)
 VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhostxx.local by default
@@ -397,7 +405,9 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  eprintf(" [*] checking local routes to %s/%s via %s. If sudo password is requested then it means we need to alter local host routing...\n",DOCKER_NETWORK,DOCKER_NETWORK_MASK_NUM,BOX_PRIVATE_IP)
+  if devhost_debug
+      eprintf(" [*] checking local routes to %s/%s via %s. If sudo password is requested then it means we need to alter local host routing...\n",DOCKER_NETWORK,DOCKER_NETWORK_MASK_NUM,BOX_PRIVATE_IP)
+  end
   if os == :linux or os == :unix
     # Linux
     `if ip route show|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo ip route replace #{BOX_PRIVATE_IP} via #{BOX_PRIVATE_GW}; sudo ip route replace #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} via #{BOX_PRIVATE_IP}; fi;`
@@ -405,7 +415,9 @@ Vagrant.configure("2") do |config|
     #Mac
     `if netstat -rn|grep "#{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo route -n add -host #{BOX_PRIVATE_IP} #{BOX_PRIVATE_GW};sudo route -n add -net #{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK_NUM} #{BOX_PRIVATE_IP};fi;`
   end
-  eprintf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
+  if devhost_debug
+    eprintf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
+  end
 
 # SAVING CUSTOM CONFIGURATION TO A FILE (AND ONLY CUSTOMIZED ONE)
 vagrant_config = ""
@@ -414,7 +426,9 @@ vagrant_config_lines_s = ""
 vagrant_config_lines.each{ |s| vagrant_config_lines_s += "    "+ s + "\n" }
 vagrant_config += vagrant_config_lines_s
 ["end", ""].each{ |s| vagrant_config += s + "\n" }
-eprintf(" [*] Saving vagrant settings:\n#{vagrant_config_lines_s}")
+if devhost_debug
+  eprintf(" [*] Saving vagrant settings:\n#{vagrant_config_lines_s}")
+end
 vsettings_f=File.open(VSETTINGS_P, "w")
 vsettings_f.write(vagrant_config)
 vsettings_f.close()
