@@ -230,6 +230,7 @@ get_version_file() {
     local br=$(get_git_branch .)
     echo "$VMPATH/.versions/${br}.txt"
 }
+
 get_version() {
     local ver="0"
     local vfile="$(get_version_file)"
@@ -377,14 +378,25 @@ smartkill() {
 
 do_fusermount () {
     local lret=$(fusermount -u "$VM" 2>&1)
+    local noumount=""
+    for i in $@;do
+        case $i in
+            noumount) $noumount=1
+                ;;
+        esac
+    done
     if [[ $lret  == *"not found"* ]] && [[ -n "$(is_mounted)" ]];then
-        sudo umount -f "$VM" 2>&1
+        if [[ -z $noumount ]];then
+            sudo umount -f "$VM" 2>&1
+        fi
     fi
     if [[ -n "$(is_mounted)" ]] || [[ $lret  == *"Permission denied"* ]];then
         sudo fusermount -u "$VM" 2>&1
     fi
     if [[ -n "$(is_mounted)" ]];then
-        sudo umount -f "$VM" 2>&1
+        if [[ -z $noumount ]];then
+            sudo umount -f "$VM" 2>&1
+        fi
     fi
 }
 
@@ -392,10 +404,10 @@ umount_vm() {
     cd "${VMPATH}"
     if [[ -n "$(is_mounted)" ]];then
         log "Umounting of $VM"
-        do_fusermount
+        do_fusermount noumount
     fi
     if [[ -n "$(is_mounted)" ]];then
-        log "forcing umounting of $VM"
+        log "Forcing umounting of $VM"
         smartkill
         do_fusermount
     fi
