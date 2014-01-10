@@ -189,7 +189,7 @@ Now you can start the vm installation with vagrant. Note that this repository wi
     mkdir -p ~/makina/
     cd ~/makina/
 
-- get this project in the vms subdirectory of this base place
+- Get this project in the vms subdirectory of this base place
   note that you can alter the last name to choose another
   directory::
 
@@ -214,7 +214,7 @@ Now you can start the vm installation with vagrant. Note that this repository wi
 
     ./manage.sh up
 
-- you will certainly need one or to reload to finish the provision steps (normally the first time, the script do it for you) but to do it on your own you could use::
+- You will certainly need one or to reload to finish the provision steps (normally the first time, the script do it for you) but to do it on your own you could use::
 
     ./manage.sh reload
 
