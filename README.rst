@@ -54,7 +54,7 @@ Following theses instructions you can install this git repository on a directory
 
 Prerequisites
 -------------
-You need to have ``virtualbox``, ``vagrant`` and ``sshfs`` (as a server).
+You need to have ``virtualbox``, ``vagrant`` and ``sshfs``.
 
 On macosx, sshfs is also known as MacFuse or MacFusion.
 
