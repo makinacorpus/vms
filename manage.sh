@@ -28,6 +28,7 @@ PROJECT_PATH="project/makinacorpus/vms/devhost"
 BASE_URL="${DEVHOST_BASE_URL:-"http://downloads.sourceforge.net/${PROJECT_PATH}"}"
 SFTP_URL=frs.sourceforge.net:/home/frs/$PROJECT_PATH
 PROVISION_WRAPPER="/vagrant/vagrant/provision_script_wrapper.sh"
+EXPORT_VAGRANTFILE="Vagrantfile-export"
 
 die() { echo $@ 1>&2; exit -1; }
 
@@ -146,7 +147,7 @@ gen_ssh_config() {
     sed -i "s/Port.*//g" "$ssh_config"
 }
 
-internal_ssh_() {
+internal_ssh() {
     cd "${VMPATH}"
     $(which ssh) -F "$internal_ssh_config" default $@
 }
@@ -158,11 +159,11 @@ ssh_() {
 
 cleanup_keys() {
     ssh_pre_reqs
-    internal_ssh_ sudo $PROVISION_WRAPPER cleanup_keys
+    internal_ssh sudo $PROVISION_WRAPPER cleanup_keys
 }
 
 install_keys() {
-    internal_ssh_ sudo $PROVISION_WRAPPER install_keys
+    internal_ssh sudo $PROVISION_WRAPPER install_keys
 }
 
 ssh_pre_reqs() {
@@ -372,7 +373,15 @@ umount_vm() {
 up() {
     cd "${VMPATH}"
     log "Up !"
+    local notrunning=""
+    if [[ "$(status)" != "running" ]];then
+        notrunning="1"
+    fi
     vagrant up $@
+    # be sure of jumbo frames
+    if [[ -n $notrunning ]];then
+        internal_ssh "sudo ifconfig eth1 mtu 9000"
+    fi
     maybe_finish_creation $@
     mount_vm
 }
@@ -390,8 +399,9 @@ reload() {
     maybe_finish_creation $@
     mount_vm
 }
+
 generate_packaged_vagrantfile() {
-    local packaged_vagrantfile="Vagrantfile-$(gen_uuid)"
+    local packaged_vagrantfile="$EXPORT_VAGRANTFILE-$(gen_uuid)"
     touch $packaged_vagrantfile
     echo $packaged_vagrantfile
 }
@@ -448,19 +458,19 @@ export_() {
         vagrant box remove $bname
         down && up &&\
             if [[ -z $nosed ]];then \
-                vagrant ssh \
-                -c 'if [[ -e /etc/udev/rules.d/70-persistent-net.rules ]];then sudo sed -re "s/^SUBSYSTEM/#SUBSYSTEM/g" -i /etc/udev/rules.d/70-persistent-net.rules;fi';\
+                internal_ssh \
+                'if [[ -e /etc/udev/rules.d/70-persistent-net.rules ]];then sudo sed -re "s/^SUBSYSTEM/#SUBSYSTEM/g" -i /etc/udev/rules.d/70-persistent-net.rules;fi';\
             fi &&\
-            vagrant ssh -c "sudo $PROVISION_WRAPPER mark_export" &&\
+            internal_ssh "sudo $PROVISION_WRAPPER mark_export" &&\
             down
             sed -i -e "s/config\.vm\.box\s*=.*/config.vm.box = \"$bname\"/g" Vagrantfile &&\
             gtouched="1" &&\
             log "Be patient, exporting now" &&\
             vagrant package --vagrantfile "$packaged_vagrantfile" --output "$box" 2> /dev/null
-            rm -f "$packaged_vagrantfile"
+            rm -f "$EXPORT_VAGRANTFILE"*
         local lret="$?"
         down
-        vagrant up --no-provision && install_keys && vagrant ssh -c "sudo $PROVISION_WRAPPER unmark_exported" && down
+        up --no-provision && install_keys && internal_ssh "sudo $PROVISION_WRAPPER unmark_exported" && down
         if [[ "$lret" != "0" ]];then
             log "error exporting $box"
             exit 1

@@ -422,6 +422,17 @@ pkg_cmd = [
     # FOR HOST ONLY INTERFACE VBOXNET
     "ifconfig eth1 mtu 9000",
     "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
+    %{cat > /root/vagrant/provision_net.sh  << EOF
+#!/usr/bin/env bash
+# be sure to have the configured ip in config rather that prior to import one
+interface="eth1"
+hostip=\\$(ip addr show dev \\$interface 2> /dev/null|awk '/inet / {gsub("/.*", "", \\$2);print \\$2}'|head -n1)
+configured_hostip=\\$( cat /etc/network/interfaces|grep \\$interface -A3|grep address|awk '{print \\$2}')
+if [[ "\\$hostip" != "\\$configured_hostip" ]];then
+    ifdown \\$interface
+    ifup \\$interface
+fi
+EOF},
     %{cat > /root/vagrant/provision_nfs.sh  << EOF
 #!/usr/bin/env bash
 MARKERS="/root/vagrant/markers"
@@ -459,7 +470,8 @@ DOCKER_NETWORK_MASK="#{DOCKER_NETWORK_MASK}"
 DOCKER_NETWORK_MASK_NUM="#{DOCKER_NETWORK_MASK_NUM}"
 VB_NAME="#{VIRTUALBOX_VM_NAME}"
 EOF},
-      "chmod 700 /root/vagrant/provision_nfs.sh /vagrant/vagrant/provision_script.sh;",
+      "chmod 700 /root/vagrant/provision_*.sh /vagrant/vagrant/provision_script.sh;",
+      "/root/vagrant/provision_net.sh;",
       "/root/vagrant/provision_nfs.sh;",
       "/vagrant/vagrant/provision_script.sh",
   ]
