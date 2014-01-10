@@ -293,7 +293,10 @@ Base mountpoints and folders
 
 - **/mnt/parent_etc**: Host /etc folder
 - **/mnt/parent_home**: Host user Home folder
-- **/vagrant**: Current working directory in the host (where ./manage.sh up has been done
+- **/vagrant/share**: ``Current working directory/share`` in the host (where ./manage.sh up has been done
+- **/vagrant/packer**: ``Current working directory/packer`` in the host (where ./manage.sh up has been done
+- **/vagrant/docker**: ``Current working directory/docker`` in the host (where ./manage.sh up has been done
+- **/vagrant/vagrant**: ``Current working directory/vagrant`` in the host (where ./manage.sh up has been done
 - **/srv/salt**: Salt state tree
 - **/srv/projects**: makina Salt projects installation root
 - **/srv/pillar**: Pillar data
