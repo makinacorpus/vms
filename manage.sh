@@ -458,7 +458,7 @@ export_() {
     else
         log "Skip zerofree on export"
     fi &&\
-    if [[ ! -f "$box" ]];then
+    if [[ ! -e "$box" ]];then
         vagrant box remove $bname
         down && up &&\
             if [[ -z $nosed ]];then \
@@ -483,7 +483,7 @@ export_() {
         log "${VMPATH}/$box exists, delete it to redo"
     fi
     # XXX: REALLY IMPORTANT TO NOTE IS THAT THE BOC MUST BE THE FIRST TARED FILE !!!
-    if [[ -f "$box" ]] && [[ ! -f "${abox}" ]];then
+    if [[ -e "$box" ]] && [[ ! -e "${abox}" ]];then
         log "Be patient, archiving now the whole full box package" &&\
         tar $tar_preopts ${abox} $box $includes $tar_postopts &&\
         rm -f "$box" &&\
@@ -510,13 +510,13 @@ download() {
     local fname="${2:-${basename $url}}"
     # freebsd
     if [[ $(uname) == "FreeBSD" ]];then
-        if [[ -f $(which fetch 2>&1) ]];then
+        if [[ -e $(which fetch 2>&1) ]];then
             wget="$(which fetch) -pra -o"
         fi
     #another macosx hack
-    elif [[ -f $(which wget) ]];then
+    elif [[ -e $(which wget) ]];then
         wget="$(which wget) --no-check-certificate  -c -O"
-    elif [[ -f $(which curl 2>&1) ]];then
+    elif [[ -e $(which curl 2>&1) ]];then
         wget="$(which curl) --insecure -C - -a -o"
     fi
     $wget "$fname" "$url"
