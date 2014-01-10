@@ -68,15 +68,15 @@ status_() {
 }
 
 status() {
-    status_|egrep "^default    "|sed -e "s/^default\s*//"|sed -e "s/\s*[(].*//"
+    status_|egrep "^default    "|grep -v grep|sed -e "s/^default\s*//"|sed -e "s/\s*[(].*//"
 }
 
 test() {
     where="$(dirname "$THIS")"
     cd "${where}" || exit 1
     local VMPATH=$PWD
-    local name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
-    local dname=$(grep ' DEBIAN_RELEASE="' Vagrantfile|sed -e 's/.*="//' -e 's/"//g')
+    local name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|grep -v grep|sed -e 's/.*="//' -e 's/"//g')
+    local dname=$(grep ' DEBIAN_RELEASE="' Vagrantfile|grep -v grep|sed -e 's/.*="//' -e 's/"//g')
     local TESTPATH="${VMPATH}-test"
     sudo rsync -av "${VMPATH}/" "${TESTPATH}/" \
         --exclude=salt/ \
@@ -254,7 +254,7 @@ get_next_release_name() {
 
 get_git_branch() {
     cd $1 &> /dev/null
-    local br=$(git branch | grep "*")
+    local br=$(git branch | grep "*"|grep -v grep)
     echo ${br/* /}
     cd - &> /dev/null
 }
@@ -313,7 +313,7 @@ get_lsof_pids() {
 
 is_mounted() {
     local mounted=""
-    if [[ "$(mount|awk '{print $3}'|egrep "$VM$" | wc -l)" != "0" ]]\
+    if [[ "$(mount|awk '{print $3}'|egrep "$VM$" |grep -v grep| wc -l)" != "0" ]]\
         || [[ "$(ps aux|egrep "sshfs.*$VM"|grep -v grep| wc -l)" != "0" ]];then
         mounted="1"
     fi
@@ -340,7 +340,7 @@ mount_vm() {
 
 get_pid_line() {
     local pid="$1"
-    ps -eo pid,user,comm,args --no-headers|egrep "^\s*${pid}\s"
+    ps -eo pid,user,comm,args --no-headers|egrep "^\s*${pid}\s"|grep -v grep
 }
 
 smartkill_() {
