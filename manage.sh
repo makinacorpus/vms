@@ -394,7 +394,7 @@ do_fusermount () {
     local noumount=""
     for i in $@;do
         case $i in
-            noumount) $noumount=1
+            noumount) noumount=1
                 ;;
         esac
     done
