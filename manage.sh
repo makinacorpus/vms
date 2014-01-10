@@ -207,7 +207,8 @@ down() {
 }
 
 maybe_finish_creation() {
-    local lret=$?
+    local lret=$1
+    shift
     local restart_marker="/tmp/vagrant_provision_needs_restart"
     if [[ "$lret" != "0" ]];then
         for i in $(seq 3);do
@@ -436,11 +437,12 @@ up() {
         notrunning="1"
     fi
     vagrant up $@
+    lret=$?
     # be sure of jumbo frames
     if [[ -n $notrunning ]];then
         internal_ssh "sudo ifconfig eth1 mtu 9000"
     fi
-    maybe_finish_creation $@
+    maybe_finish_creation $lret $@
     mount_vm
 }
 
@@ -454,7 +456,8 @@ reload() {
         down
         vagrant reload $@
     fi
-    maybe_finish_creation $@
+    lret=$?
+    maybe_finish_creation $lret $@
     mount_vm
 }
 
