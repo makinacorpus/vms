@@ -376,6 +376,21 @@ smartkill() {
     smartkill_ $PIDS
 }
 
+
+do_umount() {
+    arg="-f"
+    if [[ $(uname) == "Linux" ]];then
+        arg="$arg -l"
+    fi
+    for arg in "-l" "-f";do
+        if [[ -n "$(is_mounted)" ]];then
+            if [[ -z $noumount ]];then
+                sudo umount $arg "$VM" 2>&1
+            fi
+        fi
+    done
+}
+
 do_fusermount () {
     local lret=$(fusermount -u "$VM" 2>&1)
     local noumount=""
@@ -387,16 +402,14 @@ do_fusermount () {
     done
     if [[ $lret  == *"not found"* ]] && [[ -n "$(is_mounted)" ]];then
         if [[ -z $noumount ]];then
-            sudo umount -f "$VM" 2>&1
+            do_umount
         fi
     fi
     if [[ -n "$(is_mounted)" ]] || [[ $lret  == *"Permission denied"* ]];then
         sudo fusermount -u "$VM" 2>&1
     fi
-    if [[ -n "$(is_mounted)" ]];then
-        if [[ -z $noumount ]];then
-            sudo umount -f "$VM" 2>&1
-        fi
+    if [[ -z $noumount ]];then
+        do_umount
     fi
 }
 
