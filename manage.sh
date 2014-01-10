@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-actions="init status up reload destroy down export suspend do_zerofree ssh test install_keys cleanup_keys mount_vm umount_vm release import"
+actions="init status up reload destroy down export suspend do_zerofree ssh test install_keys cleanup_keys mount_vm umount_vm release import internal_ssh"
 
 RED="\\033[31m"
 CYAN="\\033[36m"
@@ -153,17 +153,29 @@ gen_ssh_config() {
     # replace the ip by the hostonly interface one in our ssh wrappers
     local hostip=$(internal_ssh ip addr show dev eth1 2> /dev/null|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
     cp -f "$internal_ssh_config" "$ssh_config"
-    sed -i "s/HostName.*/HostName $hostip/g" "$ssh_config"
-    sed -i "s/Port.*//g" "$ssh_config"
+    if [[ -z $hostip ]];then
+        log "Fallback to internal as we could not detect any ip on eth1"
+    else
+        sed -i "s/HostName.*/HostName $hostip/g" "$ssh_config"
+        sed -i "s/Port.*//g" "$ssh_config"
+    fi
 }
 
 cleanup_keys() {
     ssh_pre_reqs
-    internal_ssh sudo $PROVISION_WRAPPER cleanup_keys
+    if [[ "$(internal_ssh test -e "$PROVISION_WRAPPER")" == "0" ]];then
+        internal_ssh sudo $PROVISION_WRAPPER cleanup_keys
+    else
+        log "Warning: could not cleanup ssh keys, shared folder mountpoint seems not present"
+    fi
 }
 
 install_keys() {
-    internal_ssh sudo $PROVISION_WRAPPER install_keys
+    if [[ "$(internal_ssh test -e "$PROVISION_WRAPPER")" == "0" ]];then
+        internal_ssh sudo $PROVISION_WRAPPER install_keys
+    else
+        log "Warning: could not install ssh keys, shared folder mountpoint seems not present"
+    fi
 }
 
 ssh_pre_reqs() {
@@ -290,11 +302,19 @@ get_sshfs_pids() {
     ps aux|egrep "sshfs.*$VM"|grep -v grep|awk '{print $2}'
 }
 
+get_lsof_pids() {
+    LSOF=$(which lsof)
+    local lsof_pids=""
+    if [[ -e "$LSOF" ]];then
+        lsof_pids="$($LSOF "$VM" 2> /dev/null|awk '{print $2}')"
+    fi
+    echo $lsof_pids
+}
 
 is_mounted() {
     local mounted=""
     if [[ "$(mount|awk '{print $3}'|egrep "$VM$" | wc -l)" != "0" ]]\
-        || [[ "$(ps aux|egrep "sshfs.*$VM"| wc -l)" != "0" ]];then
+        || [[ "$(ps aux|egrep "sshfs.*$VM"|grep -v grep| wc -l)" != "0" ]];then
         mounted="1"
     fi
     echo $mounted
@@ -323,7 +343,8 @@ get_pid_line() {
     ps -eo pid,user,comm,args --no-headers|egrep "^\s*${pid}\s"
 }
 
-smartkill() {
+smartkill_() {
+    PIDS=$@
     for pid in $PIDS;do
         while [[ $(get_pid_line $pid|wc -l) != "0" ]];do
             if [[ -z "$NOINPUT" ]] || [[ "$input" == "y" ]];then
@@ -339,6 +360,12 @@ smartkill() {
     done
 }
 
+smartkill() {
+    PIDS=""
+    PIDS="$PIDS $(get_lsof_pids)"
+    PIDS="$PIDS $(get_sshfs_pids)"
+    smartkill_ $PIDS
+}
 
 do_fusermount () {
     local lret=$(fusermount -u "$VM" 2>&1)
@@ -358,10 +385,7 @@ umount_vm() {
     fi
     if [[ -n "$(is_mounted)" ]];then
         log "forcing umounting of $VM"
-        PIDS="$(get_sshfs_pids)"
-        smartkill $PIDS
-        PIDS="$(get_sshfs_pids)"
-        smartkill $PIDS
+        smartkill
         do_fusermount
     fi
     if [[ "$?" != 0 ]];then
