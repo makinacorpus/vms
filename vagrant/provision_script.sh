@@ -152,10 +152,11 @@ bootsalt_marker="$MARKERS/salt_bootstrap_done"
 ready_to_run() {
     output " [*] VM is now ready for './manage.sh ssh' or other usages..."
     output " ------------------------------- [ OK] -----------------------------------------"
-    output " 'Once connected as root in the vm with \"./manage.sh ssh\" and \"sudo su -\""
+    output " Once connected as root in the vm with \"./manage.sh ssh\" and \"sudo su -\""
     output "   * You can upgrade all your projects with \"salt-call [-l all] state.highstate\""
     output "   * You can run one specific state with \"salt-call [-l all] state.sls name-of-state\""
-    output " 'Stop vm with './manage.sh down', connect it with './manage.sh ssh'"
+    output " If you want to share this wm, use ./manage.sh export | import"
+    output " Stop vm with './manage.sh down', connect it with './manage.sh ssh'"
 }
 
 deactivate_ifup_debugging() {
