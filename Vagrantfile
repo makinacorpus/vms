@@ -448,7 +448,7 @@ interface="eth1"
 hostip=\\$(ip addr show dev \\$interface 2> /dev/null|awk '/inet / {gsub("/.*", "", \\$2);print \\$2}'|head -n1)
 configured_hostip=\\$( cat /etc/network/interfaces|grep \\$interface -A3|grep address|awk '{print \\$2}')
 if [[ "\\$hostip" != "\\$configured_hostip" ]];then
-    ifdown \\$interface
+    ifdown \\$interface &> /dev/null
     ifup \\$interface
 fi
 EOF},
