@@ -229,7 +229,7 @@ get_release_name_() {
     if [[ -n "$release_suf" ]];then
         release_suf="_${release_suf}"
     fi
-    echo "$(get_box_name)${release_suf}.tar.bz2"
+    echo "$(get_box_name)${release_suf}"
 }
 
 get_release_name() {
