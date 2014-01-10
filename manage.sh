@@ -378,11 +378,11 @@ smartkill() {
 
 
 do_umount() {
-    arg="-f"
+    args="-f"
     if [[ $(uname) == "Linux" ]];then
-        arg="$arg -l"
+        args="$arg -l"
     fi
-    for arg in "-l" "-f";do
+    for arg in $args;do
         if [[ -n "$(is_mounted)" ]];then
             if [[ -z $noumount ]];then
                 sudo umount $arg "$VM" 2>&1
