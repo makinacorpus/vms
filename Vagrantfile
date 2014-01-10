@@ -450,6 +450,7 @@ configured_hostip=\\$( cat /etc/network/interfaces|grep \\$interface -A3|grep ad
 if [[ "\\$hostip" != "\\$configured_hostip" ]];then
     ifdown \\$interface &> /dev/null
     ifup \\$interface
+    ifconfig \\$interface mtu 9000
 fi
 EOF},
     %{cat > /root/vagrant/provision_nfs.sh  << EOF
