@@ -313,7 +313,7 @@ mount_vm() {
             mkdir "$VM"
         fi
         log "Mounting $VM -> devhost:/"
-        sshfs -F $ssh_config root@default:/ -o nonempty "$VM"
+        sshfs -F "$ssh_config" root@default:/ -o nonempty "$VM"
     fi
 }
 
@@ -341,7 +341,7 @@ smartkill() {
 do_fusermount () {
     local lret=$(fusermount -u "$VM" 2>&1)
     if [[ $lret  == *"not found"* ]];then
-        if [[ "$(mount|awk '{print $3}'|grep $VM|wc -l)" != 0 ]];then
+        if [[ "$(mount|awk '{print $3}'|grep "$VM"|wc -l)" != 0 ]];then
             sudo umount -f "$VM" 2>&1
         fi
     fi
