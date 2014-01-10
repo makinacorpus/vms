@@ -207,7 +207,8 @@ Now you can start the vm installation with vagrant. Note that this repository wi
     cd vmfoo
 
 - Optionnaly preload the base image::
-  vagrant box add saucy64 http://cloud-images.ubuntu.com/vagrant/saucy/current/saucy-server-cloudimg-amd64-vagrant-disk1.box
+
+    vagrant box add saucy64 http://cloud-images.ubuntu.com/vagrant/saucy/current/saucy-server-cloudimg-amd64-vagrant-disk1.box
 - start the VM a first time, this will launch the VM creation and
   provisioning::
 
