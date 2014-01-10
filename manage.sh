@@ -208,15 +208,19 @@ maybe_finish_creation() {
 
 get_version_file() {
     local br=$(get_git_branch .)
-    echo "version_${br}.txt"
+    echo "$VMPATH/.versions/${br}.txt"
 }
 get_version() {
-    release_suf="$(if [[ -f "$(get_version_file)" ]];then cat version.txt;else echo "0"; fi)"
+    local ver="0"
+    local vfile="$(get_version_file)"
+    if [[ -e "$vfile" ]];then
+        ver="$(cat "$vfile")"
+    fi
+    echo "$ver"
 }
 
 
 get_next_version() {
-    release_suf="$(if [[ -f "$(get_version_file)" ]];then cat version.txt;else echo "0"; fi)"
     echo "$(($(get_version) +1 ))"
 }
 
