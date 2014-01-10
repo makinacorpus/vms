@@ -383,10 +383,8 @@ do_umount() {
         args="$arg -l"
     fi
     for arg in $args;do
-        if [[ -n "$(is_mounted)" ]];then
-            if [[ -z $noumount ]];then
-                sudo umount $arg "$VM" 2>&1
-            fi
+        if [[ -n "$(is_mounted)" ]] && [[ -z $noumount ]];then
+            sudo umount $arg "$VM" 2>&1
         fi
     done
 }
