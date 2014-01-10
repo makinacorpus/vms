@@ -375,6 +375,9 @@ do_fusermount () {
     if [[ -n "$(is_mounted)" ]] || [[ $lret  == *"Permission denied"* ]];then
         sudo fusermount -u "$VM" 2>&1
     fi
+    if [[ -n "$(is_mounted)" ]];then
+        sudo umount -f "$VM" 2>&1
+    fi
 }
 
 umount_vm() {
