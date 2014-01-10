@@ -288,8 +288,13 @@ Vagrant.configure("2") do |config|
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
   #
+  # Warning: we share folder on a per folder basic to avoid filesystems loops
+  #
   mountpoints = {
-      "./" => "/vagrant",
+      "./share" => "/vagrant/share",
+      "./docker" => "/vagrant/docker",
+      "./packer" => "/vagrant/packer",
+      "./vagrant" => "/vagrant/vagrant",
       "/etc" => "/mnt/parent_etc",
 #      File.expand_path('~') => "/mnt/parent_home"
       File.expand_path('~/.ssh') => "/mnt/parent_ssh"
