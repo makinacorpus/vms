@@ -134,19 +134,6 @@ suspend() {
     vagrant suspend
 }
 
-gen_ssh_config() {
-    cd "${VMPATH}"
-    if [[ ! -d .vagrant ]];then
-        mkdir .vagrant
-    fi
-    vagrant ssh-config 2>/dev/null > "$internal_ssh_config"
-    # replace the ip by the hostonly interface one in our ssh wrappers
-    local hostip=$(internal_ssh_ ip addr show dev eth1 2> /dev/null|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
-    cp -f "$internal_ssh_config" "$ssh_config"
-    sed -i "s/HostName.*/HostName $hostip/g" "$ssh_config"
-    sed -i "s/Port.*//g" "$ssh_config"
-}
-
 internal_ssh() {
     cd "${VMPATH}"
     $(which ssh) -F "$internal_ssh_config" default $@
@@ -155,6 +142,19 @@ internal_ssh() {
 ssh_() {
     cd "${VMPATH}"
     $(which ssh) -F "$ssh_config" default $@
+}
+
+gen_ssh_config() {
+    cd "${VMPATH}"
+    if [[ ! -d .vagrant ]];then
+        mkdir .vagrant
+    fi
+    vagrant ssh-config 2>/dev/null > "$internal_ssh_config"
+    # replace the ip by the hostonly interface one in our ssh wrappers
+    local hostip=$(internal_ssh ip addr show dev eth1 2> /dev/null|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
+    cp -f "$internal_ssh_config" "$ssh_config"
+    sed -i "s/HostName.*/HostName $hostip/g" "$ssh_config"
+    sed -i "s/Port.*//g" "$ssh_config"
 }
 
 cleanup_keys() {
