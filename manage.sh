@@ -378,7 +378,7 @@ smartkill() {
 
 
 do_umount() {
-    args="-f"
+    local args="-f"
     if [[ $(uname) == "Linux" ]];then
         args="$arg -l"
     fi
