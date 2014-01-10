@@ -313,9 +313,6 @@ mount_vm() {
             mkdir "$VM"
         fi
         ssh_pre_reqs
-        if [[ ! -e "$VM" ]];then
-            mkdir "$VM"
-        fi
         log "Mounting $VM -> devhost:/"
         sshfs -F "$ssh_config" root@default:/ -o nonempty "$VM"
     fi
@@ -332,7 +329,7 @@ smartkill() {
             if [[ -z "$NOINPUT" ]] || [[ "$input" == "y" ]];then
                 log "Do you really want to kill:"
                 log "$(get_pid_line $pid)"
-                log "[press y nthen enter control C to abort]";read input
+                log "[press y+ENTER, or CONTROL+C to abort]";read input
             fi
             if [[ -n "$NOINPUT" ]] || [[ "$input" == "y" ]];then
                 log "killing $pid"
@@ -342,14 +339,13 @@ smartkill() {
     done
 }
 
+
 do_fusermount () {
     local lret=$(fusermount -u "$VM" 2>&1)
-    if [[ $lret  == *"not found"* ]];then
-        if [[ "$(mount|awk '{print $3}'|grep "$VM"|wc -l)" != 0 ]];then
+    if [[ $lret  == *"not found"* ]] && [[ -n "$(is_mounted)" ]];then
             sudo umount -f "$VM" 2>&1
-        fi
     fi
-    if [[ $lret  == *"Permission denied"* ]];then
+    if [[ -n "$(is_mounted)" ]] || [[ $lret  == *"Permission denied"* ]];then
         sudo fusermount -u "$VM" 2>&1
     fi
 }
