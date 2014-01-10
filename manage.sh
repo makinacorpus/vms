@@ -461,7 +461,7 @@ export_() {
                 internal_ssh \
                 'if [[ -e /etc/udev/rules.d/70-persistent-net.rules ]];then sudo sed -re "s/^SUBSYSTEM/#SUBSYSTEM/g" -i /etc/udev/rules.d/70-persistent-net.rules;fi';\
             fi &&\
-            internal_ssh "sudo $PROVISION_WRAPPER mark_export" &&\
+            internal_ssh "sudo $PROVISION_WRAPPER mark_export"
             down
             sed -i -e "s/config\.vm\.box\s*=.*/config.vm.box = \"$bname\"/g" Vagrantfile &&\
             gtouched="1" &&\
