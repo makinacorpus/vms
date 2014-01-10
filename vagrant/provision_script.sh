@@ -28,9 +28,6 @@ output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
 log() { output "$@"; }
 die_if_error() { if [[ "$?" != "0" ]];then output "There were errors";exit 1;fi; }
 
-output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
-output " [*] You can safely relaunch this script from within the vm"
-
 detect_os() {
     # make as a function to be copy/pasted as-is in multiple scripts
     IS_UBUNTU=""
@@ -83,71 +80,74 @@ detect_os() {
         IS_DEBIAN_LIKE="y"
     fi
 }
-ROOT="/"
-CONF_ROOT="${CONF_ROOT:-"${ROOT}etc"}"
-PREFIX="${PREFIX:-"${ROOT}srv"}"
-SALT_ROOT="${SALT_ROOT:-"$PREFIX/salt"}"
-MASTERSALT_ROOT="${MASTERSALT_ROOT:-"$PREFIX/mastersalt"}"
-# source a maybe existing settings file
-SETTINGS="${SETTINGS:-"${ROOT}root/vagrant/provision_settings.sh"}"
-if [[ -f "$SETTINGS" ]];then
-    output " [*] Loading custom settings in $SETTINGS"
-    . "$SETTINGS"
-fi
-MS="$SALT_ROOT/makina-states"
-MMS="$MASTERSALT_ROOT/makina-states"
-VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
-VBOX_ADD_VER="4.2.16"
 
-# Markers must not be on a shared folder for a new VM to be reprovisionned correctly
-VENV_PATH="${ROOT}salt-venv"
-MARKERS="${MARKERS:-"${ROOT}root/vagrant/markers"}"
-DNS_SERVER="${DNS_SERVER:-"8.8.8.8"}"
-PREVIOUS_OFFICIAL_MIRROR="${PREVIOUS_OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
-PREVIOUS_LOCAL_MIRROR="${PREVIOUS_LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
-OFFICIAL_MIRROR="${OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
-LOCAL_MIRROR="${LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
-UBUNTU_RELEASE="${UBUNTU_RELEASE:-"raring"}"
-UBUNTU_NEXT_RELEASE="${UBUNTU_NEXT_RELEASE:-"saucy"}"
-DOCKER_DISABLED="${DOCKER_DISABLED:-no}"
-if [[ "$DOCKER_DISABLED" != "yes" ]];then
-    DOCKER_DISABLED=""
-fi
-DOCKER_NETWORK_HOST_IF="${DOCKER_NETWORK_HOST_IF:-eth0}"
-DOCKER_NETWORK_IF="${DOCKER_NETWORK_IF:-docker0}"
-DOCKER_NETWORK_GATEWAY="${DOCKER_NETWORK_GATEWAY:-"172.17.42.1"}"
-DOCKER_NETWORK="${DOCKER_NETWORK:-"172.17.0.0"}"
-DOCKER_NETWORK_MASK="${DOCKER_NETWORK_MASK:-"255.255.0.0"}"
-DOCKER_NETWORK_MASK_NUM="${DOCKER_NETWORK_MASK_NUM:-"16"}"
-restart_marker=/tmp/vagrant_provision_needs_restart
+set_vars() {
+    ROOT="/"
+    CONF_ROOT="${CONF_ROOT:-"${ROOT}etc"}"
+    PREFIX="${PREFIX:-"${ROOT}srv"}"
+    SALT_ROOT="${SALT_ROOT:-"$PREFIX/salt"}"
+    MASTERSALT_ROOT="${MASTERSALT_ROOT:-"$PREFIX/mastersalt"}"
+    # source a maybe existing settings file
+    SETTINGS="${SETTINGS:-"${ROOT}root/vagrant/provision_settings.sh"}"
+    if [[ -f "$SETTINGS" ]];then
+        output " [*] Loading custom settings in $SETTINGS"
+        . "$SETTINGS"
+    fi
+    MS="$SALT_ROOT/makina-states"
+    MMS="$MASTERSALT_ROOT/makina-states"
+    VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
+    VBOX_ADD_VER="4.2.16"
 
-# disable some useless and harmfull services
-CHRONO="$(date "+%F_%H-%M-%S")"
+    # Markers must not be on a shared folder for a new VM to be reprovisionned correctly
+    VENV_PATH="${ROOT}salt-venv"
+    MARKERS="${MARKERS:-"${ROOT}root/vagrant/markers"}"
+    DNS_SERVER="${DNS_SERVER:-"8.8.8.8"}"
+    PREVIOUS_OFFICIAL_MIRROR="${PREVIOUS_OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
+    PREVIOUS_LOCAL_MIRROR="${PREVIOUS_LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
+    OFFICIAL_MIRROR="${OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
+    LOCAL_MIRROR="${LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
+    UBUNTU_RELEASE="${UBUNTU_RELEASE:-"raring"}"
+    UBUNTU_NEXT_RELEASE="${UBUNTU_NEXT_RELEASE:-"saucy"}"
+    DOCKER_DISABLED="${DOCKER_DISABLED:-no}"
+    if [[ "$DOCKER_DISABLED" != "yes" ]];then
+        DOCKER_DISABLED=""
+    fi
+    DOCKER_NETWORK_HOST_IF="${DOCKER_NETWORK_HOST_IF:-eth0}"
+    DOCKER_NETWORK_IF="${DOCKER_NETWORK_IF:-docker0}"
+    DOCKER_NETWORK_GATEWAY="${DOCKER_NETWORK_GATEWAY:-"172.17.42.1"}"
+    DOCKER_NETWORK="${DOCKER_NETWORK:-"172.17.0.0"}"
+    DOCKER_NETWORK_MASK="${DOCKER_NETWORK_MASK:-"255.255.0.0"}"
+    DOCKER_NETWORK_MASK_NUM="${DOCKER_NETWORK_MASK_NUM:-"16"}"
+    restart_marker=/tmp/vagrant_provision_needs_restart
 
-detect_os
+    # disable some useless and harmfull services
+    CHRONO="$(date "+%F_%H-%M-%S")"
 
-# order is important
-LXC_PKGS="lxc apparmor apparmor-profiles"
-KERNEL_PKGS="linux-source linux-image-generic linux-headers-generic linux-image-extra-virtual"
-VB_PKGS="virtualbox virtualbox-dkms virtualbox-source virtualbox-qt"
-VB_PKGS="$VB_PKGS virtualbox-guest-additions-iso virtualbox-guest-dkms virtualbox-guest-source"
-VB_PKGS="$VB_PKGS virtualbox-guest-utils virtualbox-guest-x11 virtualbox-guest-dkms"
-kernel_marker="$MARKERS/provision_step_kernel${UBUNTU_NEXT_RELEASE}_done"
-lxc_marker="$MARKERS/vbox_lxc_from_${UBUNTU_NEXT_RELEASE}.ok"
-vbox_marker="$MARKERS/vbox_vbox_from_${UBUNTU_NEXT_RELEASE}.ok"
-mirror_marker="$MARKERS/vbox_pkg_2_init_repos_${OFFICIAL_MIRROR//\//-}_${LOCAL_MIRROR//\//-}_${PREVIOUS_LOCAL_MIRROR//\//-}"
-export_marker="$MARKERS/exported"
-NEED_RESTART=""
-export DEBIAN_FRONTEND="noninteractive"
-# escape to 5 "antislash"
-# http://www./#foo -> http:\/\/www\./\#foo
-RE_PREVIOUS_OFFICIAL_MIRROR="$(echo "${PREVIOUS_OFFICIAL_MIRROR}" | sed -re "s/([.#/])/\\\\\1/g")"
-RE_PREVIOUS_LOCAL_MIRROR="$(echo "${PREVIOUS_LOCAL_MIRROR}"       | sed -re "s/([.#/])/\\\\\1/g")"
-RE_OFFICIAL_MIRROR="$(echo "${OFFICIAL_MIRROR}"                   | sed -re "s/([.#/])/\\\\\1/g")"
-RE_LOCAL_MIRROR="$(echo "${LOCAL_MIRROR}"                         | sed -re "s/([.#/])/\\\\\1/g")"
-RE_UBUNTU_RELEASE="$(echo "${UBUNTU_RELEASE}"                     | sed -re "s/([.#/])/\\\\\1/g")"
-src_l="/etc/apt/sources.list"
-bootsalt_marker="$MARKERS/salt_bootstrap_done"
+    detect_os
+
+    # order is important
+    LXC_PKGS="lxc apparmor apparmor-profiles"
+    KERNEL_PKGS="linux-source linux-image-generic linux-headers-generic linux-image-extra-virtual"
+    VB_PKGS="virtualbox virtualbox-dkms virtualbox-source virtualbox-qt"
+    VB_PKGS="$VB_PKGS virtualbox-guest-additions-iso virtualbox-guest-dkms virtualbox-guest-source"
+    VB_PKGS="$VB_PKGS virtualbox-guest-utils virtualbox-guest-x11 virtualbox-guest-dkms"
+    kernel_marker="$MARKERS/provision_step_kernel${UBUNTU_NEXT_RELEASE}_done"
+    lxc_marker="$MARKERS/vbox_lxc_from_${UBUNTU_NEXT_RELEASE}.ok"
+    vbox_marker="$MARKERS/vbox_vbox_from_${UBUNTU_NEXT_RELEASE}.ok"
+    mirror_marker="$MARKERS/vbox_pkg_2_init_repos_${OFFICIAL_MIRROR//\//-}_${LOCAL_MIRROR//\//-}_${PREVIOUS_LOCAL_MIRROR//\//-}"
+    export_marker="$MARKERS/exported"
+    NEED_RESTART=""
+    export DEBIAN_FRONTEND="noninteractive"
+    # escape to 5 "antislash"
+    # http://www./#foo -> http:\/\/www\./\#foo
+    RE_PREVIOUS_OFFICIAL_MIRROR="$(echo "${PREVIOUS_OFFICIAL_MIRROR}" | sed -re "s/([.#/])/\\\\\1/g")"
+    RE_PREVIOUS_LOCAL_MIRROR="$(echo "${PREVIOUS_LOCAL_MIRROR}"       | sed -re "s/([.#/])/\\\\\1/g")"
+    RE_OFFICIAL_MIRROR="$(echo "${OFFICIAL_MIRROR}"                   | sed -re "s/([.#/])/\\\\\1/g")"
+    RE_LOCAL_MIRROR="$(echo "${LOCAL_MIRROR}"                         | sed -re "s/([.#/])/\\\\\1/g")"
+    RE_UBUNTU_RELEASE="$(echo "${UBUNTU_RELEASE}"                     | sed -re "s/([.#/])/\\\\\1/g")"
+    src_l="/etc/apt/sources.list"
+    bootsalt_marker="$MARKERS/salt_bootstrap_done"
+}
 
 ready_to_run() {
     output " [*] VM is now ready for './manage.sh ssh' or other usages..."
@@ -298,7 +298,7 @@ cleanup_restart_marker() {
 
 configure_network() {
     output " [*] Temporary DNs overrides in /etc/resolv.conf : ${DNS_SERVER}, 8.8.8.8 & 4.4.4.4"
-    if [[ "$(grep "\s+localhost" /etc/hosts|wc -l)" == "0" ]];then
+    if [[ "$(egrep "\s+localhost" /etc/hosts|wc -l)" == "0" ]];then
         # add localhost if missing
         sed "/127.0.0.1/ {
 a 127.0.0.1 localhost
@@ -321,7 +321,7 @@ configure_docker_network() {
     #activate_ifup_debugging
     lazy_apt_get_install git git-core bridge-utils
 
-    if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];then
+    if [[ "$(egrep "^source.*docker0" /etc/network/interfaces|wc -l)" == "0" ]];then
         echo>>/etc/network/interfaces
         touch $if_conf
         echo "# configure dockers">>/etc/network/interfaces
@@ -634,6 +634,10 @@ handle_export() {
 }
 
 if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
+    output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
+    output " [*] You can safely relaunch this script from within the vm"
+    set_vars
+    #
     install_keys
     handle_export
     create_base_dirs

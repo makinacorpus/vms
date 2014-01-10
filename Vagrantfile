@@ -105,6 +105,12 @@ else
     MAX_CPU_USAGE_PERCENT="50"
 end
 
+if defined?(DEVHOST_HAS_NFS)
+    vagrant_config_lines << "DEVHOST_HAS_NFS=#{DEVHOST_HAS_NFS}"
+else
+    DEVHOST_HAS_NFS=false
+end
+
 # IP managment
 # The box used a default NAT private IP, defined automatically by vagrant and virtualbox
 # It also use a private deticated network (automatically created in virtualbox on a vmX network)
@@ -164,7 +170,7 @@ end
 if defined?(AUTO_UPDATE_VBOXGUEST_ADD)
     vagrant_config_lines << "AUTO_UPDATE_VBOXGUEST_ADD=\"#{AUTO_UPDATE_VBOXGUEST_ADD}\""
 else
-    AUTO_UPDATE_VBOXGUEST_ADD=false
+    AUTO_UPDATE_VBOXGUEST_ADD=true
 end
 
 # ------------- Mirror to download packages -----------------------
@@ -230,8 +236,8 @@ if devhost_debug
   eprintf(" [*] To have multiple hosts, you can change the third bits of IP (default: #{DEVHOST_NUM_DEF}) via the MAKINA_DEVHOST_NUM env variable)\n")
   eprintf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
 end
-eprintf(" [*] if you want to share this wm, use ./manage.sh export | import\n")
-# Name inside the VM (as rendered by hostname command)
+
+
 VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhostxx.local by default
 
 
@@ -268,6 +274,7 @@ Vagrant.configure("2") do |config|
   # -- VirtualBox Guest Additions ----------
   if Vagrant.has_plugin?('vbguest management')
     config.vbguest.auto_update = AUTO_UPDATE_VBOXGUEST_ADD
+    config.vbguest.auto_reboot = true
   end
 
   #------------- NETWORKING ----------------
@@ -308,21 +315,31 @@ Vagrant.configure("2") do |config|
       File.expand_path('~/.ssh') => "/mnt/parent_ssh"
   }
   mountpoints.each do |mountpoint, target|
-      config.vm.synced_folder(
-          mountpoint, target,
-          nfs: true,
-          nfs_udp: false,
-          linux__nfs_options: ["rw", "no_root_squash", "no_subtree_check",],
-          bsd__nfs_options: ["maproot=root:wheel", "alldirs"],
-          mount_options: [
-              "vers=3","rw","noatime", "nodiratime",
-              "udp", "rsize=32768", "wsize=32768",
-          ],
-      )
+      shared_folder_args = {create: true}
+      if DEVHOST_HAS_NFS
+          shared_folder_args.update({
+              :nfs => true,
+              :nfs_udp => false,
+              :linux__nfs_options => ["rw", "no_root_squash", "no_subtree_check",],
+              :bsd__nfs_options => ["maproot=root:wheel", "alldirs"],
+              :mount_options => [
+                  "vers=3", "rw","noatime", "nodiratime",
+                  "udp", "rsize=32768", "wsize=32768",
+              ],
+          })
+      else
+          # from the guest mount of etc, so we can alter current hosts definitions
+          # in /etc/hosts from the guest (insecure by definition)
+          # the limitation with permission and virtualbox shared folders (vboxsf)
+          # is that we can edit existing files but cant create new ones
+          if mountpoint == "/etc"
+              shared_folder_args.update({:owner => "root", :group => "root"})
+          end
+      end
+      config.vm.synced_folder(mountpoint, target, shared_folder_args)
   end
-  # config.vm.synced_folder ".", "/vagrant", disabled: true
-  # dev: mount of etc, so we can alter current host /etc/hosts from the guest (insecure by definition)
-  config.vm.synced_folder "/etc", "/mnt/parent_etc", id: 'parent-etc', nfs: true
+  # disable default /vagrant shared folder
+  config.vm.synced_folder ".", "/vagrant", disabled: true
 
   #------------- PROVISIONING ------------------------------
   # We push all the code in a script which manages the versioning of
@@ -452,23 +469,35 @@ if [[ "\\$hostip" != "\\$configured_hostip" ]];then
     ifup \\$interface
     ifconfig \\$interface mtu 9000
 fi
+# be sure to have root rights on ROOT owned shared folders
+# by default if others non-root folders are mounted afterwards
+# we will loose root_squash, so just replay the share and
+# enjoy from there write abilitlity
+# for mp in "/mnt/parent_etc";do
+#     if [[ "\\$(mount|egrep "\\$mp.* vboxsf .*\\(rw\\)"|wc -l)" != "0" ]];then
+#         umount "\\$mp"
+#         mount -t vboxsf "\\$mp" "\\$mp" -o gid=root,uid=root,rw
+#     fi
+# done
 EOF},
     %{cat > /root/vagrant/provision_nfs.sh  << EOF
 #!/usr/bin/env bash
 MARKERS="/root/vagrant/markers"
 die_if_error() { if [[ "\\$?" != "0" ]];then output "There were errors";exit 1;fi; };
-if [[ ! -e /vagrant/Vagrantfile ]];then
-    output() { echo "\\$@" >&2; };
-    if [ ! -f \\$MARKERS/provision_step_nfs_done ];then
-      if [[ ! -e \\$MARKERS ]];then
-        mkdir -pv "\\$MARKERS"
-      fi
-      output " [*] Installing nfs tools on guest for next reboot, please wait..."
-      apt-get update -qq
-      apt-get install -y --force-yes nfs-common portmap
-      if [ "0" == "$?" ];then touch \\$MARKERS/provision_step_nfs_done; fi;
+output() { echo "\\$@" >&2; };
+if [ ! -f \\$MARKERS/provision_step_nfs_done ];then
+    if [[ ! -e \\$MARKERS ]];then
+      mkdir -pv "\\$MARKERS"
     fi
-    output " [*] ERROR: You do not have /vagrant/vagrant/Vagrantfile, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it and launch './manage.sh reload'!"
+    output " [*] Installing nfs tools on guest for next reboot, please wait..."
+    apt-get update -qq
+    apt-get install -y --force-yes nfs-common portmap
+    if [ "0" == "$?" ];then
+        touch \\$MARKERS/provision_step_nfs_done
+    fi
+fi
+if [[ ! -e "/vagrant/vagrant/provision_script.sh" ]];then
+    output " [*] ERROR: You do not have /vagrant/vagrant/provision_script.sh, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it and launch './manage.sh reload'!"
     exit 1
 fi
 EOF},
@@ -490,7 +519,7 @@ DOCKER_NETWORK_MASK="#{DOCKER_NETWORK_MASK}"
 DOCKER_NETWORK_MASK_NUM="#{DOCKER_NETWORK_MASK_NUM}"
 VB_NAME="#{VIRTUALBOX_VM_NAME}"
 EOF},
-      "chmod 700 /root/vagrant/provision_*.sh /vagrant/vagrant/provision_script.sh;",
+      "chmod 700 /root/vagrant/provision_*.sh",
       "/root/vagrant/provision_net.sh;",
       "/root/vagrant/provision_nfs.sh;",
       "/vagrant/vagrant/provision_script.sh",

@@ -54,7 +54,7 @@ Following theses instructions you can install this git repository on a directory
 
 Prerequisites
 -------------
-You need to have ``virtualbox``, ``vagrant``, ``sshfs`` and ``NFS`` (as a server).
+You need to have ``virtualbox``, ``vagrant`` and ``sshfs`` (as a server).
 
 On macosx, sshfs is also known as MacFuse or MacFusion.
 
@@ -90,11 +90,18 @@ For a Debian / Ubuntu deb-like host, version 1.3.5 64 bits::
     wget http://files.vagrantup.com/packages/a40522f5fabccb9ddabad03d836e120ff5d14093/vagrant_1.3.5_x86_64.deb
     sudo dpkg -i vagrant_1.3.5_x86_64.deb
 
+**IMPORTANT** THE VBGUEST PLUGIN, to sync the guest addition packages from your
+host virtualbox version::
+
+    vagrant plugin install vagrant-vbguest
+
 Optimizations (optional but recommended)
 ++++++++++++++++++++++++++++++++++++++++
 
-NFS Optmimisations
-~~~~~~~~~~~~~~~~~~~
+Use NFS Shared folders
+~~~~~~~~~~~~~~~~~~~~~~~~
+* Install your OS NFS server
+* Edit vagrant_config.rb and set ``DEVHOST_HAS_NFS=true``.
 * The important thing here is to tuneup the number of avalaible workers for nfs
   server operations.
 
@@ -171,7 +178,6 @@ We need to speed up things to:
     * Reload the settings::
 
         sysctl -p
-
 
 Installation
 ------------
