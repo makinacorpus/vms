@@ -98,54 +98,6 @@ host virtualbox version::
 Optimizations (optional but recommended)
 ++++++++++++++++++++++++++++++++++++++++
 
-Use NFS Shared folders
-~~~~~~~~~~~~~~~~~~~~~~~~
-* Install your OS NFS server
-* Edit vagrant_config.rb and set ``DEVHOST_HAS_NFS=true``.
-* The important thing here is to tuneup the number of avalaible workers for nfs
-  server operations.
-
-    * NOTE: [RECOMMENDED] **256** threads == **~512MO** ram allocated for nfs
-
-    * NOTE: **128** threads == **~302MO** ram allocated for nfs
-
-    * **512** is a lot faster but the virtualbox ethernet interfaces had some bugs
-      (kernel guest oops) at this speed.
-
-* On Debian / Ubuntu:
-
-    * Install nfs::
-
-        sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
-
-    * Edit  **/etc/default/nfs-kernel-server** and increase the **RPCNFSDCOUNT**
-      variable to 256.
-
-    * Restart the server::
-
-        sudo /etc/init.d/nfs-kernel-server restart
-
-* On Archlinux:
-
-    * Edit  **/etc/conf.d/nfs-server.conf** and increase the **NFSD_COUNT**
-      variable to 256.
-
-    * Enable at boot / Restart the services::
-
-        modprobe nfs # may return an error if already loaded
-        for i in rpc-idmapd.service and rpc-mountd.service nfsd.service;do
-            systemctl enable $i
-            service $i start
-        done
-
-* On MacOSX:
-
-    * Edit  **/etc/nfs.conf** and increase the **nfs.server.nfsd_threads**
-      variable to 512 or 256.
-    * Select, active & restart the NFS service in server admin
-
-For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
-
 Host kernel optimisations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Take care with this part, it can prevent your system from booting.
@@ -457,6 +409,54 @@ Saucy - 13.10 - git: master
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 Mainline packages
 
+Use NFS Shared folders (obsolete)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Install your OS NFS server
+* Edit vagrant_config.rb and set ``DEVHOST_HAS_NFS=true``.
+* The important thing here is to tuneup the number of avalaible workers for nfs
+  server operations.
+
+    * NOTE: [RECOMMENDED] **256** threads == **~512MO** ram allocated for nfs
+
+    * NOTE: **128** threads == **~302MO** ram allocated for nfs
+
+    * **512** is a lot faster but the virtualbox ethernet interfaces had some bugs
+      (kernel guest oops) at this speed.
+
+* On Debian / Ubuntu:
+
+    * Install nfs::
+
+        sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
+
+    * Edit  **/etc/default/nfs-kernel-server** and increase the **RPCNFSDCOUNT**
+      variable to 256.
+
+    * Restart the server::
+
+        sudo /etc/init.d/nfs-kernel-server restart
+
+* On Archlinux:
+
+    * Edit  **/etc/conf.d/nfs-server.conf** and increase the **NFSD_COUNT**
+      variable to 256.
+
+    * Enable at boot / Restart the services::
+
+        modprobe nfs # may return an error if already loaded
+        for i in rpc-idmapd.service and rpc-mountd.service nfsd.service;do
+            systemctl enable $i
+            service $i start
+        done
+
+* On MacOSX:
+
+    * Edit  **/etc/nfs.conf** and increase the **nfs.server.nfsd_threads**
+      variable to 512 or 256.
+    * Select, active & restart the NFS service in server admin
+
+For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
+ 
 
 Debian
 +++++++

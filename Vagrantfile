@@ -105,13 +105,6 @@ else
     MAX_CPU_USAGE_PERCENT="50"
 end
 
-# do this host use NFS
-if defined?(DEVHOST_HAS_NFS)
-    vagrant_config_lines << "DEVHOST_HAS_NFS=#{DEVHOST_HAS_NFS}"
-else
-    DEVHOST_HAS_NFS=false
-end
-
 # do we launch core salt updates on provision
 if defined?(DEVHOST_AUTO_UPDATE)
     vagrant_config_lines << "DEVHOST_AUTO_UPDATE=\"#{DEVHOST_AUTO_UPDATE}\""
@@ -122,7 +115,7 @@ end
 # IP managment
 # The box used a default NAT private IP, defined automatically by vagrant and virtualbox
 # It also use a private deticated network (automatically created in virtualbox on a vmX network)
-# By default the private IP will be 10.1.XX.YY/24. This is used for NFS shre, but, as you will have a fixed
+# By default the private IP will be 10.1.XX.YY/24. This is used for file share, but, as you will have a fixed
 # IP for this VM it could be used in your /etc/host file to reference any name on this vm
 # (the default devhostYY.local or devhotsXX.local entry is managed by salt).
 # If you have several VMs you may need to alter at least the MAKINA_DEVHOST_NUM to obtain a different
@@ -304,22 +297,27 @@ Vagrant.configure("2") do |config|
   #config.vm.network "forwarded_port", guest: 22, host: 2222
 
   #------------ SHARED FOLDERS ----------------------------
-  # The current directory is mapped to the /srv of the mounted host
+  # Some of current directory subdirectories are mapped to the /srv of the mounted host
   # In this /srv we'll find the salt-stack things and projects
-  # we use NFS to avoid speed penalities on VirtualBox (between *10 and *100)
+  # we use SSHFS to avoid speed penalities on VirtualBox (between *10 and *100)
   # and the "sendfile" bugs with nginx and apache
   #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
   #
   # Warning: we share folder on a per folder basic to avoid filesystems loops
   #
+  # do this host use NFS
+  if defined?(DEVHOST_HAS_NFS)
+      vagrant_config_lines << "DEVHOST_HAS_NFS=#{DEVHOST_HAS_NFS}"
+  else
+      DEVHOST_HAS_NFS=false
+  end
+
   mountpoints = {
       "./share" => "/vagrant/share",
       "./docker" => "/vagrant/docker",
       "./packer" => "/vagrant/packer",
       "./vagrant" => "/vagrant/vagrant",
-#      "/etc" => "/mnt/parent_etc",
-#      File.expand_path('~') => "/mnt/parent_home"
       File.expand_path('~/.ssh') => "/mnt/parent_ssh"
   }
   mountpoints.each do |mountpoint, target|
