@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
-actions="init status up reload destroy down export suspend do_zerofree ssh test install_keys cleanup_keys mount_vm umount_vm release import internal_ssh"
+actions=""
+actions="
+    init status up reload destroy down export suspend do_zerofree ssh test
+    install_keys cleanup_keys mount_vm
+    umount_vm release import internal_ssh usage -h --help --long-help -l
+"
+# reput on one line
+actions=$(echo $actions)
 
+YELLOW="\e[1;33m"
 RED="\\033[31m"
 CYAN="\\033[36m"
 NORMAL="\\033[0m"
 
 if [[ -n $NO_COLORS ]];then
+    YELLOW=""
     RED=""
     CYAN=""
     NORMAL=""
@@ -34,11 +43,153 @@ die() { echo $@ 1>&2; exit -1; }
 
 actions=" $actions "
 
-actions_main_usage="$actions"
+help_content(){
+    echo -e "${CYAN}$@${NORMAL}" 1>&2
+}
+
+help_header(){
+    action=$1
+    shift
+    echo -e "   ${RED}$THIS $action${NORMAL} $@" 1>&2
+}
 
 usage() {
-    for i in $actions_main_usage;do
-        echo "$THIS $i" 1>&2
+    actions_main_usage="usage init ssh up reload destroy down suspend status"
+    actions_exportimport="export import"
+    actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm umount_vm release internal_ssh"
+    for i in $@;do
+        case $i in
+            --long-help) LONGHELP="1"
+                ;;
+        esac
+    done
+    for actions in\
+        "$actions_main_usage"\
+        "$actions_exportimport"\
+        "$actions_advanced";do
+        case $actions in
+            "$actions_main_usage")
+                echo -e "${YELLOW}Main options${NORMAL}"
+                ;;
+            "$actions_exportimport")
+                echo -e "${YELLOW}Export/Import options${NORMAL}"
+                ;;
+            "$actions_advanced")
+                if [[ -z $LONGHELP ]];then
+                    actions=""
+                else
+                    echo -e "${YELLOW}Advanced options${NORMAL}"
+                fi
+                ;;
+        esac
+        for i in $actions;do
+            buf=""
+            addhelp=""
+            case $i in
+                usage)
+                    help_header "" "[-h | --help | --long-help]"
+                    help_header $i [--long-help]
+                    help_content "      print this help, --long-help print advanced options and additional descriptions"
+                    ;;
+                init)
+                    help_header $i "[URL | FILEPATH]"
+                    help_content "      Initialise a new VM from either the specified archive produced by"
+                    help_content "      the export command or by default to the last stable release (no arguments to init)"
+                    ;;
+                status)
+                    help_header $i
+                    help_content "      Thin wrapper to vagrant status"
+                    ;;
+                up)
+                    help_header $i
+                    help_content "      Launch a VM"
+                    ;;
+                reload)
+                    help_header $i
+                    help_content "      Restarts a VM"
+                    ;;
+                destroy)
+                    help_header $i
+                    help_content "      Destroys a VM without confirmation, this is DESTRUCTIVE"
+                    ;;
+                down)
+                    help_header $i
+                    help_content "      Stop a VM"
+                    ;;
+                export)
+                    help_header $i [nozerofree]
+                    help_content "      Make an entire snapshot of the current VM to an archive which can be imported"
+                    help_content "      elsewhere even on the same box."
+                    if [[ -n $LONGHELP ]];then
+                        help_content "      nozerofree: do not run zerofree (free VM space and trim virtual hard drive"
+                        help_content "                  space to minimal extent) prior to export"
+                    fi
+                    ;;
+                suspend)
+                    help_header $i
+                    help_content "      Suspend the vm"
+                    ;;
+                do_zerofree)
+                    help_header $i
+                    help_content "      run zerofree (free VM space and trim virtual hard drive"
+                    help_content "      space to minimal extent) prior to export"
+                    ;;
+                ssh)
+                    help_header $i [args]
+                    help_content "      ssh client to the VM"
+                    help_content "      args are those of the /bin/ssh command and not those of the vagrant one"
+                    if [[ -n $LONGHELP ]];then
+                        help_content "      This will use the hostonly adapter by default but can also use the internal"
+                        help_content "      (NAT) adapter if the hostonly interface is not correctly configured"
+                    fi
+                    ;;
+                test)
+                    help_header $i
+                    help_content "      Test to create another vm in another folder -> READ THE CODE, developer only"
+                    ;;
+                install_keys)
+                    help_header $i
+                    help_content "      Install the ssh keys from $(whoami) in the guest root and vagrant users"
+                    ;;
+                cleanup_keys)
+                    help_header $i
+                    help_content "      Purge any ssh key contained in the VM"
+                    ;;
+                mount_vm)
+                    help_header $i
+                    help_content "      Mount the vm filesystem on the host using sshfs"
+                    ;;
+                umount_vm)
+                    help_header $i
+                    help_content "      Umount the vm filesystem"
+                    ;;
+                release)
+                    help_header $i
+                    help_content "      Release the current vm as the next release on the CDN: $BASE_URL"
+                    if [[ -n $LONGHELP ]];then
+                        help_content "          - Export the vm to $(get_next_release_name)"
+                        help_content "          - Increment .versions/$(get_git_branch $VMPATH).txt"
+                        help_content "          - Upload to the CDN"
+                    fi
+                    ;;
+                import)
+                    help_header $i "[URL | FILEPATH]"
+                    help_content "      Import a new VM from either the specified archive produced by"
+                    help_content "      the export command or the last stable release (no arguments to init)"
+                    ;;
+                internal_ssh)
+                    help_header $i [args]
+                    help_content "      ssh client to the VM using the vagrant internal ssh interface"
+                    help_content "      args are those of the /bin/ssh command and not those of the vagrant one"
+                    if [[ -n $LONGHELP ]];then
+                        help_content "      This will use the hostonly adapter by default but can also use the internal"
+                        help_content "      (NAT) adapter if the hostonly interface is not correctly configured"
+                    fi
+                    ;;
+            esac
+            echo
+        done
+        echo
     done
 }
 
@@ -302,7 +453,7 @@ release() {
 
 init() {
     cd "$VMPATH"
-    local url="$BASE_URL/$(get_devhost_archive_name $(get_release_name))"
+    local url="${1:-"$BASE_URL/$(get_devhost_archive_name $(get_release_name))"}"
     local status="$(status)"
     if [[ $(status) == "not created" ]];then
         import "$url"
@@ -693,26 +844,34 @@ do_zerofree() {
     log " [*] WM Zerofreed"
 }
 
-action=$1
+action="$1"
 
 if [[ -z $MANAGE_AS_FUNCS ]];then
     if [[ -z "$RSYNC" ]];then
         log "Please install rsync"
         exit -1
     fi
-    test="$(echo "$actions" | sed -e "s/.* $action .*/match/g")"
-    if [[ "$test" == "match" ]];then
+    if [[ -z $action ]];then
+        action=usage
+    fi
+    thismatch=$(echo " $actions "|sed -e "s/.* $action .*/match/g")
+    if [[ "$thismatch" == "match" ]];then
         shift
-        if [[ $action == 'export' ]];then
-            action="export_"
-        fi
+        case $action in
+            export) action="export_"
+                ;;
+            usage|-h|--help) action="usage"
+                ;;
+            -l|--long-help) action="usage";LONGHELP=1
+                ;;
+        esac
         $action $@
         exit $?
     else
         echo "invalid invocation: $0 $@" 1>&2
-        usage;exit -1
+        usage $@;exit -1
     fi
-    usage
+    usage $@
     exit 0
 fi
 # vim:set et sts=4 ts=4 tw=0:
