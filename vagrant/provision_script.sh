@@ -381,7 +381,7 @@ EOF
 
 initial_upgrade() {
     marker="$MARKERS/vbox_init_global_upgrade"
-    if [[ ! -e "$marker" ]];then
+    if [[ ! -e "$marker" ]] || [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
         output " [*] Upgrading base image"
         if [[ -n "$IS_DEBIAN_LIKE" ]];then
             output " [*] apt-get upgrade & dist-upgrade"
@@ -626,9 +626,15 @@ handle_export() {
             done
         done
         cleanup_salt
-        # no auto update
-        export SALT_BOOT_SKIP_CHECKOUTS=1
-        export SALT_BOOT_SKIP_HIGHSTATES=1
+        # no auto update unless configured
+        if [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
+            export SALT_BOOT_SKIP_CHECKOUTS=""
+            export SALT_BOOT_SKIP_HIGHSTATES=""
+        else
+            export SALT_BOOT_SKIP_CHECKOUTS=1
+            export SALT_BOOT_SKIP_HIGHSTATES=1
+
+        fi
         # remove vagrant conf as it can contain doublons on first load
         sed -ne "/VAGRANT-BEGIN/,\$!p" /etc/network/interfaces > /etc/network/interfaces.buf
         if [[ "$(grep lo /etc/network/interfaces|grep -v grep|wc -l)" != "0" ]];then

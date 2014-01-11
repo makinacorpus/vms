@@ -105,10 +105,18 @@ else
     MAX_CPU_USAGE_PERCENT="50"
 end
 
+# do this host use NFS
 if defined?(DEVHOST_HAS_NFS)
     vagrant_config_lines << "DEVHOST_HAS_NFS=#{DEVHOST_HAS_NFS}"
 else
     DEVHOST_HAS_NFS=false
+end
+
+# do we launch core salt updates on provision
+if defined?(DEVHOST_AUTO_UPDATE)
+    vagrant_config_lines << "DEVHOST_AUTO_UPDATE=\"#{DEVHOST_AUTO_UPDATE}\""
+else
+    DEVHOST_AUTO_UPDATE=false
 end
 
 # IP managment
@@ -502,6 +510,7 @@ if [[ ! -e "/vagrant/vagrant/provision_script.sh" ]];then
 fi
 EOF},
     %{cat > /root/vagrant/provision_settings.sh  << EOF
+DEVHOST_AUTO_UPDATE="#{DEVHOST_AUTO_UPDATE}"
 DNS_SERVER="#{DNS_SERVER}"
 DEVHOST_NUM="#{DEVHOST_NUM}"
 PREVIOUS_OFFICIAL_MIRROR="#{PREVIOUS_OFFICIAL_MIRROR}"

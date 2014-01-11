@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+LAUNCH_ARGS="$@"
 actions=""
 actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts"
 actions_exportimport="export import"
@@ -496,8 +497,15 @@ init() {
     up
 }
 
+get_sshfs_ps() {
+    # be sure to test for the end of the path not to
+    # umount near by or in-folder sub-VMs
+    ps aux|egrep "sshfs.*${VM}\$"|grep -v grep
+    ps aux|egrep "sshfs.*${VM}\$"|grep -v grep>>.foo
+}
+
 get_sshfs_pids() {
-    ps aux|egrep "sshfs.*$VM"|grep -v grep|awk '{print $2}'
+    get_sshfs_ps|awk '{print $2}'
 }
 
 get_lsof_pids() {
@@ -512,7 +520,7 @@ get_lsof_pids() {
 is_mounted() {
     local mounted=""
     if [[ "$(mount|awk '{print $3}'|egrep "$VM$" |grep -v grep| wc -l)" != "0" ]]\
-        || [[ "$(ps aux|egrep "sshfs.*$VM"|grep -v grep| wc -l)" != "0" ]];then
+        || [[ "$(get_sshfs_ps| wc -l)" != "0" ]];then
         mounted="1"
     fi
     echo $mounted
@@ -842,7 +850,7 @@ import() {
         fi
         if [[ $boxes == *" ${bname} "* ]];then
             log "BASE VM already imported, redo base vm import by issuing:"
-            log "  vagrant box remove '$bname' && $THIS init"
+            log "  vagrant box remove '$bname' && $THIS $LAUNCH_ARGS"
         else
             if [[ ! -e "$box" ]];then
                 log "Unarchiving $image"
