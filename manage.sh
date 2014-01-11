@@ -292,7 +292,7 @@ test() {
 destroy() {
     cd "${VMPATH}"
     log "Destroy !"
-    vagrant halt -f
+    down
     vagrant destroy -f
 }
 
