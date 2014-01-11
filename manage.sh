@@ -282,7 +282,10 @@ release() {
     done
     cd "$VMPATH"
     log "Releasing $rname" &&\
-        export_ "$rname" nozerofree && \
+        if [[ ! -f "$rarc" ]];then
+            export_ "$rarc" nozerofree
+        fi && \
+        log "Running scp \"$rarc\" $SFTP_URL/\"$rarc\"" &&\
         scp "$rarc" $SFTP_URL/"$rarc"
     local lret=$?
     if [[ $lret != 0 ]];then
@@ -551,7 +554,7 @@ export_() {
             rm -f "$EXPORT_VAGRANTFILE"*
         local lret="$?"
         down
-        up --no-provision && install_keys && internal_ssh "sudo $PROVISION_WRAPPER unmark_exported" && down
+        up --no-provision && internal_ssh "sudo $PROVISION_WRAPPER unmark_exported" && down
         if [[ "$lret" != "0" ]];then
             log "error exporting $box"
             exit 1
