@@ -324,7 +324,7 @@ So for example in a vm2 diectory::
 
 You must read at least once the Vagrantfile, it will be easier for you to know how to alter MAX_CPU_USAGE_PERCENT,CPUS & MEMORY settings for example. or more useful, change this second vm IP and Subnet.
 
-You will indeed realise that there is a magic DEVHOST_NUM setting which is by default 42 (so it's 42 for your first VM and we need a new number).
+**You will indeed realise that there is a magic DEVHOST_NUM setting which is by default 42 (so it's 42 for your first VM and we need a new number). You can either remove the line to get the next available one or indicate a new non used number.**
 
 You can then this settings, along with the other settings in **vagrant_config.rb** .
 By default this file is not yet created and will be created on first usage. But we can enforce it right before the first ``vagrant up``::
