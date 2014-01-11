@@ -760,7 +760,7 @@ download() {
 import() {
     cd "${VMPATH}"
     local gtouched=""
-    local image="$(get_devhost_archive_name $(get_release_name))"
+    local image="${1:-$(get_devhost_archive_name $(get_release_name))}"
     local tar_preopts="-xjvpf"
     local tar_postopts="--numeric-owner"
     local boxes=" $(vagrant box list 2> /dev/null|awk '{print " " $1 " "}') "
