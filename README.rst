@@ -265,7 +265,6 @@ File edition and access
 Base mountpoints and folders
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- **/mnt/parent_etc**: Host /etc folder
 - **/mnt/parent_home**: Host user Home folder
 - **/vagrant/share**: ``Current working directory/share`` in the host (where ./manage.sh up has been done
 - **/vagrant/packer**: ``Current working directory/packer`` in the host (where ./manage.sh up has been done
