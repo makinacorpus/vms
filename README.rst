@@ -182,39 +182,51 @@ We need to speed up things to:
 Installation
 ------------
 
-Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projects source code managment::
+Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projects source code managment
 
-  # Take a base location on your home
-  mkdir -p ~/makina/
-  cd ~/makina/
-  # get this project in the vms subdirectory of this base place
-  # note that you can alter the last name to choose another
-  # directory
-  git clone https://github.com/makinacorpus/vms.git vms
-  cd vms
-  # Alternatively if you want the precise64 LTS ubuntu server use:
-  git clone https://github.com/makinacorpus/vms.git -b vagrant-ubuntu-lts-precise64 vms-precise
-  cd vms-precise
-  # Or for Debian (see that the last word is free, it's the destination directory):
-  git clone https://github.com/makinacorpus/vms.git -b vagrant-debian-7-wheezy64 vmfoo
-  cd vmfoo
-  # Optionnaly preload the base image
-  vagrant box add saucy64 http://cloud-images.ubuntu.com/vagrant/saucy/current/saucy-server-cloudimg-amd64-vagrant-disk1.box
-  # Optionnaly, read the Vagrantfile top section, containing VM cpu and memory settings
-  vi Vagrantfile
-  # From there, as explained, you should create a .vagrant_config.rb file, to alter
-  # MEMORY (by default 1Go) and CPU (by default 2) and MAX_CPU_USAGE_PERCENT (by default 50%)
-  # If it is not your first VM managed via this project alter DEVHOST_NUM (and read the part
-  # Manage several Virtualboxes below)
-  #
-  # start the VM a first time, this will launch the VM creation and provisioning
-  ./manage.sh up
-  # you will certainly need one or to reload to finish the provision steps (normally the first time, the script do it for you) but to do it on your own you could use:
-  vagrant reload #or:
-  ./manage.sh reload
+- Take a base location on your home::
+
+    mkdir -p ~/makina/
+    cd ~/makina/
+
+- Get this project in the vms subdirectory of this base place
+  note that you can alter the last name to choose another
+  directory::
+
+    git clone https://github.com/makinacorpus/vms.git vms
+    cd vms
+
+- Alternatively if you want the precise64 LTS ubuntu server use::
+
+    git clone https://github.com/makinacorpus/vms.git -b vagrant-ubuntu-lts-precise64 vms-precise
+    cd vms-precise
+
+- Or for Debian (see that the last word is up to you, it's the destination directory)::
+
+    git clone https://github.com/makinacorpus/vms.git -b vagrant-debian-7-wheezy64 vmfoo
+    cd vmfoo
+
+- Optionnaly preload the base image::
+
+    vagrant box add saucy64 http://cloud-images.ubuntu.com/vagrant/saucy/current/saucy-server-cloudimg-amd64-vagrant-disk1.box
+- start the VM a first time, this will launch the VM creation and
+  provisioning::
+
+    ./manage.sh up
+
+- You will certainly need one or to reload to finish the provision steps (normally the first time, the script do it for you) but to do it on your own you could use::
+
+    ./manage.sh reload
 
 Daily usage
 ------------
+Edit VM core settings
+++++++++++++++++++++++++
+  - Optionnaly, read the Vagrantfile top section, containing VM cpu and memory settings and even more.
+  - From there, as explained, you should create a .vagrant_config.rb file, to alter
+  - MEMORY (by default 1Go) and CPU (by default 2) and MAX_CPU_USAGE_PERCENT (by default 50%
+  - See also the Manage several Virtualboxes below.
+
 VM control
 ++++++++++++
 
