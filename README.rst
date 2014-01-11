@@ -102,34 +102,28 @@ Host kernel optimisations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Take care with this part, it can prevent your system from booting.
 
-We need to speed up things to:
+    * On MacOSX, edit **/etc/sysctl.conf**
 
-    * Tuning the nfs & kernel options on the host
-    * **Increasing** the nfs worker **threads**
-    * Using **NFS** as sharing filesystem
+        * add or edit a line::
 
-* On MacOSX, edit **/etc/sysctl.conf**
+            kern.aiomax=2048
+            kern.aioprocmax=512
+            kern.aiothreads=128
 
-    * add or edit a line::
+        * Reload the settings::
 
-        kern.aiomax=2048
-        kern.aioprocmax=512
-        kern.aiothreads=128
+            sysctl -p
 
-    * Reload the settings::
+    * On linux, edit **/etc/sysctl.conf**
 
-        sysctl -p
+        * add or edit a line::
 
-* On linux, edit **/etc/sysctl.conf**
+            fs.aio-max-nr = 1048576
+            fs.file-max = 6815744
 
-    * add or edit a line::
+        * Reload the settings::
 
-        fs.aio-max-nr = 1048576
-        fs.file-max = 6815744
-
-    * Reload the settings::
-
-        sysctl -p
+            sysctl -p
 
 Installation
 ------------
@@ -172,12 +166,48 @@ Now you can start the vm installation with vagrant. Note that this repository wi
 
 Daily usage
 ------------
-Edit VM core settings
-++++++++++++++++++++++++
-  - Optionnaly, read the Vagrantfile top section, containing VM cpu and memory settings and even more.
-  - From there, as explained, you should create a .vagrant_config.rb file, to alter
-  - MEMORY (by default 1Go) and CPU (by default 2) and MAX_CPU_USAGE_PERCENT (by default 50%
-  - See also the Manage several Virtualboxes below.
+
+Edit VM core settings && manage several Virtualboxes
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+You can tweak some settings via a special config file: ``vagrant_config.rb``
+
+  - Read the Vagrantfile top section, containing VM cpu and memory settings and even more.
+  - From there, as explained, you should create a .vagrant_config.rb file, to alter what you need.
+For exemple, you can clone the **vms** git repository on another place where you can manage another vagrant based virtualbox vm.
+
+So for example in a vm2 diectory::
+
+  mkdir -p ~/makina/
+  cd ~/makina/
+  # get this project in the vms subdirectory of this base place
+  git clone https://github.com/makinacorpus/vms.git vm2
+  cd vm2
+
+You must read at least once the Vagrantfile, it will be easier for you to know how to alter the vm settings.
+Such settings can go from MAX_CPU_USAGE_PERCENT,CPUS & MEMORY settings. to more useful: change this second vm ID and Subnet.
+
+DEVHOST_NUM
+~~~~~~~~~~~~
+**You will indeed realise that there is a magic DEVHOST_NUM setting which is by default 42 (so it's 42 for your first VM and we need a new number). You can either remove the line to get the next available one or indicate a new non used number.**
+
+You can then this settings, along with the other settings in **vagrant_config.rb** .
+By default this file is not yet created and will be created on first usage. But we can enforce it right before the first ``vagrant up``::
+
+    cat  > vagrant_config.rb << EOF
+    module MyConfig
+      DEVHOST_NUM="22"
+    end
+    EOF
+
+This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1.42.43** for the private network
+and the docker network on this host will be **172.31.22.0** and not **172.31.42.0**.
+The box hostname will be **devhost22.local** instead of devhost42.local.
+
+
+DEVHOST_AUTO_UPDATE
+~~~~~~~~~~~~~~~~~~~~~~
+You can tell to the provision script to run system updates and reprovision salt entirely by setting the **DEVHOST_AUTO_UPDATE** setting to ``true``.
 
 VM control
 ++++++++++++
@@ -260,6 +290,19 @@ Then issue::
 
 Note that all the files mounted on the ``/vagrant`` vm directory are in fact stored on the base directory of this project.
 
+Purge old VMs
+++++++++++++++
+Time to time, it can be useful to regain free space by deleting old imported devhost base boxes, list them::
+
+    vagrant box list
+
+Look for lines beginning by **devhost-**.
+None of those boxes are linked to your running vms, you can safely remove them.
+
+You can then delete them by using::
+
+    vagrant box remove <id>
+
 File edition and access
 ++++++++++++++++++++++++++++
 Base mountpoints and folders
@@ -309,35 +352,7 @@ If your project has custom users, just either (via saltstates):
     - copy the **vagrant** ssh keys to your user $HOME
     - Use an identity parameter pointing to the **vagrant** key pair
 
-Manage several Virtualboxes
-+++++++++++++++++++++++++++
 
-The default install cloned the git repository in ~makina/vms.
-By cloning this same git repository on another place you can manage another vagrant based virtualbox vm.
-So for example in a vm2 diectory::
-
-  mkdir -p ~/makina/
-  cd ~/makina/
-  # get this project in the vms subdirectory of this base place
-  git clone https://github.com/makinacorpus/vms.git vm2
-  cd vm2
-
-You must read at least once the Vagrantfile, it will be easier for you to know how to alter MAX_CPU_USAGE_PERCENT,CPUS & MEMORY settings for example. or more useful, change this second vm IP and Subnet.
-
-**You will indeed realise that there is a magic DEVHOST_NUM setting which is by default 42 (so it's 42 for your first VM and we need a new number). You can either remove the line to get the next available one or indicate a new non used number.**
-
-You can then this settings, along with the other settings in **vagrant_config.rb** .
-By default this file is not yet created and will be created on first usage. But we can enforce it right before the first ``vagrant up``::
-
-    cat  > vagrant_config.rb << EOF
-    module MyConfig
-      DEVHOST_NUM="22"
-    end
-    EOF
-
-This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1.42.43** for the private network
-and the docker network on this host will be **172.31.22.0** and not **172.31.42.0**.
-The box hostname will be **devhost22.local** instead of devhost42.local.
 
 Troubleshooting
 ===============
@@ -345,14 +360,17 @@ Troubleshooting
 NFS
 ---
 
-If the provision script of the vm halt on nfs mounts you will have to check several things:
+If the provision script of the vm halt on file share mounts you will have to check several things:
 
-* do you have some sort of firewalling preventing NFS from your host to the vm? Maybe also apparmor orselinux?
-* do you have a correct /etc/hosts with a first 127.0.[0|1].1 record associated with localhost name and your short and long hostname?
-* did you clone this repository in an encrypted folder (e.g.: home folder on Ubuntu)?
-* On Mac OS X you can try `sudo nfsd checkexports`
-* try to run the vagrant up with `VAGRANT_LOG=INFO vagrant up`
-* try to run `sudo exportfs -a` for more debug information on host side.
+    * do you have some sort of firewalling preventing connections from your host to the vm? Maybe also apparmor or selinux?
+    * do you have a correct /etc/hosts with a first 127.0.[0|1].1 record associated with localhost name and your short and long hostname?
+    * did you clone this repository in an encrypted folder (e.g.: home folder on Ubuntu)?
+    * On Mac OS X you can try `sudo nfsd checkexports`
+    * try to run the commands but do prior to that::
+
+        export VAGRANT_LOG=INFO
+
+    * try to run `sudo exportfs -a` for more debug information on host side.
 
 Mac OS
 -------
@@ -409,54 +427,6 @@ Saucy - 13.10 - git: master
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 Mainline packages
 
-Use NFS Shared folders (obsolete)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-* Install your OS NFS server
-* Edit vagrant_config.rb and set ``DEVHOST_HAS_NFS=true``.
-* The important thing here is to tuneup the number of avalaible workers for nfs
-  server operations.
-
-    * NOTE: [RECOMMENDED] **256** threads == **~512MO** ram allocated for nfs
-
-    * NOTE: **128** threads == **~302MO** ram allocated for nfs
-
-    * **512** is a lot faster but the virtualbox ethernet interfaces had some bugs
-      (kernel guest oops) at this speed.
-
-* On Debian / Ubuntu:
-
-    * Install nfs::
-
-        sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
-
-    * Edit  **/etc/default/nfs-kernel-server** and increase the **RPCNFSDCOUNT**
-      variable to 256.
-
-    * Restart the server::
-
-        sudo /etc/init.d/nfs-kernel-server restart
-
-* On Archlinux:
-
-    * Edit  **/etc/conf.d/nfs-server.conf** and increase the **NFSD_COUNT**
-      variable to 256.
-
-    * Enable at boot / Restart the services::
-
-        modprobe nfs # may return an error if already loaded
-        for i in rpc-idmapd.service and rpc-mountd.service nfsd.service;do
-            systemctl enable $i
-            service $i start
-        done
-
-* On MacOSX:
-
-    * Edit  **/etc/nfs.conf** and increase the **nfs.server.nfsd_threads**
-      variable to 512 or 256.
-    * Select, active & restart the NFS service in server admin
-
-For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
- 
 
 Debian
 +++++++
@@ -517,4 +487,55 @@ And uninstall them with
     sudo su
     cd /srv/docker
     ./make.sh teardown
+
+Use NFS Shared folders (obsolete)
+-----------------------------------
+* Install your OS NFS server
+* Edit vagrant_config.rb and set ``DEVHOST_HAS_NFS=true``.
+* The important thing here is to tuneup the number of avalaible workers for nfs
+  server operations.
+
+    * NOTE: [RECOMMENDED] **256** threads == **~512MO** ram allocated for nfs
+
+    * NOTE: **128** threads == **~302MO** ram allocated for nfs
+
+    * **512** is a lot faster but the virtualbox ethernet interfaces had some bugs
+      (kernel guest oops) at this speed.
+
+* On Debian / Ubuntu:
+
+    * Install nfs::
+
+        sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
+
+    * Edit  **/etc/default/nfs-kernel-server** and increase the **RPCNFSDCOUNT**
+      variable to 256.
+
+    * Restart the server::
+
+        sudo /etc/init.d/nfs-kernel-server restart
+
+* On Archlinux:
+
+    * Edit  **/etc/conf.d/nfs-server.conf** and increase the **NFSD_COUNT**
+      variable to 256.
+
+    * Enable at boot / Restart the services::
+
+        modprobe nfs # may return an error if already loaded
+        for i in rpc-idmapd.service and rpc-mountd.service nfsd.service;do
+            systemctl enable $i
+            service $i start
+        done
+
+* On MacOSX:
+
+    * Edit  **/etc/nfs.conf** and increase the **nfs.server.nfsd_threads**
+      variable to 512 or 256.
+    * Select, active & restart the NFS service in server admin
+
+For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
+
+
+
 .. vim:set ts=4 sts=4:

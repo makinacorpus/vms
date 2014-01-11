@@ -592,6 +592,8 @@ do_umount() {
 
 do_fusermount () {
     local lret=$(fusermount -u "$VM" 2>&1)
+    # let a little time to fusermount to do his art
+    sleep 2
     local noumount=""
     for i in $@;do
         case $i in
@@ -605,6 +607,8 @@ do_fusermount () {
         fi
     fi
     if [[ -n "$(is_mounted)" ]] || [[ $lret  == *"Permission denied"* ]];then
+        # let a little time to fusermount to do his art
+        sleep 2
         sudo fusermount -u "$VM" 2>&1
     fi
     if [[ -z $noumount ]];then
