@@ -501,7 +501,6 @@ get_sshfs_ps() {
     # be sure to test for the end of the path not to
     # umount near by or in-folder sub-VMs
     ps aux|egrep "sshfs.*${VM}\$"|grep -v grep
-    ps aux|egrep "sshfs.*${VM}\$"|grep -v grep>>.foo
 }
 
 get_sshfs_pids() {
