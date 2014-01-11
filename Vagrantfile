@@ -310,7 +310,7 @@ Vagrant.configure("2") do |config|
       "./docker" => "/vagrant/docker",
       "./packer" => "/vagrant/packer",
       "./vagrant" => "/vagrant/vagrant",
-      "/etc" => "/mnt/parent_etc",
+#      "/etc" => "/mnt/parent_etc",
 #      File.expand_path('~') => "/mnt/parent_home"
       File.expand_path('~/.ssh') => "/mnt/parent_ssh"
   }
@@ -503,6 +503,7 @@ fi
 EOF},
     %{cat > /root/vagrant/provision_settings.sh  << EOF
 DNS_SERVER="#{DNS_SERVER}"
+DEVHOST_NUM="#{DEVHOST_NUM}"
 PREVIOUS_OFFICIAL_MIRROR="#{PREVIOUS_OFFICIAL_MIRROR}"
 PREVIOUS_LOCAL_MIRROR="#{PREVIOUS_LOCAL_MIRROR}"
 OFFICIAL_MIRROR="#{OFFICIAL_MIRROR}"

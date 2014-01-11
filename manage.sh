@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 actions=""
+actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts"
+actions_exportimport="export import"
+actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm umount_vm release internal_ssh gen_ssh_config"
+actions_alias="-h --help --long-help -l "
 actions="
-    init status up reload destroy down export suspend do_zerofree ssh test
-    install_keys cleanup_keys mount_vm
-    umount_vm release import internal_ssh usage -h --help --long-help -l
+    $actions_exportimport
+    $actions_main_usage
+    $actions_advanced
+    $actions_alias
 "
 # reput on one line
 actions=$(echo $actions)
@@ -32,12 +37,15 @@ VMPATH=$PWD
 internal_ssh_config=${VMPATH}/.vagrant/internal-ssh-config
 ssh_config=${VMPATH}/.vagrant/ssh-config
 VM=${VMPATH}/VM
+DEFAULT_DNS_BLOCKFILE="$VM/etc/devhosts"
+DEFAULT_HOSTS_FILE="/etc/hosts"
 NOINPUT=""
 PROJECT_PATH="project/makinacorpus/vms/devhost"
 BASE_URL="${DEVHOST_BASE_URL:-"http://downloads.sourceforge.net/${PROJECT_PATH}"}"
 SFTP_URL=frs.sourceforge.net:/home/frs/$PROJECT_PATH
 PROVISION_WRAPPER="/vagrant/vagrant/provision_script_wrapper.sh"
 EXPORT_VAGRANTFILE="Vagrantfile-export"
+DEFAULT_NO_SYNC_HOSTS=$NO_SYNC_HOSTS
 
 die() { echo $@ 1>&2; exit -1; }
 
@@ -54,9 +62,7 @@ help_header(){
 }
 
 usage() {
-    actions_main_usage="usage init ssh up reload destroy down suspend status"
-    actions_exportimport="export import"
-    actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm umount_vm release internal_ssh"
+
     for i in $@;do
         case $i in
             --long-help) LONGHELP="1"
@@ -95,6 +101,11 @@ usage() {
                     help_header $i "[URL | FILEPATH]"
                     help_content "      Initialise a new VM from either the specified archive produced by"
                     help_content "      the export command or by default to the last stable release (no arguments to init)"
+                    ;;
+                sync_hosts)
+                    help_header $i "[DEVHOST hosts block file] [/etc/hosts path]"
+                    help_content "      Synchronise the devhost $DEFAULT_DNS_BLOCKFILE to the host /etc/hosts"
+                    help_content "      It is called automatically upon reload & up, but you can also call it manually"
                     ;;
                 status)
                     help_header $i
@@ -172,6 +183,10 @@ usage() {
                         help_content "          - Upload to the CDN"
                     fi
                     ;;
+                gen_ssh_config)
+                    help_header $i
+                    help_content "      Regenerate ssh config files"
+                    ;;
                 import)
                     help_header $i "[URL | FILEPATH]"
                     help_content "      Import a new VM from either the specified archive produced by"
@@ -223,6 +238,7 @@ status() {
 }
 
 test() {
+    NO_SYNC_HOSTS=1
     where="$(dirname "$THIS")"
     cd "${where}" || exit 1
     local VMPATH=$PWD
@@ -269,6 +285,7 @@ test() {
         ./manage.sh down
     fi
     ./manage.sh up
+    NO_SYNC_HOSTS=$DEFAULT_NO_SYNC_HOSTS
     exit $?
 }
 
@@ -287,28 +304,21 @@ suspend() {
 
 internal_ssh() {
     cd "${VMPATH}"
-    $(which ssh) -F "$internal_ssh_config" default $@
+    $(which ssh) -F "$internal_ssh_config" "$(get_ssh_host $internal_ssh_config)" $@
 }
 
 ssh_() {
     cd "${VMPATH}"
-    $(which ssh) -F "$ssh_config" default $@
+    $(which ssh) -F "$ssh_config" "$(get_ssh_host $ssh_config)" $@
 }
 
-gen_ssh_config() {
-    cd "${VMPATH}"
-    if [[ ! -d .vagrant ]];then
-        mkdir .vagrant
+get_devhost_num() {
+    local devhost_num=""
+    if [[ -n "$(is_wrapper_present)" ]];then
+        devhost_num="$(internal_ssh sudo $PROVISION_WRAPPER get_devhost_num)"
     fi
-    vagrant ssh-config 2>/dev/null > "$internal_ssh_config"
-    # replace the ip by the hostonly interface one in our ssh wrappers
-    local hostip=$(internal_ssh ip addr show dev eth1 2> /dev/null|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
-    cp -f "$internal_ssh_config" "$ssh_config"
-    if [[ -z $hostip ]];then
-        log "Fallback to internal as we could not detect any ip on eth1"
-    else
-        sed -i "s/HostName.*/HostName $hostip/g" "$ssh_config"
-        sed -i "s/Port.*//g" "$ssh_config"
+    if [[ -n "$devhost_num" ]];then
+        echo "$devhost_num"
     fi
 }
 
@@ -320,6 +330,27 @@ is_wrapper_present(){
     echo $present
 }
 
+gen_ssh_config() {
+    cd "${VMPATH}"
+    if [[ ! -d .vagrant ]];then
+        mkdir .vagrant
+    fi
+    vagrant ssh-config 2>/dev/null > "$internal_ssh_config"
+    # replace the ip by the hostonly interface one in our ssh wrappers
+    local hostip=$(internal_ssh ip addr show dev eth1 2> /dev/null|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
+    local devhost_num="$(get_devhost_num)"
+    if [[ -n $devhost_num ]];then
+        sed -i "s/Host default/Host devhost${devhost_num}/g" "$internal_ssh_config"
+    fi
+    cp -f "$internal_ssh_config" "$ssh_config"
+    if [[ -z $hostip ]];then
+        log "Fallback to internal as we could not detect any ip on eth1"
+        ssh_config=$internal_ssh_config
+    else
+        sed -i "s/HostName.*/HostName $hostip/g" "$ssh_config"
+        sed -i "s/Port.*//g" "$ssh_config"
+    fi
+}
 cleanup_keys() {
     ssh_pre_reqs
     if [[ -n "$(is_wrapper_present)" ]];then
@@ -350,10 +381,14 @@ ssh() {
     ssh_ $@
 }
 
+pre_down() {
+    umount_vm
+}
+
 down() {
     cd "${VMPATH}"
     log "Down !"
-    umount_vm
+    pre_down
     vagrant halt -f
 }
 
@@ -483,6 +518,10 @@ is_mounted() {
     echo $mounted
 }
 
+get_ssh_host() {
+    grep "Host\ " $1 |awk '{print $2}'
+}
+
 mount_vm() {
     cd "${VMPATH}"
     # something is wrong with the mountpath, killing it
@@ -496,8 +535,9 @@ mount_vm() {
             mkdir "$VM"
         fi
         ssh_pre_reqs
-        log "Mounting $VM -> devhost:/"
-        sshfs -F "$ssh_config" root@default:/ -o nonempty "$VM"
+        sshhost=$(get_ssh_host $ssh_config)
+        log "Mounting $VM -> devhost($sshhost):/"
+        sshfs -F "$ssh_config" root@${sshhost}:/ -o nonempty "$VM"
     fi
 }
 
@@ -595,8 +635,15 @@ up() {
     if [[ -n $notrunning ]];then
         internal_ssh "sudo ifconfig eth1 mtu 9000"
     fi
+    post_up $lret $@
+}
+
+post_up() {
+    local lret=$1
+    shift
     maybe_finish_creation $lret $@
     mount_vm
+    sync_hosts
 }
 
 reload() {
@@ -606,12 +653,11 @@ reload() {
     if [[ "$(status)" != "running" ]];then
         up
     else
-        down
+        pre_down
         vagrant reload $@
+        lret=$?
+        post_up $lret $@
     fi
-    lret=$?
-    maybe_finish_creation $lret $@
-    mount_vm
 }
 
 generate_packaged_vagrantfile() {
@@ -639,6 +685,7 @@ get_devhost_archive_name() {
 }
 
 export_() {
+    NO_SYNC_HOSTS=1
     for i in $@;do
         if [[ $i == "nozerofree" ]];then
             local nozerofree=y
@@ -733,6 +780,7 @@ export_() {
     else
         log "End of export"
     fi
+    NO_SYNC_HOSTS=$DEFAULT_NO_SYNC_HOSTS
 }
 
 download() {
@@ -758,6 +806,7 @@ download() {
 }
 
 import() {
+    NO_SYNC_HOSTS=1
     cd "${VMPATH}"
     local gtouched=""
     local image="${1:-$(get_devhost_archive_name $(get_release_name))}"
@@ -835,6 +884,88 @@ import() {
             log "Box $box imported !"
         fi
     fi
+    NO_SYNC_HOSTS=$DEFAULT_NO_SYNC_HOSTS
+}
+
+sync_hosts() {
+    if [[ -n $NO_SYNC_HOSTS ]];then return;fi
+    local block="${1:-$DEFAULT_DNS_BLOCKFILE}"
+    local hosts="${2:-$DEFAULT_HOSTS_FILE}"
+    local lhosts=.vagrant/hosts
+    if [[ "$(status)" != "running" ]];then
+        up
+    fi
+    cd "$VMPATH"
+    if [[ ! -d .vagrant ]];then mkdir .vagrant;fi
+    if [[ ! -e "$block" ]];then die "invalid block file: $block";fi
+    if [[ ! -e "$hosts" ]];then die "invalid hosts file: $hosts";fi
+    local START=$(cat "$block"|head -n1)
+    local END=$(cat "$block"|tail -n1)
+    local start_lines=$(grep -- "$START" "$hosts"|wc -l)
+    local end_lines=$(grep -- "$END" "$hosts"|wc -l)
+    local block_start_lines=$(grep -- "$START" "$block"|wc -l)
+    local block_end_lines=$(grep -- "$END" "$block"|wc -l)
+    if [[ -z "$START" ]];then
+        die "missing start tag"
+    fi
+    if [[ -z "$END" ]];then
+        die "missing end tag"
+    fi
+    if [[ "$START" != "#-- start devhost"* ]];then
+        die "invalid start tag(c): $START"
+    fi
+    if [[ "$END" != "#-- end devhost"* ]];then
+        die "invalid end tag(c): $END"
+    fi
+    if [[ "$START" == "$END" ]];then
+        die "invalid start tag is same as end: $END"
+    fi
+    if [[ "$start_lines" != "0" ]] || [[ "$end_lines" != "0" ]];then
+        if [[ "$start_lines" != "1" ]];then
+            die "Weird start/end markers is absent or multiple, balling out (s:$start_lines/$end_lines)"
+        fi
+        if [[ "$end_lines" != "1" ]];then
+            die "Weird start/end markers is absent or multiple, balling out (e:$end_lines/$end_lines)"
+        fi
+    fi
+    if [[ "$block_start_lines" != "0" ]] || [[ "$block_end_lines" != "0" ]];then
+        if [[ "$block_start_lines" != "1" ]];then
+            die "Weird block_tart/block_end markers is absent or multiple, balling out (s:$block_start_lines/$block_end_lines)"
+        fi
+        if [[ "$block_end_lines" != "1" ]];then
+            die "Weird block_start/block_end markers is absent or multiple, balling out (e:$block_end_lines/$block_end_lines)"
+        fi
+    fi
+    log "Adding $block hosts to $hosts"
+    cp "$hosts" "$lhosts"
+    if [[ $(grep -- "$START" "$hosts"|wc -l) == "0" ]];then
+        # Add block in /etc/hosts
+        echo >> "$lhosts"
+        cat "$block" >> "$lhosts"
+    else
+        # replace block in /etc/hosts
+        sed  -ne "1,/$START\$/ p" "$hosts"|egrep -v "^$START" > "$lhosts"
+        cat "$block"                      >> "$lhosts"
+        sed  -ne "/$END\$/,\$ p" "$hosts" |egrep -v "^$END" >> "$lhosts"
+    fi
+    diff=$(which diff)
+    diff -q "$hosts" "$lhosts" &> /dev/null
+    if [[ $? != 0 ]];then
+        if [[ -z $NOINPUT ]];then
+            diff -u "$hosts" "$lhosts"
+            log "Replace $hosts by $lhosts?"
+            log "[press y+ENTER, or CONTROL+C to abort]";read input
+        fi
+        if [[ -n "$NOINPUT" ]] || [[ "$input" == "y" ]];then
+            log "Replacing $hosts"
+            sudo cp -f "$lhosts" "$hosts"
+        else
+            log "Leaving $hosts as-is"
+        fi
+    else
+        log "$block is already up-to-date"
+    fi
+    rm -f hosts
 }
 
 do_zerofree() {

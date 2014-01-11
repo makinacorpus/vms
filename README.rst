@@ -243,7 +243,6 @@ Downloading and initialasing a vm is simple::
 
   ./manage.sh init
 
-
 Initialisaing from the low level base image rather than from preconfigured
 makina corpus image::
 
@@ -265,6 +264,17 @@ Reloading the vm is::
 To remove an outdated or broken VM::
 
   ./manage.sh destroy
+
+Hostnames managment
++++++++++++++++++++++
+- We add the hosts presents in the VM to the /etc/hosts of the host at up &
+  reload stages (you ll be asked for)
+- Read makina-states.nodetypes.vagrantvm if you want to know which hostnames are
+  exported.
+- You can optionnaly sync those hosts with::
+
+  ./manage.sh sync_hosts
+
 
 Connecting to the vm
 +++++++++++++++++++++

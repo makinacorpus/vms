@@ -629,8 +629,20 @@ handle_export() {
         # no auto update
         export SALT_BOOT_SKIP_CHECKOUTS=1
         export SALT_BOOT_SKIP_HIGHSTATES=1
+        # remove vagrant conf as it can contain doublons on first load
+        sed -ne "/VAGRANT-BEGIN/,\$!p" /etc/network/interfaces > /etc/network/interfaces.buf
+        if [[ "$(grep lo /etc/network/interfaces|grep -v grep|wc -l)" != "0" ]];then
+            cp -f /etc/network/interfaces.buf /etc/network/interfaces
+            rm -f /etc/network/interfaces.buf
+        fi
         unmark_exported
     fi
+
+
+}
+
+get_devhost_num() {
+    echo $DEVHOST_NUM
 }
 
 if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
