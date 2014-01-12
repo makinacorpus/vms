@@ -107,7 +107,7 @@ end
 
 # do we launch core salt updates on provision
 if defined?(DEVHOST_AUTO_UPDATE)
-    vagrant_config_lines << "DEVHOST_AUTO_UPDATE=\"#{DEVHOST_AUTO_UPDATE}\""
+    vagrant_config_lines << "DEVHOST_AUTO_UPDATE=#{DEVHOST_AUTO_UPDATE}"
 else
     DEVHOST_AUTO_UPDATE=false
 end
@@ -508,6 +508,7 @@ if [[ ! -e "/vagrant/vagrant/provision_script.sh" ]];then
 fi
 EOF},
     %{cat > /root/vagrant/provision_settings.sh  << EOF
+DEVHOST_HAS_NFS="#{DEVHOST_HAS_NFS}"
 DEVHOST_AUTO_UPDATE="#{DEVHOST_AUTO_UPDATE}"
 DNS_SERVER="#{DNS_SERVER}"
 DEVHOST_NUM="#{DEVHOST_NUM}"
