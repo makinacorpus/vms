@@ -12,17 +12,21 @@
 # The rest is done salt side, see makina-states.nodetypes.vagrantvm
 #
 #
+
 YELLOW='\e[1;33m'
 RED="\\033[31m"
 CYAN="\\033[36m"
 NORMAL="\\033[0m"
+if [[ -n $NO_COLORS ]];then
+    YELLOW=""
+    RED=""
+    CYAN=""
+    NORMAL=""
+fi
 DEBUG=${BOOT_SALT_DEBUG:-}
 output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
 log() { output "$@"; }
 die_if_error() { if [[ "$?" != "0" ]];then output "There were errors";exit 1;fi; }
-
-output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
-output " [*] You can safely relaunch this script from within the vm"
 
 detect_os() {
     # make as a function to be copy/pasted as-is in multiple scripts
@@ -76,78 +80,83 @@ detect_os() {
         IS_DEBIAN_LIKE="y"
     fi
 }
-ROOT="/"
-CONF_ROOT="${CONF_ROOT:-"${ROOT}etc"}"
-PREFIX="${PREFIX:-"${ROOT}srv"}"
-SALT_ROOT="${SALT_ROOT:-"$PREFIX/salt"}"
-MASTERSALT_ROOT="${MASTERSALT_ROOT:-"$PREFIX/mastersalt"}"
-# source a maybe existing settings file
-SETTINGS="${SETTINGS:-"${ROOT}root/vagrant/provision_settings.sh"}"
-if [[ -f "$SETTINGS" ]];then
-    output " [*] Loading custom settings in $SETTINGS"
-    . "$SETTINGS"
-fi
-MS="$SALT_ROOT/makina-states"
-MMS="$MASTERSALT_ROOT/makina-states"
-VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
-VBOX_ADD_VER="4.2.16"
 
-# Markers must not be on a shared folder for a new VM to be reprovisionned correctly
-VENV_PATH="${ROOT}salt-venv"
-MARKERS="${MARKERS:-"${ROOT}root/vagrant/markers"}"
-DNS_SERVER="${DNS_SERVER:-"8.8.8.8"}"
-PREVIOUS_OFFICIAL_MIRROR="${PREVIOUS_OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
-PREVIOUS_LOCAL_MIRROR="${PREVIOUS_LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
-OFFICIAL_MIRROR="${OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
-LOCAL_MIRROR="${LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
-UBUNTU_RELEASE="${UBUNTU_RELEASE:-"raring"}"
-UBUNTU_NEXT_RELEASE="${UBUNTU_NEXT_RELEASE:-"saucy"}"
-DOCKER_DISABLED="${DOCKER_DISABLED:-no}"
-if [[ "$DOCKER_DISABLED" != "yes" ]];then
-    DOCKER_DISABLED=""
-fi
-DOCKER_NETWORK_HOST_IF="${DOCKER_NETWORK_HOST_IF:-eth0}"
-DOCKER_NETWORK_IF="${DOCKER_NETWORK_IF:-docker0}"
-DOCKER_NETWORK_GATEWAY="${DOCKER_NETWORK_GATEWAY:-"172.17.42.1"}"
-DOCKER_NETWORK="${DOCKER_NETWORK:-"172.17.0.0"}"
-DOCKER_NETWORK_MASK="${DOCKER_NETWORK_MASK:-"255.255.0.0"}"
-DOCKER_NETWORK_MASK_NUM="${DOCKER_NETWORK_MASK_NUM:-"16"}"
-restart_marker=/tmp/vagrant_provision_needs_restart
+set_vars() {
+    ROOT="/"
+    CONF_ROOT="${CONF_ROOT:-"${ROOT}etc"}"
+    PREFIX="${PREFIX:-"${ROOT}srv"}"
+    SALT_ROOT="${SALT_ROOT:-"$PREFIX/salt"}"
+    MASTERSALT_ROOT="${MASTERSALT_ROOT:-"$PREFIX/mastersalt"}"
+    # source a maybe existing settings file
+    SETTINGS="${SETTINGS:-"${ROOT}root/vagrant/provision_settings.sh"}"
+    if [[ -f "$SETTINGS" ]];then
+        output " [*] Loading custom settings in $SETTINGS"
+        . "$SETTINGS"
+    fi
+    MS="$SALT_ROOT/makina-states"
+    MMS="$MASTERSALT_ROOT/makina-states"
+    VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
+    VBOX_ADD_VER="4.2.16"
 
-# disable some useless and harmfull services
-CHRONO="$(date "+%F_%H-%M-%S")"
+    # Markers must not be on a shared folder for a new VM to be reprovisionned correctly
+    VENV_PATH="${ROOT}salt-venv"
+    MARKERS="${MARKERS:-"${ROOT}root/vagrant/markers"}"
+    DNS_SERVER="${DNS_SERVER:-"8.8.8.8"}"
+    PREVIOUS_OFFICIAL_MIRROR="${PREVIOUS_OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
+    PREVIOUS_LOCAL_MIRROR="${PREVIOUS_LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
+    OFFICIAL_MIRROR="${OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
+    LOCAL_MIRROR="${LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
+    UBUNTU_RELEASE="${UBUNTU_RELEASE:-"raring"}"
+    UBUNTU_NEXT_RELEASE="${UBUNTU_NEXT_RELEASE:-"saucy"}"
+    DOCKER_DISABLED="${DOCKER_DISABLED:-no}"
+    if [[ "$DOCKER_DISABLED" != "yes" ]];then
+        DOCKER_DISABLED=""
+    fi
+    DOCKER_NETWORK_HOST_IF="${DOCKER_NETWORK_HOST_IF:-eth0}"
+    DOCKER_NETWORK_IF="${DOCKER_NETWORK_IF:-docker0}"
+    DOCKER_NETWORK_GATEWAY="${DOCKER_NETWORK_GATEWAY:-"172.17.42.1"}"
+    DOCKER_NETWORK="${DOCKER_NETWORK:-"172.17.0.0"}"
+    DOCKER_NETWORK_MASK="${DOCKER_NETWORK_MASK:-"255.255.0.0"}"
+    DOCKER_NETWORK_MASK_NUM="${DOCKER_NETWORK_MASK_NUM:-"16"}"
+    restart_marker=/tmp/vagrant_provision_needs_restart
 
-detect_os
+    # disable some useless and harmfull services
+    CHRONO="$(date "+%F_%H-%M-%S")"
 
-# order is important
-LXC_PKGS="lxc apparmor apparmor-profiles"
-KERNEL_PKGS="linux-source linux-image-generic linux-headers-generic linux-image-extra-virtual"
-VB_PKGS="virtualbox virtualbox-dkms virtualbox-source virtualbox-qt"
-VB_PKGS="$VB_PKGS virtualbox-guest-additions-iso virtualbox-guest-dkms virtualbox-guest-source"
-VB_PKGS="$VB_PKGS virtualbox-guest-utils virtualbox-guest-x11 virtualbox-guest-dkms"
-kernel_marker="$MARKERS/provision_step_kernel${UBUNTU_NEXT_RELEASE}_done"
-lxc_marker="$MARKERS/vbox_lxc_from_${UBUNTU_NEXT_RELEASE}.ok"
-vbox_marker="$MARKERS/vbox_vbox_from_${UBUNTU_NEXT_RELEASE}.ok"
-mirror_marker="$MARKERS/vbox_pkg_2_init_repos_${OFFICIAL_MIRROR//\//-}_${LOCAL_MIRROR//\//-}_${PREVIOUS_LOCAL_MIRROR//\//-}"
-NEED_RESTART=""
-export DEBIAN_FRONTEND="noninteractive"
-# escape to 5 "antislash"
-# http://www./#foo -> http:\/\/www\./\#foo
-RE_PREVIOUS_OFFICIAL_MIRROR="$(echo "${PREVIOUS_OFFICIAL_MIRROR}" | sed -re "s/([.#/])/\\\\\1/g")"
-RE_PREVIOUS_LOCAL_MIRROR="$(echo "${PREVIOUS_LOCAL_MIRROR}"       | sed -re "s/([.#/])/\\\\\1/g")"
-RE_OFFICIAL_MIRROR="$(echo "${OFFICIAL_MIRROR}"                   | sed -re "s/([.#/])/\\\\\1/g")"
-RE_LOCAL_MIRROR="$(echo "${LOCAL_MIRROR}"                         | sed -re "s/([.#/])/\\\\\1/g")"
-RE_UBUNTU_RELEASE="$(echo "${UBUNTU_RELEASE}"                     | sed -re "s/([.#/])/\\\\\1/g")"
-src_l="/etc/apt/sources.list"
-bootsalt_marker="$MARKERS/salt_bootstrap_done"
+    detect_os
+
+    # order is important
+    LXC_PKGS="lxc apparmor apparmor-profiles"
+    KERNEL_PKGS="linux-source linux-image-generic linux-headers-generic linux-image-extra-virtual"
+    VB_PKGS="virtualbox virtualbox-dkms virtualbox-source virtualbox-qt"
+    VB_PKGS="$VB_PKGS virtualbox-guest-additions-iso virtualbox-guest-dkms virtualbox-guest-source"
+    VB_PKGS="$VB_PKGS virtualbox-guest-utils virtualbox-guest-x11 virtualbox-guest-dkms"
+    kernel_marker="$MARKERS/provision_step_kernel${UBUNTU_NEXT_RELEASE}_done"
+    lxc_marker="$MARKERS/vbox_lxc_from_${UBUNTU_NEXT_RELEASE}.ok"
+    vbox_marker="$MARKERS/vbox_vbox_from_${UBUNTU_NEXT_RELEASE}.ok"
+    mirror_marker="$MARKERS/vbox_pkg_2_init_repos_${OFFICIAL_MIRROR//\//-}_${LOCAL_MIRROR//\//-}_${PREVIOUS_LOCAL_MIRROR//\//-}"
+    export_marker="$MARKERS/exported"
+    NEED_RESTART=""
+    export DEBIAN_FRONTEND="noninteractive"
+    # escape to 5 "antislash"
+    # http://www./#foo -> http:\/\/www\./\#foo
+    RE_PREVIOUS_OFFICIAL_MIRROR="$(echo "${PREVIOUS_OFFICIAL_MIRROR}" | sed -re "s/([.#/])/\\\\\1/g")"
+    RE_PREVIOUS_LOCAL_MIRROR="$(echo "${PREVIOUS_LOCAL_MIRROR}"       | sed -re "s/([.#/])/\\\\\1/g")"
+    RE_OFFICIAL_MIRROR="$(echo "${OFFICIAL_MIRROR}"                   | sed -re "s/([.#/])/\\\\\1/g")"
+    RE_LOCAL_MIRROR="$(echo "${LOCAL_MIRROR}"                         | sed -re "s/([.#/])/\\\\\1/g")"
+    RE_UBUNTU_RELEASE="$(echo "${UBUNTU_RELEASE}"                     | sed -re "s/([.#/])/\\\\\1/g")"
+    src_l="/etc/apt/sources.list"
+    bootsalt_marker="$MARKERS/salt_bootstrap_done"
+}
 
 ready_to_run() {
     output " [*] VM is now ready for './manage.sh ssh' or other usages..."
     output " ------------------------------- [ OK] -----------------------------------------"
-    output " 'Once connected as root in the vm with \"vagrant ssh\" and \"sudo su -\""
+    output " Once connected as root in the vm with \"./manage.sh ssh\" and \"sudo su -\""
     output "   * You can upgrade all your projects with \"salt-call [-l all] state.highstate\""
     output "   * You can run one specific state with \"salt-call [-l all] state.sls name-of-state\""
-    output " 'Stop vm with './manage.sh down', connect it with './manage.sh ssh'"
+    output " If you want to share this wm, use ./manage.sh export | import"
+    output " Stop vm with './manage.sh down', connect it with './manage.sh ssh'"
 }
 
 deactivate_ifup_debugging() {
@@ -289,6 +298,12 @@ cleanup_restart_marker() {
 
 configure_network() {
     output " [*] Temporary DNs overrides in /etc/resolv.conf : ${DNS_SERVER}, 8.8.8.8 & 4.4.4.4"
+    if [[ "$(egrep "\s+localhost" /etc/hosts|wc -l)" == "0" ]];then
+        # add localhost if missing
+        sed "/127.0.0.1/ {
+a 127.0.0.1 localhost
+}" -i /etc/hosts
+    fi
     # DNS TMP OVERRIDE
     cat > /etc/resolv.conf << DNSEOF
 nameserver ${DNS_SERVER}
@@ -306,7 +321,7 @@ configure_docker_network() {
     #activate_ifup_debugging
     lazy_apt_get_install git git-core bridge-utils
 
-    if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];then
+    if [[ "$(egrep "^source.*docker0" /etc/network/interfaces|wc -l)" == "0" ]];then
         echo>>/etc/network/interfaces
         touch $if_conf
         echo "# configure dockers">>/etc/network/interfaces
@@ -366,7 +381,7 @@ EOF
 
 initial_upgrade() {
     marker="$MARKERS/vbox_init_global_upgrade"
-    if [[ ! -e "$marker" ]];then
+    if [[ ! -e "$marker" ]] || [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
         output " [*] Upgrading base image"
         if [[ -n "$IS_DEBIAN_LIKE" ]];then
             output " [*] apt-get upgrade & dist-upgrade"
@@ -463,10 +478,10 @@ install_or_refresh_makina_states() {
         run_boot_salt
     else
         if [[ ! -e "$bootsalt_marker" ]];then
-            bs_yellow_log " [*] Warning, we are not online, and thus boot-salt can't be runned"
+            output " [*] Warning, we are not online, and thus boot-salt can't be runned"
             exit -1
         else
-            bs_yellow_log " [*] Warning, we are not online, not refreshing makina-states!"
+            output " [*] Warning, we are not online, not refreshing makina-states!"
         fi
     fi
 }
@@ -488,6 +503,7 @@ fix_apt()   {
 }
 
 cleanup_space() {
+    sync
     if [[ -n "$IS_DEBIAN_LIKE" ]];then
         # dropeed by makina-states.nodetypes.vagrantvm
         /sbin/system-cleanup.sh
@@ -512,6 +528,9 @@ disable_base_box_services() {
                 output " [*] Disabling $i"
                 service $i stop
                 update-rc.d -f $i remove
+                # seems that some package updates are re-enabling it
+                # enforce inactivation
+                echo "START=no" > /etc/default/$i
             fi
         done
         touch "$marker"
@@ -530,7 +549,7 @@ migrate_old_stuff() {
 
 cleanup_keys() {
     lazy_apt_get_install rsync
-    for user_home in $(awk -F: -v v="$user" '{if ($6!="") print $1 ":" $6}' /etc/passwd);do
+    for user_home in $(awk -F: '{if ($6!="") print $1 ":" $6}' /etc/passwd);do
         user="$(echo $user_home|awk -F: '{print $1}')"
         home="$(echo $user_home|awk -F: '{print $2}')"
         sshf="$home/.ssh"
@@ -560,7 +579,7 @@ install_keys() {
             rsync\
                 -a\
                 --exclude=authorized_keys* \
-                /mnt/parent_home/.ssh/ "$home/.ssh/"
+                /mnt/parent_ssh/ "$home/.ssh/"
             for i in /home/vagrant/.ssh/author*;do
                 dest=$home/.ssh/$(basename $i)
                 if [[ "$i" != "$dest" ]];then
@@ -573,8 +592,82 @@ install_keys() {
     done
 }
 
+cleanup_salt() {
+    output " [*] Resetting all salt configuration information"
+    rm -f /srv/*pillar/{mastersalt,salt}.sls
+    rm -f /etc/*salt/minion_id "$bootsalt_marker"
+    find /etc/*salt/pki -type f -delete
+    if [[ -e /srv/pillar/top.sls ]];then
+        sed -re /"\s*- salt/ d" -i /srv/pillar/top.sls
+    fi
+    if [[ -e /srv/mastersalt-pillar/top.sls ]];then
+        sed -re /"\s*- mastersalt/ d" -i /srv/mastersalt-pillar/top.sls
+    fi
+}
+
+mark_export() {
+    output " [*] Cleaning and marking vm as exported"
+    cleanup_keys
+    # cleanup_salt
+    touch  "$export_marker"
+}
+
+unmark_exported() {
+    output " [*] Cleaning and unmarking vm as exported"
+    rm -f  "$export_marker"
+}
+
+kill_pids(){
+    for i in $@;do
+        if [[ -n $i ]];then
+            kill -9 $i
+        fi
+    done
+}
+
+handle_export() {
+    if [[ -e "$export_marker" ]];then
+        output " [*] VM export detected, resetting some stuff"
+        # reset salt minion id and perms
+        for i in mastersalt salt;do
+            for j in minion master syndic;do
+                service "${i}-${j}" stop &> /dev/null
+                kill_pids $(ps aux|grep "${i}-${j}"|awk '{print $2}') &> /dev/null
+            done
+        done
+        cleanup_salt
+        # no auto update unless configured
+        if [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
+            export SALT_BOOT_SKIP_CHECKOUTS=""
+            export SALT_BOOT_SKIP_HIGHSTATES=""
+        else
+            export SALT_BOOT_SKIP_CHECKOUTS=1
+            export SALT_BOOT_SKIP_HIGHSTATES=1
+
+        fi
+        # remove vagrant conf as it can contain doublons on first load
+        sed -ne "/VAGRANT-BEGIN/,\$!p" /etc/network/interfaces > /etc/network/interfaces.buf
+        if [[ "$(grep lo /etc/network/interfaces|grep -v grep|wc -l)" != "0" ]];then
+            cp -f /etc/network/interfaces.buf /etc/network/interfaces
+            rm -f /etc/network/interfaces.buf
+        fi
+        unmark_exported
+    fi
+
+
+}
+
+get_devhost_num() {
+    echo $DEVHOST_NUM
+}
+
 if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
+    output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
+    output " [*] You can safely relaunch this script from within the vm"
+    set_vars
+    #
     install_keys
+    handle_export
     create_base_dirs
     disable_base_box_services
     cleanup_restart_marker
@@ -586,5 +679,6 @@ if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
     cleanup_space
     check_restart
     ready_to_run
+    sync
 fi
 # vim:set et sts=4 ts=4 tw=0:

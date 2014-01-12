@@ -29,13 +29,14 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-cd $(dirname $0)
-W=$PWD
+CURPATH=$(dirname "$0")
+cd "$CURPATH"
+CURPATH=$PWD
 SUITE=${SUITE:-wheezy}
 MIRROR=${MIRROR:-http://cdn.debian.net/debian}
 PACKAGES="$PACKAGES ssh vim ntp snmpd screen"
 PACKAGES="$PACKAGES vim logrotate sudo syslog-ng"
-cache="$W/cache"
+cache="$CURPATH/cache"
 export DEBIAN_FRONTEND=noninteractive
 
 configure_debian()
