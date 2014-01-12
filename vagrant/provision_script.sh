@@ -594,8 +594,10 @@ install_keys() {
 
 cleanup_salt() {
     output " [*] Resetting all salt configuration information"
-    rm -f /srv/*pillar/{mastersalt,salt}.sls
-    rm -f /etc/*salt/minion_id "$bootsalt_marker"
+    rm -rvf /var/cache/salt/* /var/cache/mastersalt/* 2> /dev/null
+    rm -rvf /var/log/salt/* /var/log/mastersalt/* 2> /dev/null
+    rm -vf /srv/*pillar/{mastersalt,salt}.sls
+    rm -vf /etc/*salt/minion_id "$bootsalt_marker"
     find /etc/*salt/pki -type f -delete
     if [[ -e /srv/pillar/top.sls ]];then
         sed -re /"\s*- salt/ d" -i /srv/pillar/top.sls
@@ -608,6 +610,7 @@ cleanup_salt() {
 mark_export() {
     output " [*] Cleaning and marking vm as exported"
     cleanup_keys
+    cleanup_misc
     # cleanup_salt
     touch  "$export_marker"
 }
@@ -625,6 +628,17 @@ kill_pids(){
     done
 }
 
+cleanup_misc() {
+    rm -vf /etc/devhosts
+    for user_home in $(awk -F: '{if ($6!="") print $1 ":" $6}' /etc/passwd);do
+        user="$(echo $user_home|awk -F: '{print $1}')"
+        home="$(echo $user_home|awk -F: '{print $2}')"
+        if [[ -e "$home/.bash_history" ]];then
+            rm -vf $home/.bash_history
+        fi
+    done
+}
+
 handle_export() {
     if [[ -e "$export_marker" ]];then
         output " [*] VM export detected, resetting some stuff"
@@ -635,6 +649,7 @@ handle_export() {
                 kill_pids $(ps aux|grep "${i}-${j}"|awk '{print $2}') &> /dev/null
             done
         done
+        cleanup_misc
         cleanup_salt
         # no auto update unless configured
         if [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
@@ -653,8 +668,6 @@ handle_export() {
         fi
         unmark_exported
     fi
-
-
 }
 
 get_devhost_num() {
