@@ -470,7 +470,7 @@ release() {
     cd "$VMPATH"
     log "Releasing $rname" &&\
         if [[ ! -f "$rarc" ]];then
-            export_ "$rarc" nozerofree
+            export_ "$rname" nozerofree
         fi && \
         log "Running scp \"$rarc\" $SFTP_URL/\"$rarc\"" &&\
         scp "$rarc" $SFTP_URL/"$rarc"
