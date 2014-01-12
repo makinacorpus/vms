@@ -384,6 +384,7 @@ ssh() {
 
 pre_down() {
     umount_vm
+    internal_ssh sudo sync
 }
 
 down() {

@@ -503,6 +503,7 @@ fix_apt()   {
 }
 
 cleanup_space() {
+    sync
     if [[ -n "$IS_DEBIAN_LIKE" ]];then
         # dropeed by makina-states.nodetypes.vagrantvm
         /sbin/system-cleanup.sh
@@ -616,13 +617,22 @@ unmark_exported() {
     rm -f  "$export_marker"
 }
 
+kill_pids(){
+    for i in $@;do
+        if [[ -n $i ]];then
+            kill -9 $i
+        fi
+    done
+}
+
 handle_export() {
     if [[ -e "$export_marker" ]];then
         output " [*] VM export detected, resetting some stuff"
         # reset salt minion id and perms
         for i in mastersalt salt;do
             for j in minion master syndic;do
-                ps aux|grep "${i}-${j}"|awk '{print $2}'|xargs kill -9
+                service "${i}-${j}" stop &> /dev/null
+                kill_pids $(ps aux|grep "${i}-${j}"|awk '{print $2}') &> /dev/null
             done
         done
         cleanup_salt
@@ -669,5 +679,6 @@ if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
     cleanup_space
     check_restart
     ready_to_run
+    sync
 fi
 # vim:set et sts=4 ts=4 tw=0:
