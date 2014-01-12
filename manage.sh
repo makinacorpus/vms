@@ -479,7 +479,7 @@ release() {
         log "Error while uploading images"
         exit $lret
     else
-        echo $rev > "$rfile"
+        echo "$rver" > "$rfile"
         git add "$rfile"
         git commit -am "RELEASE: $rname" && git push
         log "End of release"
