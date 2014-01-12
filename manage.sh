@@ -42,7 +42,7 @@ DEFAULT_DNS_BLOCKFILE="$VM/etc/devhosts"
 DEFAULT_HOSTS_FILE="/etc/hosts"
 NOINPUT=""
 PROJECT_PATH="project/makinacorpus/vms/devhost"
-BASE_URL="${DEVHOST_BASE_URL:-"http://downloads.sourceforge.net/${PROJECT_PATH}"}"
+BASE_URL="${DEVHOST_BASE_URL:-"https://downloads.sourceforge.net/${PROJECT_PATH}"}"
 SFTP_URL=frs.sourceforge.net:/home/frs/$PROJECT_PATH
 PROVISION_WRAPPER="/vagrant/vagrant/provision_script_wrapper.sh"
 EXPORT_VAGRANTFILE="Vagrantfile-export"
@@ -798,18 +798,17 @@ download() {
     local wget=""
     local url="$1"
     local fname="${2:-${basename $url}}"
+    local G_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.22 (KHTML, like Gecko) Ubuntu Chromium/25.0.1364.160 Chrome/25.0.1364.160 Safari/537.22"
     # freebsd
-    if [[ $(uname) == "FreeBSD" ]];then
-        if [[ -e $(which fetch 2>&1) ]];then
-            wget="$(which fetch) -pra -o"
-        fi
-    #another macosx hack
+    if [[ $(uname) == "FreeBSD" ]] && [[ -e $(which fetch 2>&1) ]];then
+        $(which fetch) -pra -o $fname $url
+    # wget
     elif [[ -e $(which wget) ]];then
-        wget="$(which wget) --no-check-certificate  -c -O"
+        $(which wget) --no-check-certificate -U "${G_UA}" -c -O $fname $url
+    # curl
     elif [[ -e $(which curl 2>&1) ]];then
-        wget="$(which curl) --insecure -C - -a -o"
+        $(which curl) -A "${G_UA}" --insecure -C - -a -o $fname $url
     fi
-    $wget "$fname" "$url"
     if [[ "$?" != "0" ]];then
         log "Error downloading $url -> $fname"
         exit 1
@@ -834,7 +833,13 @@ import() {
         if [[ "$image" == http* ]];then
             local url="$image"
             image="$(basename $image)"
-            download "$url" "$image"
+            if [[ ! -f "$image" ]];then
+                download "$url" "$image"
+            else
+                log "$image already exists, "
+                log "   delete this archive, if you want to redownload"
+                log "   from $url"
+            fi
         fi
         if [[ "$image" == *".tar.bz2" ]] && [[ -e "$image" ]];then
             bname="$(basename "$image" .tar.bz2)"
