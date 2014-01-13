@@ -483,7 +483,9 @@ release() {
     else
         echo "$rver" > "$rfile"
         git add "$rfile"
-        git commit -am "RELEASE: $rname" && git push
+        git commit -am "RELEASE: $rname" &&\
+            log "You ll need to git push when you ll have test an init"
+            log "somewhere and the download works and the sf.net mirrors are well synchron,ized"
         log "End of release"
     fi
 
