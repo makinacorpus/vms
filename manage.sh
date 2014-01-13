@@ -800,6 +800,7 @@ download() {
     local wget=""
     local url="$1"
     local fname="${2:-${basename $url}}"
+    # UA do not work in fact, redirect loop and empty file
     local G_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.22 (KHTML, like Gecko) Ubuntu Chromium/25.0.1364.160 Chrome/25.0.1364.160 Safari/537.22"
     # freebsd
     if [[ $(uname) == "FreeBSD" ]] && [[ -e $(which fetch 2>&1) ]];then
@@ -814,14 +815,16 @@ download() {
         if [[ -n $MANAGE_DEBUG  ]];then
             set -x
         fi
-        $(which wget) --no-check-certificate -U "${G_UA}" -c -O $fname $url
+        #$(which wget) --no-check-certificate -U "${G_UA}" -c -O $fname $url
+        $(which wget) --no-check-certificate -c -O $fname $url
         set +x &> /dev/null
     # curl
     elif [[ -e $(which curl 2>&1) ]];then
         if [[ -n $MANAGE_DEBUG  ]];then
             set -x
         fi
-        $(which curl) -A "${G_UA}" --insecure -C - -a -o $fname $url
+        #$(which curl) -A "${G_UA}" --insecure -C - -a -o $fname $url
+        $(which curl) --insecure -C - -a -o $fname $url
         set +x &> /dev/null
     fi
     if [[ "$?" != "0" ]];then
