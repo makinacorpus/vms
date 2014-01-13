@@ -305,12 +305,12 @@ suspend() {
 
 internal_ssh() {
     cd "${VMPATH}"
-    $(which ssh) -F "$internal_ssh_config" "$(get_ssh_host $internal_ssh_config)" $@
+    $(which ssh) -F "$internal_ssh_config" "$(get_ssh_host "$internal_ssh_config")" $@
 }
 
 ssh_() {
     cd "${VMPATH}"
-    $(which ssh) -F "$ssh_config" "$(get_ssh_host $ssh_config)" $@
+    $(which ssh) -F "$ssh_config" "$(get_ssh_host "$ssh_config")" $@
 }
 
 get_devhost_num() {
@@ -527,7 +527,7 @@ is_mounted() {
 }
 
 get_ssh_host() {
-    grep "Host\ " $1 |awk '{print $2}'
+    grep "Host\ " "$1" |awk '{print $2}'
 }
 
 mount_vm() {
@@ -543,7 +543,7 @@ mount_vm() {
             mkdir "$VM"
         fi
         ssh_pre_reqs
-        sshhost=$(get_ssh_host $ssh_config)
+        sshhost=$(get_ssh_host "$ssh_config")
         log "Mounting $VM -> devhost($sshhost):/"
         sshfs -F "$ssh_config" root@${sshhost}:/ -o nonempty "$VM"
     fi
