@@ -306,12 +306,24 @@ suspend() {
 
 internal_ssh() {
     cd "${VMPATH}"
-    $(which ssh) -F "$internal_ssh_config" "$(get_ssh_host "$internal_ssh_config")" $@
+    local sshhost="$(get_ssh_host "$internal_ssh_config")"
+    if [[ -n $sshhost ]];then
+        $(which ssh) -F "$internal_ssh_config" "$sshhost" $@
+    else
+        log "Cant internal ssh, empty host"
+        exit 1
+    fi
 }
 
 ssh_() {
     cd "${VMPATH}"
-    $(which ssh) -F "$ssh_config" "$(get_ssh_host "$ssh_config")" $@
+    local sshhost="$(get_ssh_host "$ssh_config")"
+    if [[ -n $sshhost ]];then
+        $(which ssh) -F "$ssh_config" "$sshhost" $@
+    else
+        log "Cant ssh, empty host"
+        exit 1
+    fi
 }
 
 get_devhost_num() {
@@ -530,7 +542,15 @@ is_mounted() {
 }
 
 get_ssh_host() {
-    grep "Host\ " "$1" |awk '{print $2}'
+    sshconfig="$1"
+    if [[ ! -e "$sshconfig" ]];then
+        gen_ssh_config
+    fi
+    if [[ ! -e "$sshconfig" ]];then
+        log "Invalid $sshconfig, does not exist"
+        exit 1
+    fi
+    grep "Host\ " "$sshconfig" |awk '{print $2}' 2>/dev/null
 }
 
 mount_vm() {
@@ -546,9 +566,14 @@ mount_vm() {
             mkdir "$VM"
         fi
         ssh_pre_reqs
-        sshhost=$(get_ssh_host "$ssh_config")
-        log "Mounting devhost($sshhost):/ --sshfs--> $VM"
-        sshfs -F "$ssh_config" root@${sshhost}:/ -o nonempty "$VM"
+        local sshhost=$(get_ssh_host "$ssh_config")
+        if [[   -n $sshhost ]];then
+            log "Mounting devhost($sshhost):/ --sshfs--> $VM"
+            sshfs -F "$ssh_config" root@${sshhost}:/ -o nonempty "$VM"
+        else
+            log "Cant' mount devhost, empty ssh host"
+            exit -1
+        fi
     fi
 }
 
@@ -717,7 +742,6 @@ export_() {
     local abox="$(get_devhost_archive_name $bname)"
     local nincludes=""
     local includes=""
-    local gtouched=""
     local tar_preopts="cjvf"
     local tar_postopts="--numeric-owner"
     #
@@ -760,8 +784,7 @@ export_() {
             fi &&\
             internal_ssh "sudo $PROVISION_WRAPPER mark_export"
             down
-            sed -i -e "s/config\.vm\.box\s*=.*/config.vm.box = \"$bname\"/g" Vagrantfile &&\
-            gtouched="1" &&\
+            export DEVHOST_FORCED_BOX_NAME="$bname" &&\
             log "Be patient, exporting now" &&\
             vagrant package --vagrantfile "$packaged_vagrantfile" --output "$box" 2> /dev/null
             rm -f "$EXPORT_VAGRANTFILE"*
@@ -785,10 +808,6 @@ export_() {
         log "${VMPATH}/$abox, delete it to redo"
     fi &&\
     local lret=$?
-    # reseting Vagrantfile in any case
-    if [[ -n $gtouched ]];then
-        git checkout Vagrantfile 2>/dev/null
-    fi
     if [[ $lret != 0 ]];then
         log "Error while exporting"
         exit $lret
@@ -838,7 +857,6 @@ download() {
 import() {
     NO_SYNC_HOSTS=1
     cd "${VMPATH}"
-    local gtouched=""
     local image="${1:-$(get_devhost_archive_name $(get_release_name))}"
     local tar_preopts="-xjvpf"
     local tar_postopts="--numeric-owner"
@@ -902,17 +920,12 @@ import() {
             fi
         fi
         log "Initialiasing host from $box" &&\
-            sed -i -e "s/config\.vm\.box\s*=.*/config.vm.box = \"$bname\"/g" Vagrantfile &&\
+            export DEVHOST_FORCED_BOX_NAME="$bname" &&\
             sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
             sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb
-        gtouched="1"
         # load initial box image & do initial provisionning
         up && lret="0"
         down
-        # reseting Vagrantfile in any case
-        if [[ -n $gtouched ]];then
-            git checkout Vagrantfile 2>/dev/null
-        fi
         if [[ "$lret" != "0" ]];then
             log "Error while importing $box"
             exit $lret

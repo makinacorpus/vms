@@ -255,6 +255,8 @@ if defined?(BOX_NAME)
 else
     BOX_NAME=UBUNTU_RELEASE+"64"
 end
+# Can be overidden by env. (used by manage.sh import/export)
+REAL_BOX_NAME = ENV.fetch("DEVHOST_FORCED_BOX_NAME", BOX_NAME).strip()
 if defined?(BOX_URI)
     vagrant_config_lines << "BOX_URI=\"#{BOX_URI}\""
 else
@@ -269,7 +271,7 @@ VAGRANTFILE_API_VERSION = "2"
 #Vagrant::Config.run do |config|
 Vagrant.configure("2") do |config|
   # Setup virtual machine box. This VM configuration code is always executed.
-  config.vm.box = BOX_NAME
+  config.vm.box = REAL_BOX_NAME
   config.vm.box_url = BOX_URI
   config.vm.host_name = VM_HOSTNAME
   config.vm.provider "virtualbox" do |vb|
@@ -523,6 +525,7 @@ DEVHOST_HAS_NFS="#{DEVHOST_HAS_NFS}"
 DEVHOST_AUTO_UPDATE="#{DEVHOST_AUTO_UPDATE}"
 DNS_SERVER="#{DNS_SERVER}"
 DEVHOST_NUM="#{DEVHOST_NUM}"
+DEVHOST_HOSTNAME="#{VM_HOSTNAME}"
 PREVIOUS_OFFICIAL_MIRROR="#{PREVIOUS_OFFICIAL_MIRROR}"
 PREVIOUS_LOCAL_MIRROR="#{PREVIOUS_LOCAL_MIRROR}"
 OFFICIAL_MIRROR="#{OFFICIAL_MIRROR}"
