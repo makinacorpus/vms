@@ -49,6 +49,10 @@ end
 #    CPUS="1"
 #    MAX_CPU_USAGE_PERCENT="25"
 #    DNS_SERVER="8.8.8.8"
+#    # set it to true to replace default Virtualbox shares
+#    # by nfs shares, if you have problems with guests additions
+#    # for example
+#    DEVHOST_HAS_NFS=false
 # end
 # -------------o<---------------
 
@@ -274,8 +278,15 @@ Vagrant.configure("2") do |config|
 
   # -- VirtualBox Guest Additions ----------
   if Vagrant.has_plugin?('vbguest management')
-    config.vbguest.auto_update = AUTO_UPDATE_VBOXGUEST_ADD
-    config.vbguest.auto_reboot = true
+    if DEVHOST_HAS_NFS
+        config.vbguest.auto_update = false
+        config.vbguest.auto_reboot = false
+        config.vbguest.no_install = true
+    else
+        config.vbguest.auto_update = AUTO_UPDATE_VBOXGUEST_ADD
+        config.vbguest.auto_reboot = true
+        config.vbguest.no_install = false
+    end
   end
 
   #------------- NETWORKING ----------------
