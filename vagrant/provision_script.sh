@@ -667,10 +667,13 @@ reset_hostname() {
 }
 
 detected_old_changesets() {
+    # bugged releases, list here old makinastates git commit ids to mark as to
+    # upgrade on import
     echo "723f485750bff7f34835755030b790f046859fc5"
 }
 
 git_changeset() {
+    # current working directory git commit id
     git log|head -n1|awk '{print $2}'
 }
 
@@ -703,6 +706,8 @@ handle_export() {
             cp -f /etc/network/interfaces.buf /etc/network/interfaces
             rm -f /etc/network/interfaces.buf
         fi
+        # on import, check that the bundled makina-states is not marked as
+        # to be upgraded, and in case upgrade it
         if [[ $(test_online) == "0" ]];then
             for i in /srv/{salt,mastersalt}/makina-states;do
                 if [[ -e "$i" ]];then
