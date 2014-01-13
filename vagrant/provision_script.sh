@@ -688,7 +688,6 @@ handle_export() {
                 kill_pids $(ps aux|grep "${i}-${j}"|awk '{print $2}') &> /dev/null
             done
         done
-        cleanup_misc
         cleanup_salt
         # no auto update unless configured
         if [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
