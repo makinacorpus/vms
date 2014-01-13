@@ -666,6 +666,15 @@ reset_hostname() {
     fi
 }
 
+detected_old_changesets() {
+    echo "723f485750bff7f34835755030b790f046859fc5"
+}
+
+git_changeset() {
+    git log|head -n1|awk '{print $2}'
+}
+
+
 handle_export() {
     if [[ -e "$export_marker" ]];then
         output " [*] VM export detected, resetting some stuff"
@@ -693,6 +702,20 @@ handle_export() {
         if [[ "$(grep lo /etc/network/interfaces|grep -v grep|wc -l)" != "0" ]];then
             cp -f /etc/network/interfaces.buf /etc/network/interfaces
             rm -f /etc/network/interfaces.buf
+        fi
+        if [[ $(test_online) == "0" ]];then
+            for i in /srv/{salt,mastersalt}/makina-states;do
+                if [[ -e "$i" ]];then
+                    cd "$i"
+                    if [[ $(detected_old_changesets) == *"$(git_changeset)"* ]];then
+                        output " [*] Upgrade makina-states detected, going to pull the master"
+                        git pull
+                    fi
+                    cd - &>/dev/null
+                fi
+            done
+        else
+            output " [*] Warning, cant update makina-states, offline"
         fi
         unmark_exported
     fi
