@@ -33,6 +33,7 @@ log(){
 THIS="$0"
 where="${VAGRANT_VM_PATH:-$(dirname "$THIS")}"
 cd "${where}" || exit 1
+MANAGE_DEBUG="1"
 RSYNC=$(which rsync)
 VMPATH=$PWD
 internal_ssh_config=${VMPATH}/.vagrant/internal-ssh-config
@@ -482,7 +483,9 @@ release() {
     else
         echo "$rver" > "$rfile"
         git add "$rfile"
-        git commit -am "RELEASE: $rname" && git push
+        git commit -am "RELEASE: $rname" &&\
+            log "You ll need to git push when you ll have test an init"
+            log "somewhere and the download works and the sf.net mirrors are well synchron,ized"
         log "End of release"
     fi
 
@@ -799,16 +802,32 @@ download() {
     local wget=""
     local url="$1"
     local fname="${2:-${basename $url}}"
+    # UA do not work in fact, redirect loop and empty file
     local G_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.22 (KHTML, like Gecko) Ubuntu Chromium/25.0.1364.160 Chrome/25.0.1364.160 Safari/537.22"
     # freebsd
     if [[ $(uname) == "FreeBSD" ]] && [[ -e $(which fetch 2>&1) ]];then
+        if [[ -n $MANAGE_DEBUG  ]];then
+            set -x
+        fi
         $(which fetch) -pra -o $fname $url
+        set +x &> /dev/null
     # wget
+
     elif [[ -e $(which wget) ]];then
-        $(which wget) --no-check-certificate -U "${G_UA}" -c -O $fname $url
+        if [[ -n $MANAGE_DEBUG  ]];then
+            set -x
+        fi
+        #$(which wget) --no-check-certificate -U "${G_UA}" -c -O $fname $url
+        $(which wget) --no-check-certificate -c -O $fname $url
+        set +x &> /dev/null
     # curl
     elif [[ -e $(which curl 2>&1) ]];then
-        $(which curl) -A "${G_UA}" --insecure -C - -a -o $fname $url
+        if [[ -n $MANAGE_DEBUG  ]];then
+            set -x
+        fi
+        #$(which curl) -A "${G_UA}" --insecure -C - -a -o $fname $url
+        $(which curl) --insecure -C - -a -o $fname $url
+        set +x &> /dev/null
     fi
     if [[ "$?" != "0" ]];then
         log "Error downloading $url -> $fname"
