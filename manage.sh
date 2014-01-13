@@ -547,7 +547,7 @@ mount_vm() {
         fi
         ssh_pre_reqs
         sshhost=$(get_ssh_host "$ssh_config")
-        log "Mounting $VM -> devhost($sshhost):/"
+        log "Mounting devhost($sshhost):/ --sshfs--> $VM"
         sshfs -F "$ssh_config" root@${sshhost}:/ -o nonempty "$VM"
     fi
 }
