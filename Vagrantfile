@@ -13,7 +13,8 @@ require 'rbconfig'
 CWD=File.dirname(__FILE__)
 VSETTINGS_N="vagrant_config"
 VSETTINGS_P=File.dirname(__FILE__)+"/"+VSETTINGS_N+".rb"
-devhost_debug=ENV.fetch("MAKINA_DEVHOST_DEBUG", "").strip()
+DEVHOST_DEBUG=ENV.fetch("DEVHOST_DEBUG", "").strip()
+devhost_debug=DEVHOST_DEBUG
 if devhost_debug.to_s.strip.length == 0
   devhost_debug=false
 else
@@ -521,6 +522,7 @@ if [[ ! -e "/vagrant/vagrant/provision_script.sh" ]];then
 fi
 EOF},
     %{cat > /root/vagrant/provision_settings.sh  << EOF
+DEVHOST_DEBUG="#{DEVHOST_DEBUG}"
 DEVHOST_HAS_NFS="#{DEVHOST_HAS_NFS}"
 DEVHOST_AUTO_UPDATE="#{DEVHOST_AUTO_UPDATE}"
 DNS_SERVER="#{DNS_SERVER}"

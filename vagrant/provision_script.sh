@@ -439,7 +439,7 @@ install_backports() {
 
 run_boot_salt() {
     bootsalt="$MS/_scripts/boot-salt.sh"
-    boot_args="-C -M -n vagrantvm"
+    boot_args="-C -M -n vagrantvm -m devhost${DEVHOST_NUM}"
     if [[ ! -e "$bootsalt_marker" ]];then
         boot_word="Bootstrap"
     else
@@ -458,7 +458,13 @@ run_boot_salt() {
     # for now we disable automatic updates when we have done at least one salt deployment
     #
     if [[ ! -e "$bootsalt_marker" ]];then
+        if [[ -n $DEVHOST_DEBUG ]];then
+            set -x
+        fi
         "$bootsalt" $boot_args && touch "$bootsalt_marker"
+        if [[ -n $DEVHOST_DEBUG ]];then
+            set +x
+        fi
     fi
     die_if_error
     . /etc/profile
@@ -681,6 +687,9 @@ git_changeset() {
 handle_export() {
     if [[ -e "$export_marker" ]];then
         output " [*] VM export detected, resetting some stuff"
+        if [[ -n $DEVHOST_DEBUG ]];then
+            set -x
+        fi
         # reset salt minion id and perms
         for i in mastersalt salt;do
             for j in minion master syndic;do
@@ -723,6 +732,9 @@ handle_export() {
             output " [*] Warning, cant update makina-states, offline"
         fi
         unmark_exported
+        if [[ -n $DEVHOST_DEBUG ]];then
+            set +x
+        fi
     fi
 }
 

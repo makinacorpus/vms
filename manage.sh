@@ -33,7 +33,10 @@ log(){
 THIS="$0"
 where="${VAGRANT_VM_PATH:-$(dirname "$THIS")}"
 cd "${where}" || exit 1
-MANAGE_DEBUG=""
+MANAGE_DEBUG="$MANAGE_DEBUG"
+if [[ -z $DEVHOST_DEBUG ]] && [[ -n $MANAGE_DEBUG ]];then
+    DEVHOST_DEBUG=$MANAGE_DEBUG
+fi
 RSYNC=$(which rsync)
 VMPATH=$PWD
 internal_ssh_config=${VMPATH}/.vagrant/internal-ssh-config
