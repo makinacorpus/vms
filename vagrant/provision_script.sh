@@ -709,7 +709,8 @@ handle_export() {
                     cd "$i"
                     if [[ $(detected_old_changesets) == *"$(git_changeset)"* ]];then
                         output " [*] Upgrade makina-states detected, going to pull the master"
-                        git pull
+                        git fetch origin
+                        git reset --hard origin/master
                     fi
                     cd - &>/dev/null
                 fi
