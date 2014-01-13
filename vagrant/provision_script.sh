@@ -214,7 +214,7 @@ lazy_apt_get_install() {
          fi
     done
     if [[ -n "$to_install" ]];then
-        log " [*] Installing $to_install"
+        output " [*] Installing $to_install"
         apt-get install -y --force-yes $to_install
     fi
 }
@@ -428,7 +428,7 @@ install_backports() {
         fi
         if [[ -z "$BEFORE_RARING" ]];then
             if [[ "$(is_apt_installed linux-image-extra-virtual)" != "yes" ]];then
-                log " [*] Installing linux-image-extra-virtual for AUFS support"
+                output " [*] Installing linux-image-extra-virtual for AUFS support"
                 lazy_apt_get_install linux-image-extra-virtual
                 touch $restart_marker
             fi
@@ -639,6 +639,33 @@ cleanup_misc() {
     done
 }
 
+reset_hostname() {
+    if [[ -n "$DEVHOST_HOSTNAME" ]];then
+        local fqdn="$DEVHOST_HOSTNAME"
+        local dn="$(echo "$DEVHOST_HOSTNAME"|awk -F\. '{print $1}')"
+        if [[ "$(hostname)" != "$dn" ]];then
+            output " [*] Reseting hostname: $dn"
+            hostname "$dn"
+        fi
+        if [[ "$(cat /etc/hostname &> /dev/null)" != "$dn" ]];then
+            output " [*] Reseting /etc/hostname: $dn"
+            echo "$dn">/etc/hostname
+        fi
+        if [[ "$(egrep "127\\..*$hostname" /etc/hosts 2> /dev/null)" != "$dn" ]];\
+        then
+            output " [*] Reset hostname to /etc/hosts"
+            cp -f /etc/hosts /etc/hosts.bak
+            echo "127.0.0.1 $dn $fqdn">/etc/hosts
+            cat /etc/hosts.bak>>/etc/hosts
+            echo "127.0.0.1 $dn $fqdn">>/etc/hosts
+            rm -f /etc/hosts.bak
+        fi
+        if [[ -e /etc/init/nscd.conf ]] || [[ -e /etc/init.d/nscd ]];then
+            service nscd restart
+        fi
+    fi
+}
+
 handle_export() {
     if [[ -e "$export_marker" ]];then
         output " [*] VM export detected, resetting some stuff"
@@ -661,6 +688,7 @@ handle_export() {
 
         fi
         # remove vagrant conf as it can contain doublons on first load
+        output " [*] Reset network interface file"
         sed -ne "/VAGRANT-BEGIN/,\$!p" /etc/network/interfaces > /etc/network/interfaces.buf
         if [[ "$(grep lo /etc/network/interfaces|grep -v grep|wc -l)" != "0" ]];then
             cp -f /etc/network/interfaces.buf /etc/network/interfaces
@@ -678,6 +706,7 @@ if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
     output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
     output " [*] You can safely relaunch this script from within the vm"
     set_vars
+    reset_hostname
     #
     install_keys
     handle_export
