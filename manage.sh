@@ -374,7 +374,10 @@ gen_ssh_config() {
     fi
     vagrant ssh-config 2>/dev/null > "$internal_ssh_config"
     # replace the ip by the hostonly interface one in our ssh wrappers
-    local hostip=$(internal_ssh ip addr show dev eth1 2> /dev/null|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
+    local hostip=$(internal_ssh ip addr show dev eth1 2> /dev/null)
+    if [[ -n $hostip ]];then
+        hostip=$(echo $hostip|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
+    fi
     local devhost_num="$(get_devhost_num)"
     if [[ -n $devhost_num ]];then
         sed -i "s/Host default/Host devhost${devhost_num}/g" "$internal_ssh_config"
