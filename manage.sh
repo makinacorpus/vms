@@ -30,6 +30,16 @@ log(){
     echo -e "${RED} [manage] ${@}${NORMAL}" 1>&2
 }
 
+unactive_echo (){
+    if [[ -n $MANAGE_DEBUG  ]];then
+        set +x
+    fi
+}
+
+active_echo (){
+    set -x
+}
+
 THIS="$0"
 where="${VAGRANT_VM_PATH:-$(dirname "$THIS")}"
 cd "${where}" || exit 1
@@ -273,7 +283,7 @@ test() {
         num="53"
     elif [[ "$name" == "precise" ]];then
         num="55"
-    elif [[ "$name" == "wheezy" ]];then
+    elif [[ "$dname" == "wheezy" ]];then
         num="56"
     else
         die "invalid test"
@@ -315,6 +325,7 @@ suspend() {
     vagrant suspend
 }
 
+
 internal_ssh() {
     cd "${VMPATH}"
     local sshhost="$(get_ssh_host "$internal_ssh_config")"
@@ -322,8 +333,11 @@ internal_ssh() {
         log " [*] missing $ssh_config"
         exit 1
     fi
+
     if [[ -n $sshhost ]];then
+        active_echo
         $(which ssh) -o ConnectTimeout=2 -F "$internal_ssh_config" "$sshhost" $@
+        unactive_echo
     else
         log "Cant internal ssh, empty host"
         exit 1
@@ -338,7 +352,9 @@ ssh_() {
         exit 1
     fi
     if [[ -n $sshhost ]];then
+        active_echo
         $(which ssh) -o ConnectTimeout=2 -F "$ssh_config" "$sshhost" $@
+        unactive_echo
     else
         log "Cant ssh, empty host"
         exit 1
@@ -372,6 +388,7 @@ gen_ssh_config() {
     if [[ ! -d .vagrant ]];then
         mkdir .vagrant
     fi
+    active_echo
     vagrant ssh-config 2>/dev/null > "$internal_ssh_config"
     # replace the ip by the hostonly interface one in our ssh wrappers
     local hostip=$(internal_ssh ip addr show dev eth1 2> /dev/null)
@@ -390,6 +407,7 @@ gen_ssh_config() {
         sed -i "s/HostName.*/HostName $hostip/g" "$ssh_config"
         sed -i "s/Port.*//g" "$ssh_config"
     fi
+    unactive_echo
 }
 cleanup_keys() {
     ssh_pre_reqs
