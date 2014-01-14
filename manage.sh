@@ -1058,7 +1058,7 @@ sync_hosts() {
     if [[ $? != 0 ]];then
         if [[ -z $NOINPUT ]];then
             diff -u "$hosts" "$lhosts"
-            log "Replace $hosts by $lhosts?"
+            log "Add content of $lhosts to $hosts?"
             log "[press y+ENTER, or CONTROL+C to abort]";read input
         fi
         if [[ -n "$NOINPUT" ]] || [[ "$input" == "y" ]];then
@@ -1099,11 +1099,13 @@ clonevm() {
     local OLDVMPATH="$VMPATH"
     local NEWVMPATH="$1"
     local import_uri="${2}"
-    cd "$VMPATH"||exit -1
-    reset
-    rsync -azv --exclude=VM --exclude="*.tar.bz2" ./ $1/
-    VMPATH="$1"
-    cd $VMPATH
+    if [[ -e "$NEWVMPATH" ]];then
+        log "Directory already exists, please delete it with rm -rf '$NEWVMPATH' or choose another directory"
+        exit 1
+    fi
+    rsync -azv --exclude=VM --exclude="*.tar.bz2" ./ "$NEWVMPATH/"
+    VMPATH="$NEWVMPATH"
+    cd $VMPATH || exit -1
     VMPATH=$(pwd)
     if [[ -n $MANAGE_DEBUG ]];then
         set -x
