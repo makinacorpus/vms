@@ -83,7 +83,7 @@ Typically on Debian and Ubuntu::
 	apt-get update
 	apt-get install virtualbox-4.3
 
-On MacOSX, Install `http://download.virtualbox.org/virtualbox/4.3.6/VirtualBox-4.3.6-91406-OSX.dmg`_
+On MacOSX, Install `<http://download.virtualbox.org/virtualbox/4.3.6/VirtualBox-4.3.6-91406-OSX.dmg>`_
 
 Vagrant
 +++++++
