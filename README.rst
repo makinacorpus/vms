@@ -72,7 +72,9 @@ We have improved performances by some techniques:
 
 Virtualbox
 ++++++++++
-Install Oracle Virtualbox at at least the **4.3** version
+Install Oracle Virtualbox at at least the **4.3** version and more generally the
+most up to date virtualbox release. Check `<https://www.virtualbox.org/>`_ for
+details.
 
 Typically on Debian and Ubuntu::
 
