@@ -226,19 +226,13 @@ DOCKER_NETWORK_MASK_NUM="24"
 
 # md5 based on currentpath
 # Name on your VirtualBox panel
-VIRTUALBOX_BASE_VM_NAME="Docker DevHost "+DEVHOST_NUM+" Debian "+DEBIAN_RELEASE+"64"
+VIRTUALBOX_BASE_VM_NAME="DevHost "+DEVHOST_NUM+" Debian "+UBUNTU_RELEASE+"64"
 VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
-if not defined?(VIRTUALBOX_VM_NAME)
-    # old system file support
-    if not File.exist?(VBOX_NAME_FILE)
-        MD5=Digest::MD5.hexdigest(CWD)
-        VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME} (#{MD5})"
-    else
-        md5_fo = File.open(VBOX_NAME_FILE, 'r')
-        VIRTUALBOX_VM_NAME=md5_fo.read().strip()
-    end
-end
-vagrant_config_lines << "VIRTUALBOX_VM_NAME=\"#{VIRTUALBOX_VM_NAME}\""
+MD5=Digest::MD5.hexdigest(CWD)
+#VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME} (#{MD5})"
+# as we have now mecanisms to select a new devnum, force the facct that we cant have more that one
+# vm with the same devnum
+VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME}"
 eprintf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 eprintf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
 eprintf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")

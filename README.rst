@@ -69,17 +69,21 @@ We have improved performances by some techniques:
       like salt and plone, for example, so we finally choose to share files from the
       guest to the host.
 
-sshfs documentation
-++++++++++++++++++++
-Linux / *BSD
-~~~~~~~~~~~~~~
-- Install your sshfs distribution package (surely **sshfs**).
-- Relog into a new session or reboot
 
-MacOSX
-~~~~~~
-- Install `macfusion <http://macfusionapp.org>`_
-- Relog into a new session or reboot
+Virtualbox
+++++++++++
+Install Oracle Virtualbox at at least the **4.3** version
+
+Typically on Debian and Ubuntu::
+
+	wget -q http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc -O- | sudo apt-key add -
+	if [[ -f /etc/lsb-release ]];then . /etc/lsb-release;distrib="$DISTRIB_CODENAME";
+	elif [[ -f /etc/os-release ]];then . /etc/os-release;distrib="$(echo $VERSION|sed -re "s/.*\((.*)\)/\1/g")";fi
+	echo "deb http://download.virtualbox.org/virtualbox/debian $distrib contrib">/etc/apt/sources.list.d/vbox.list
+	apt-get update
+	apt-get install virtualbox-4.3
+
+On MacOSX, Install `<http://download.virtualbox.org/virtualbox/4.3.6/VirtualBox-4.3.6-91406-OSX.dmg>`_
 
 Vagrant
 +++++++
@@ -98,6 +102,19 @@ For a Debian / Ubuntu deb-like host, version 1.3.5 64 bits::
 host virtualbox version::
 
     vagrant plugin install vagrant-vbguest
+
+
+sshfs documentation
+++++++++++++++++++++
+Linux / *BSD
+~~~~~~~~~~~~~~
+- Install your sshfs distribution package (surely **sshfs**).
+- Relog into a new session or reboot
+
+MacOSX
+~~~~~~
+- Install `macfusion <http://macfusionapp.org>`_
+- Relog into a new session or reboot
 
 Optimizations (optional but recommended)
 ++++++++++++++++++++++++++++++++++++++++
@@ -129,10 +146,10 @@ Take care with this part, it can prevent your system from booting.
 
             sysctl -p
 
-Installation
-------------
-
-Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projects source code managment
+Installation & control
+------------------------------
+Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projects source code managment.
+You will have to use ``./manage.sh``, a wrapper to ``vagrant`` in the spirit but do much more.
 
 - Take a base location on your home::
 
@@ -153,70 +170,19 @@ Now you can start the vm installation with vagrant. Note that this repository wi
 
 - Or for Debian (see that the last word is up to you, it's the destination directory)::
 
-    git clone https://github.com/makinacorpus/vms.git -b vagrant-debian-7-wheezy64 vmfoo
-    cd vmfoo
-
-- Optionnaly preload the base image::
-
-    vagrant box add saucy64 http://cloud-images.ubuntu.com/vagrant/saucy/current/saucy-server-cloudimg-amd64-vagrant-disk1.box
-- start the VM a first time, this will launch the VM creation and
+    git clone https://github.com/makinacorpus/vms.git -b vagrant-debian-7-wheezy64 vm-debian
+    cd vm-debian
+	
+- start the VM a first time, this will launch the base vm download from DNS, then VM creation and
   provisioning::
 
-    ./manage.sh up
+    ./manage.sh init
 
 - You will certainly need one or to reload to finish the provision steps (normally the first time, the script do it for you) but to do it on your own you could use::
 
     ./manage.sh reload
 
-Daily usage
-------------
-
-Edit VM core settings && manage several Virtualboxes
-+++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-You can tweak some settings via a special config file: ``vagrant_config.rb``
-
-  - Read the Vagrantfile top section, containing VM cpu and memory settings and even more.
-  - From there, as explained, you should create a .vagrant_config.rb file, to alter what you need.
-For exemple, you can clone the **vms** git repository on another place where you can manage another vagrant based virtualbox vm.
-
-So for example in a vm2 diectory::
-
-  mkdir -p ~/makina/
-  cd ~/makina/
-  # get this project in the vms subdirectory of this base place
-  git clone https://github.com/makinacorpus/vms.git vm2
-  cd vm2
-
-You must read at least once the Vagrantfile, it will be easier for you to know how to alter the vm settings.
-Such settings can go from MAX_CPU_USAGE_PERCENT,CPUS & MEMORY settings. to more useful: change this second vm ID and Subnet.
-
-DEVHOST_NUM
-~~~~~~~~~~~~
-**You will indeed realise that there is a magic DEVHOST_NUM setting which is by default 42 (so it's 42 for your first VM and we need a new number). You can either remove the line to get the next available one or indicate a new non used number.**
-
-You can then this settings, along with the other settings in **vagrant_config.rb** .
-By default this file is not yet created and will be created on first usage. But we can enforce it right before the first ``vagrant up``::
-
-    cat  > vagrant_config.rb << EOF
-    module MyConfig
-      DEVHOST_NUM="22"
-    end
-    EOF
-
-This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1.42.43** for the private network
-and the docker network on this host will be **172.31.22.0** and not **172.31.42.0**.
-The box hostname will be **devhost22.local** instead of devhost42.local.
-
-
-DEVHOST_AUTO_UPDATE
-~~~~~~~~~~~~~~~~~~~~~~
-You can tell to the provision script to run system updates and reprovision salt entirely by setting the **DEVHOST_AUTO_UPDATE** setting to ``true``.
-
-VM control
-++++++++++++
-
-Now that vagrant as created a virtualbox image for you, you should always manipulate this virtualbox VM with ``vagrant`` command.
+Now that vagrant as created a virtualbox image for you, you should always manipulate this virtualbox VM with ``./manage.sh`` command and use directly ``vagrant`` at last resort.
 
 Please note that when the vm is running, we will try to mount the VM root as
 root user with sshfs in the ``./VM`` folder.
@@ -225,16 +191,12 @@ To launch a Vagrant command always ``cd`` to the VM base directory::
 
   cd ~/makina/vms
 
-Downloading and initialasing a vm is simple::
-
-  ./manage.sh init
-
-Initialisaing from the low level base image rather than from preconfigured
+Initialising from scratch (low level base iOS mage) rather than from a preconfigured
 makina corpus image::
 
   ./manage.sh up
 
-Starting the VM after creation is even more simple::
+Starting the VM after creation is indeed the same command, but use the preconfigured VM under the hood if already initialized::
 
   ./manage.sh up
 
@@ -250,6 +212,78 @@ Reloading the vm is::
 To remove an outdated or broken VM::
 
   ./manage.sh destroy
+	
+Daily usage
+------------
+
+Manage several Virtualboxes
++++++++++++++++++++++++++++
+You can tweak some settings via a special config file: ``vagrant_config.rb``
+
+  - Read the Vagrantfile top section, containing VM cpu and memory settings and even more.
+  - From there, as explained, you should create a .vagrant_config.rb file, to alter what you need.
+For exemple, you can clone the **vms** git repository on another place where you can manage another vagrant based virtualbox vm.
+
+Clone a vm from an existing one
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Take not that it will provision the base vm of the template and not the running VM.
+If you want a full clone, use export & import.
+
+Automatic way
+**************
+To create a new vm from an already existing one is damn easy
+::
+
+  cd ~/makina/<VM-TEMPLATE>
+  ./manage.sh clonevm /path/to/a/new/vm/directory
+
+Manual way
+************
+- lasting Slash are importants with rsync
+::
+
+  cd ~/makina/
+  rsync -azv --exclude=VM --exclude="*.tar.bz2" <VM-template>/ <NEW-VM>/
+  cd <NEW-VM>
+  ./manage reset && ./manage init ../<VM-TEMPLATE>/<devhost_master*tar.bz2> # the downloaded archive at init time
+  
+New clone
+~~~~~~~~~~~~~~
+
+  mkdir -p ~/makina/
+  cd ~/makina/
+  # get this project in the vms subdirectory of this base place
+  git clone https://github.com/makinacorpus/vms.git vm2
+  cd vm2
+  or c
+  
+m ID and Subnet.
+
+Edit VM core settings 
+++++++++++++++++++++++
+You must read at least once the Vagrantfile, it will be easier for you to know how to alter the vm settings.
+Such settings can go from MAX_CPU_USAGE_PERCENT,CPUS & MEMORY settings. to more useful: change this second v
+
+DEVHOST_NUM
+~~~~~~~~~~~~
+**You will indeed realise that there is a magic DEVHOST_NUM setting (take the last avalaible one as a default).**
+
+You can then this settings, along with the other settings in **vagrant_config.rb** .
+By default this file is not yet created and will be created on first usage. But we can enforce it right before the first ``vagrant up``::
+
+    cat  > vagrant_config.rb << EOF
+    module MyConfig
+      DEVHOST_NUM="22"
+    end
+    EOF
+
+This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1.42.43** for the private network
+and the docker network on this host will be **172.31.22.0** and not **172.31.42.0**.
+The box hostname will be **devhost22.local** instead of devhost42.local.
+
+DEVHOST_AUTO_UPDATE
+~~~~~~~~~~~~~~~~~~~~~~
+You can tell to the provision script to run system updates and reprovision salt entirely by setting the **DEVHOST_AUTO_UPDATE** setting to ``true``.
 
 Hostnames managment
 +++++++++++++++++++++
@@ -260,7 +294,6 @@ Hostnames managment
 - You can optionnaly sync those hosts with::
 
   ./manage.sh sync_hosts
-
 
 Connecting to the vm
 +++++++++++++++++++++
