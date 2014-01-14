@@ -31,13 +31,15 @@ log(){
 }
 
 unactive_echo (){
-    if [[ -n $MANAGE_DEBUG  ]];then
+    if [[ -n $MANAGE_DEBUG ]];then
         set +x
     fi
 }
 
 active_echo (){
-    set -x
+    if [[ -n $MANAGE_DEBUG ]];then
+        set -x
+    fi
 }
 
 THIS="$0"
