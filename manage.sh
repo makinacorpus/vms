@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 LAUNCH_ARGS="$@"
 actions=""
-actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts"
+actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm"
 actions_exportimport="export import"
-actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm umount_vm release internal_ssh gen_ssh_config"
+actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm umount_vm release internal_ssh gen_ssh_config reset"
 actions_alias="-h --help --long-help -l "
 actions="
     $actions_exportimport
@@ -140,6 +140,14 @@ usage() {
                         help_content "      nozerofree: do not run zerofree (free VM space and trim virtual hard drive"
                         help_content "                  space to minimal extent) prior to export"
                     fi
+                    ;;
+                reset)
+                    help_header $i
+                    help_content "      Remove all local files (.vagrant, configs, etc)"
+                    ;;
+                clonevm)
+                    help_header "$i /path/to/new/vm  [INIT URL]"
+                    help_content "      Clone a VM to the desired directory and init it from either the specified URI or the VM base tarball/url"
                     ;;
                 suspend)
                     help_header $i
@@ -399,15 +407,23 @@ ssh() {
 }
 
 pre_down() {
-    umount_vm
-    internal_ssh sudo sync
+    if [[ "$(status)" == "running" ]];then
+        umount_vm
+        internal_ssh sudo sync
+    else
+        log " [*] pre_down: VM already stopped"
+    fi
 }
 
 down() {
     cd "${VMPATH}"
     log "Down !"
-    pre_down
-    vagrant halt -f
+    if [[ "$(status)" == "running" ]];then
+        pre_down
+        vagrant halt -f
+    else
+        log " [*] VM already stopped"
+    fi
 }
 
 maybe_finish_creation() {
@@ -506,9 +522,13 @@ release() {
 
 }
 
+get_release_url() {
+    echo "$BASE_URL/$(get_devhost_archive_name $(get_release_name))"
+}
+
 init() {
     cd "$VMPATH"
-    local url="${1:-"$BASE_URL/$(get_devhost_archive_name $(get_release_name))"}"
+    local url="${1:-"$(get_release_url)"}"
     local status="$(status)"
     if [[ $(status) == "not created" ]];then
         import "$url"
@@ -1018,6 +1038,72 @@ sync_hosts() {
         log "$block is already up-to-date"
     fi
     rm -f hosts
+}
+
+reset() {
+    if [[ -e "$VMPATH" ]];then
+        cd "$VMPATH"
+        if [[ -e .vagrant ]];then
+            destroy
+        fi
+        rm -rvf vagrant_config.rb .vagrant
+        log " [*] Reset done"
+    else
+        log " [*] Reset skipped: $VMPATH does not exists"
+    fi
+}
+
+
+get_abspath() {
+    python -c "import os;print os.path.abspath(os.path.expanduser('$1'))" 2> /dev/null
+
+}
+
+clonevm() {
+    cd "$VMPATH"||exit -1
+    local tarballs="$(ls -1rt *.tar.bz2)"
+    local tarball="$(ls -1rt devhost*.tar.bz2|head -n1)"
+    local OLDVMPATH="$VMPATH"
+    local NEWVMPATH="$1"
+    local import_uri="${2}"
+    cd "$VMPATH"||exit -1
+    reset
+    rsync -azv --exclude=VM --exclude="*.tar.bz2" ./ $1/
+    VMPATH="$1"
+    cd $VMPATH
+    VMPATH=$(pwd)
+    if [[ -n $MANAGE_DEBUG ]];then
+        set -x
+    fi
+    reset &&\
+        for i in $tarballs;do
+            local oldp="$OLDVMPATH/$i"
+            local newp="$NEWVMPATH/$i"
+            local lnskip=""
+            if [[ -e "$oldp" ]] && [[ ! -f "$newp" ]];\
+            then
+                # transform in full path tarballs
+                if [[ -h "$oldp" ]];then
+                    if [[ ! -d "$oldp" ]];then
+                        cd $(dirname $oldp)
+                        oldp=$(get_abspath "$(readlink $oldp)")
+                        cd - &>/dev/null
+                    else
+                        lnskip="1"
+                    fi
+                fi
+                if [[ -z $lnskip ]];then
+                    ln -sfv "$oldp" "$newp"
+                fi
+            fi
+        done &&\
+        local ntarball="$(ls -1rt devhost*.tar.bz2|head -n1)" &&\
+        if [[ ! -e "$ntarball" ]];then ntarball="${import_uri:-$(get_release_url)}";fi &&\
+        log "Init in $VMPATH" &&\
+        init "$ntarball"
+    if [[ -n $MANAGE_DEBUG ]];then
+        set +x
+    fi
 }
 
 do_zerofree() {
