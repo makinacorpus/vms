@@ -173,7 +173,7 @@ You will have to use ``./manage.sh``, a wrapper to ``vagrant`` in the spirit but
     git clone https://github.com/makinacorpus/vms.git -b vagrant-debian-7-wheezy64 vm-debian
     cd vm-debian
 	
-- start the VM a first time, this will launch the VM creation and
+- start the VM a first time, this will launch the base vm download from DNS, then VM creation and
   provisioning::
 
     ./manage.sh init
@@ -191,16 +191,12 @@ To launch a Vagrant command always ``cd`` to the VM base directory::
 
   cd ~/makina/vms
 
-Downloading and initialasing a vm is simple::
-
-  ./manage.sh init
-
-Initialising from the low level base image rather than from a preconfigured
+Initialising from scratch (low level base iOS mage) rather than from a preconfigured
 makina corpus image::
 
   ./manage.sh up
 
-Starting the VM after creation is indeed the same command, but use the preconfiguired VM under the hood::
+Starting the VM after creation is indeed the same command, but use the preconfigured VM under the hood if already initialized::
 
   ./manage.sh up
 
