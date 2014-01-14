@@ -226,7 +226,8 @@ For exemple, you can clone the **vms** git repository on another place where you
 
 Clone a vm from an existing one
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-So for example in a vm2 diectory::
+Take not that it will provision the base vm of the template and not the running VM.
+If you want a full clone, use export & import.
 
 Automatic way
 **************

@@ -318,8 +318,12 @@ suspend() {
 internal_ssh() {
     cd "${VMPATH}"
     local sshhost="$(get_ssh_host "$internal_ssh_config")"
+    if [[ ! -e $internal_ssh_config ]];then
+        log " [*] missing $ssh_config"
+        exit 1
+    fi
     if [[ -n $sshhost ]];then
-        $(which ssh) -F "$internal_ssh_config" "$sshhost" $@
+        $(which ssh) -o ConnectTimeout=2 -F "$internal_ssh_config" "$sshhost" $@
     else
         log "Cant internal ssh, empty host"
         exit 1
@@ -329,8 +333,12 @@ internal_ssh() {
 ssh_() {
     cd "${VMPATH}"
     local sshhost="$(get_ssh_host "$ssh_config")"
+    if [[ ! -e $ssh_config ]];then
+        log " [*] missing $ssh_config"
+        exit 1
+    fi
     if [[ -n $sshhost ]];then
-        $(which ssh) -F "$ssh_config" "$sshhost" $@
+        $(which ssh) -o ConnectTimeout=2 -F "$ssh_config" "$sshhost" $@
     else
         log "Cant ssh, empty host"
         exit 1
@@ -357,6 +365,10 @@ is_wrapper_present(){
 
 gen_ssh_config() {
     cd "${VMPATH}"
+    if [[ "$(status)" != "running" ]];then
+        log " [*] VM is not running, can't generate ssh configs"
+        exit 1
+    fi
     if [[ ! -d .vagrant ]];then
         mkdir .vagrant
     fi
