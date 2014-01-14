@@ -129,10 +129,10 @@ Take care with this part, it can prevent your system from booting.
 
             sysctl -p
 
-Installation
-------------
-
-Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projects source code managment
+Installation & control
+------------------------------
+Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projects source code managment.
+You will have to use ``./manage.sh``, a wrapper to ``vagrant`` in the spirit but do much more.
 
 - Take a base location on your home::
 
@@ -153,27 +153,58 @@ Now you can start the vm installation with vagrant. Note that this repository wi
 
 - Or for Debian (see that the last word is up to you, it's the destination directory)::
 
-    git clone https://github.com/makinacorpus/vms.git -b vagrant-debian-7-wheezy64 vmfoo
-    cd vmfoo
-
-- Optionnaly preload the base image::
-
-    vagrant box add saucy64 http://cloud-images.ubuntu.com/vagrant/saucy/current/saucy-server-cloudimg-amd64-vagrant-disk1.box
+    git clone https://github.com/makinacorpus/vms.git -b vagrant-debian-7-wheezy64 vm-debian
+    cd vm-debian
+	
 - start the VM a first time, this will launch the VM creation and
   provisioning::
 
-    ./manage.sh up
+    ./manage.sh init
 
 - You will certainly need one or to reload to finish the provision steps (normally the first time, the script do it for you) but to do it on your own you could use::
 
     ./manage.sh reload
 
+Now that vagrant as created a virtualbox image for you, you should always manipulate this virtualbox VM with ``./manage.sh`` command and use directly ``vagrant`` at last resort.
+
+Please note that when the vm is running, we will try to mount the VM root as
+root user with sshfs in the ``./VM`` folder.
+
+To launch a Vagrant command always ``cd`` to the VM base directory::
+
+  cd ~/makina/vms
+
+Downloading and initialasing a vm is simple::
+
+  ./manage.sh init
+
+Initialising from the low level base image rather than from a preconfigured
+makina corpus image::
+
+  ./manage.sh up
+
+Starting the VM after creation is indeed the same command, but use the preconfiguired VM under the hood::
+
+  ./manage.sh up
+
+Stoping the VM can be done like that::
+
+  ./manage.sh down # classical
+  ./manage.sh suspend # faster on up, but requires disk space to store current state
+
+Reloading the vm is::
+
+  ./manage.sh reload # with sometimes tiemout problems on stop, redo-it.
+
+To remove an outdated or broken VM::
+
+  ./manage.sh destroy
+	
 Daily usage
 ------------
 
-Edit VM core settings && manage several Virtualboxes
-+++++++++++++++++++++++++++++++++++++++++++++++++++++
-
+Manage several Virtualboxes
++++++++++++++++++++++++++++
 You can tweak some settings via a special config file: ``vagrant_config.rb``
 
   - Read the Vagrantfile top section, containing VM cpu and memory settings and even more.
@@ -191,9 +222,11 @@ So for example in a vm2 diectory::
 You must read at least once the Vagrantfile, it will be easier for you to know how to alter the vm settings.
 Such settings can go from MAX_CPU_USAGE_PERCENT,CPUS & MEMORY settings. to more useful: change this second vm ID and Subnet.
 
+Edit VM core settings 
+++++++++++++++++++++++
 DEVHOST_NUM
 ~~~~~~~~~~~~
-**You will indeed realise that there is a magic DEVHOST_NUM setting which is by default 42 (so it's 42 for your first VM and we need a new number). You can either remove the line to get the next available one or indicate a new non used number.**
+**You will indeed realise that there is a magic DEVHOST_NUM setting (take the last avalaible one as a default).**
 
 You can then this settings, along with the other settings in **vagrant_config.rb** .
 By default this file is not yet created and will be created on first usage. But we can enforce it right before the first ``vagrant up``::
@@ -208,48 +241,9 @@ This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1
 and the docker network on this host will be **172.31.22.0** and not **172.31.42.0**.
 The box hostname will be **devhost22.local** instead of devhost42.local.
 
-
 DEVHOST_AUTO_UPDATE
 ~~~~~~~~~~~~~~~~~~~~~~
 You can tell to the provision script to run system updates and reprovision salt entirely by setting the **DEVHOST_AUTO_UPDATE** setting to ``true``.
-
-VM control
-++++++++++++
-
-Now that vagrant as created a virtualbox image for you, you should always manipulate this virtualbox VM with ``vagrant`` command.
-
-Please note that when the vm is running, we will try to mount the VM root as
-root user with sshfs in the ``./VM`` folder.
-
-To launch a Vagrant command always ``cd`` to the VM base directory::
-
-  cd ~/makina/vms
-
-Downloading and initialasing a vm is simple::
-
-  ./manage.sh init
-
-Initialisaing from the low level base image rather than from preconfigured
-makina corpus image::
-
-  ./manage.sh up
-
-Starting the VM after creation is even more simple::
-
-  ./manage.sh up
-
-Stoping the VM can be done like that::
-
-  ./manage.sh down # classical
-  ./manage.sh suspend # faster on up, but requires disk space to store current state
-
-Reloading the vm is::
-
-  ./manage.sh reload # with sometimes tiemout problems on stop, redo-it.
-
-To remove an outdated or broken VM::
-
-  ./manage.sh destroy
 
 Hostnames managment
 +++++++++++++++++++++
