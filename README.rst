@@ -81,6 +81,21 @@ MacOSX
 - Install `macfusion <http://macfusionapp.org>`_
 - Relog into a new session or reboot
 
+Virtualbox
+++++++++++
+Install Oracle Virtualbox atat least the **4.3** version
+
+Typically on Debian and Ubuntu::
+
+	wget -q http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc -O- | sudo apt-key add -
+	if [[ -f /etc/lsb-release ]];then . /etc/lsb-release;distrib="$DISTRIB_CODENAME";
+	elif [[ -f /etc/os-release ]];then . /etc/os-release;distrib="$(echo $VERSION|sed -re "s/.*\((.*)\)/\1/g")";fi
+	echo "deb http://download.virtualbox.org/virtualbox/debian $distrib contrib">/etc/apt/sources.list.d/vbox.list
+	apt-get update
+	apt-get install virtualbox-4.3
+
+On MacOSX, Install `http://download.virtualbox.org/virtualbox/4.3.6/VirtualBox-4.3.6-91406-OSX.dmg`_
+
 Vagrant
 +++++++
 You could make you a supersudoer without password to avoid sudo questions when lauching the VMs (not required)::
@@ -211,19 +226,45 @@ You can tweak some settings via a special config file: ``vagrant_config.rb``
   - From there, as explained, you should create a .vagrant_config.rb file, to alter what you need.
 For exemple, you can clone the **vms** git repository on another place where you can manage another vagrant based virtualbox vm.
 
+Clone a vm from an existing one
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 So for example in a vm2 diectory::
+
+Automatic way
+**************
+To create a new vm from an already existing one is damn easy
+::
+
+  cd ~/makina/<VM-TEMPLATE>
+  ./manage.sh clonevm /path/to/a/new/vm/directory
+
+Manual way
+************
+- lasting Slash are importants with rsync
+::
+
+  cd ~/makina/
+  rsync -azv --exclude=VM --exclude="*.tar.bz2" <VM-template>/ <NEW-VM>/
+  cd <NEW-VM>
+  ./manage reset && ./manage init ../<VM-TEMPLATE>/<devhost_master*tar.bz2> # the downloaded archive at init time
+  
+New clone
+~~~~~~~~~~~~~~
 
   mkdir -p ~/makina/
   cd ~/makina/
   # get this project in the vms subdirectory of this base place
   git clone https://github.com/makinacorpus/vms.git vm2
   cd vm2
-
-You must read at least once the Vagrantfile, it will be easier for you to know how to alter the vm settings.
-Such settings can go from MAX_CPU_USAGE_PERCENT,CPUS & MEMORY settings. to more useful: change this second vm ID and Subnet.
+  or c
+  
+m ID and Subnet.
 
 Edit VM core settings 
 ++++++++++++++++++++++
+You must read at least once the Vagrantfile, it will be easier for you to know how to alter the vm settings.
+Such settings can go from MAX_CPU_USAGE_PERCENT,CPUS & MEMORY settings. to more useful: change this second v
+
 DEVHOST_NUM
 ~~~~~~~~~~~~
 **You will indeed realise that there is a magic DEVHOST_NUM setting (take the last avalaible one as a default).**
@@ -254,7 +295,6 @@ Hostnames managment
 - You can optionnaly sync those hosts with::
 
   ./manage.sh sync_hosts
-
 
 Connecting to the vm
 +++++++++++++++++++++
