@@ -1058,7 +1058,7 @@ sync_hosts() {
     if [[ $? != 0 ]];then
         if [[ -z $NOINPUT ]];then
             diff -u "$hosts" "$lhosts"
-            log "Replace $hosts by $lhosts?"
+            log "Add content of $lhosts to $hosts?"
             log "[press y+ENTER, or CONTROL+C to abort]";read input
         fi
         if [[ -n "$NOINPUT" ]] || [[ "$input" == "y" ]];then
