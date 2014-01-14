@@ -226,7 +226,7 @@ DOCKER_NETWORK_MASK_NUM="24"
 
 # md5 based on currentpath
 # Name on your VirtualBox panel
-VIRTUALBOX_BASE_VM_NAME="DevHost "+DEVHOST_NUM+" Debian "+UBUNTU_RELEASE+"64"
+VIRTUALBOX_BASE_VM_NAME="DevHost "+DEVHOST_NUM+" Debian "+DEBIAN_RELEASE+"64"
 VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
 MD5=Digest::MD5.hexdigest(CWD)
 #VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME} (#{MD5})"
