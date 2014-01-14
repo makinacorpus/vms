@@ -5,6 +5,7 @@ actions_main_usage="usage init ssh up reload destroy down suspend status sync_ho
 actions_exportimport="export import"
 actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm umount_vm release internal_ssh gen_ssh_config reset"
 actions_alias="-h --help --long-help -l "
+vagrant_ssh="vagrant ssh -c"
 actions="
     $actions_exportimport
     $actions_main_usage
@@ -366,7 +367,7 @@ ssh_() {
 get_devhost_num() {
     local devhost_num=""
     if [[ -n "$(is_wrapper_present)" ]];then
-        devhost_num="$(internal_ssh sudo $PROVISION_WRAPPER get_devhost_num)"
+        devhost_num="$($vagrant_ssh "sudo $PROVISION_WRAPPER get_devhost_num")"
     fi
     if [[ -n "$devhost_num" ]];then
         echo "$devhost_num"
@@ -375,7 +376,7 @@ get_devhost_num() {
 
 is_wrapper_present(){
     local present=""
-    if [[ "$(internal_ssh test -e "$PROVISION_WRAPPER";echo $?)" == "0" ]];then
+    if [[ "$($vagrant_ssh "test -e \"$PROVISION_WRAPPER\";echo $?")" == "0" ]];then
         present="1"
     fi
     echo $present
@@ -394,7 +395,7 @@ gen_ssh_config() {
     vagrant ssh-config 2>/dev/null > "$internal_ssh_config"
     # replace the ip by the hostonly interface one in our ssh wrappers
     local hostip=$(vagrant ssh -c "ip addr show dev eth1 2> /dev/null")
-    if [[ -n $hostip ]];then
+    if [[ -n "$hostip" ]];then
         hostip=$(echo "$hostip"|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
     fi
     local devhost_num="$(get_devhost_num)"
@@ -415,7 +416,7 @@ gen_ssh_config() {
 cleanup_keys() {
     ssh_pre_reqs
     if [[ -n "$(is_wrapper_present)" ]];then
-        internal_ssh sudo $PROVISION_WRAPPER cleanup_keys
+        $vagrant_ssh "sudo $PROVISION_WRAPPER cleanup_keys"
     else
         log "Warning: could not cleanup ssh keys, shared folder mountpoint seems not present"
     fi
@@ -423,7 +424,7 @@ cleanup_keys() {
 
 install_keys() {
     if [[ -n "$(is_wrapper_present)" ]];then
-        internal_ssh sudo $PROVISION_WRAPPER install_keys
+        $vagrant_ssh "sudo $PROVISION_WRAPPER install_keys"
     else
         log "Warning: could not install ssh keys, shared folder mountpoint seems not present"
     fi
@@ -445,7 +446,7 @@ ssh() {
 pre_down() {
     if [[ "$(status)" == "running" ]];then
         umount_vm
-        internal_ssh sudo sync
+        $vagrant_ssh "sudo sync"
     else
         log " [*] pre_down: VM already stopped"
     fi
@@ -732,7 +733,7 @@ up() {
     lret=$?
     # be sure of jumbo frames
     if [[ -n $notrunning ]];then
-        internal_ssh "sudo ifconfig eth1 mtu 9000"
+        $vagrant_ssh "sudo ifconfig eth1 mtu 9000"
     fi
     post_up $lret $@
 }
@@ -820,6 +821,7 @@ export_() {
     if [[ $(uname) != "Darwin" ]];then
         tar_preopts="${tar_preopts}p"
     fi
+    local netrules="/etc/udev/rules.d/70-persistent-net.rules"
     if [[ -z "$nozerofree" ]];then
         log "Zerofree starting in 20 seconds, you can control C before the next log"
         log "and relaunch with the same cmdline with nozerofree appended: eg ./manage.sh export nozerofree"
@@ -838,10 +840,10 @@ export_() {
                 exit -1
             fi &&\
             if [[ -z $nosed ]];then \
-                internal_ssh \
-                'if [[ -e /etc/udev/rules.d/70-persistent-net.rules ]];then sudo sed -re "s/^SUBSYSTEM/#SUBSYSTEM/g" -i /etc/udev/rules.d/70-persistent-net.rules;fi';\
+                $vagrant_ssh "if [[ -d $netrules ]];then rm -rf $netrules;touch $netrules;fi";\
+                $vagrant_ssh "if [[ -e $netrules ]];then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i $netrules;fi";\
             fi &&\
-            internal_ssh "sudo $PROVISION_WRAPPER mark_export"
+            $vagrant_ssh "sudo $PROVISION_WRAPPER mark_export"
             down
             export DEVHOST_FORCED_BOX_NAME="$bname" &&\
             log "Be patient, exporting now" &&\
@@ -849,7 +851,7 @@ export_() {
             rm -f "$EXPORT_VAGRANTFILE"*
         local lret="$?"
         down
-        up --no-provision && internal_ssh "sudo $PROVISION_WRAPPER unmark_exported" && down
+        up --no-provision && $vagrant_ssh "sudo $PROVISION_WRAPPER unmark_exported" && down
         if [[ "$lret" != "0" ]];then
             log "error exporting $box"
             exit 1
