@@ -237,7 +237,7 @@ write_test_config() {
     cat > vagrant_config.rb << EOF
 module MyConfig
     DEVHOST_NUM="$num"
-    VIRTUALBOX_VM_NAME="Docker DevHost $num Ubuntu ${name}64"
+    VIRTUALBOX_VM_NAME="DevHost $num Ubuntu ${name}64"
 end
 EOF
 }
