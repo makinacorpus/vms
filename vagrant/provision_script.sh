@@ -214,7 +214,7 @@ lazy_apt_get_install() {
          fi
     done
     if [[ -n "$to_install" ]];then
-        log " [*] Installing $to_install"
+        output " [*] Installing $to_install"
         apt-get install -y --force-yes $to_install
     fi
 }
@@ -428,7 +428,7 @@ install_backports() {
         fi
         if [[ -z "$BEFORE_RARING" ]];then
             if [[ "$(is_apt_installed linux-image-extra-virtual)" != "yes" ]];then
-                log " [*] Installing linux-image-extra-virtual for AUFS support"
+                output " [*] Installing linux-image-extra-virtual for AUFS support"
                 lazy_apt_get_install linux-image-extra-virtual
                 touch $restart_marker
             fi
@@ -439,7 +439,7 @@ install_backports() {
 
 run_boot_salt() {
     bootsalt="$MS/_scripts/boot-salt.sh"
-    boot_args="-C -M -n vagrantvm"
+    boot_args="-C -M -n vagrantvm -m devhost${DEVHOST_NUM}"
     if [[ ! -e "$bootsalt_marker" ]];then
         boot_word="Bootstrap"
     else
@@ -458,7 +458,13 @@ run_boot_salt() {
     # for now we disable automatic updates when we have done at least one salt deployment
     #
     if [[ ! -e "$bootsalt_marker" ]];then
+        if [[ -n $DEVHOST_DEBUG ]];then
+            set -x
+        fi
         "$bootsalt" $boot_args && touch "$bootsalt_marker"
+        if [[ -n $DEVHOST_DEBUG ]];then
+            set +x
+        fi
     fi
     die_if_error
     . /etc/profile
@@ -594,8 +600,10 @@ install_keys() {
 
 cleanup_salt() {
     output " [*] Resetting all salt configuration information"
-    rm -f /srv/*pillar/{mastersalt,salt}.sls
-    rm -f /etc/*salt/minion_id "$bootsalt_marker"
+    rm -rvf /var/cache/salt/* /var/cache/mastersalt/* 2> /dev/null
+    rm -rvf /var/log/salt/* /var/log/mastersalt/* 2> /dev/null
+    rm -vf /srv/*pillar/{mastersalt,salt}.sls
+    rm -vf /etc/*salt/minion_id "$bootsalt_marker"
     find /etc/*salt/pki -type f -delete
     if [[ -e /srv/pillar/top.sls ]];then
         sed -re /"\s*- salt/ d" -i /srv/pillar/top.sls
@@ -608,6 +616,7 @@ cleanup_salt() {
 mark_export() {
     output " [*] Cleaning and marking vm as exported"
     cleanup_keys
+    cleanup_misc
     # cleanup_salt
     touch  "$export_marker"
 }
@@ -625,9 +634,62 @@ kill_pids(){
     done
 }
 
+cleanup_misc() {
+    rm -vf /etc/devhosts
+    for user_home in $(awk -F: '{if ($6!="") print $1 ":" $6}' /etc/passwd);do
+        user="$(echo $user_home|awk -F: '{print $1}')"
+        home="$(echo $user_home|awk -F: '{print $2}')"
+        if [[ -e "$home/.bash_history" ]];then
+            rm -vf $home/.bash_history
+        fi
+    done
+}
+
+reset_hostname() {
+    if [[ -n "$DEVHOST_HOSTNAME" ]];then
+        local fqdn="$DEVHOST_HOSTNAME"
+        local dn="$(echo "$DEVHOST_HOSTNAME"|awk -F\. '{print $1}')"
+        if [[ "$(hostname)" != "$dn" ]];then
+            output " [*] Reseting hostname: $dn"
+            hostname "$dn"
+        fi
+        if [[ "$(cat /etc/hostname &> /dev/null)" != "$dn" ]];then
+            output " [*] Reseting /etc/hostname: $dn"
+            echo "$dn">/etc/hostname
+        fi
+        if [[ "$(egrep "127\\..*$hostname" /etc/hosts 2> /dev/null)" != "$dn" ]];\
+        then
+            output " [*] Reset hostname to /etc/hosts"
+            cp -f /etc/hosts /etc/hosts.bak
+            echo "127.0.0.1 $dn $fqdn">/etc/hosts
+            cat /etc/hosts.bak>>/etc/hosts
+            echo "127.0.0.1 $dn $fqdn">>/etc/hosts
+            rm -f /etc/hosts.bak
+        fi
+        if [[ -e /etc/init/nscd.conf ]] || [[ -e /etc/init.d/nscd ]];then
+            service nscd restart
+        fi
+    fi
+}
+
+detected_old_changesets() {
+    # bugged releases, list here old makinastates git commit ids to mark as to
+    # upgrade on import
+    echo "723f485750bff7f34835755030b790f046859fc5"
+}
+
+git_changeset() {
+    # current working directory git commit id
+    git log|head -n1|awk '{print $2}'
+}
+
+
 handle_export() {
     if [[ -e "$export_marker" ]];then
         output " [*] VM export detected, resetting some stuff"
+        if [[ -n $DEVHOST_DEBUG ]];then
+            set -x
+        fi
         # reset salt minion id and perms
         for i in mastersalt salt;do
             for j in minion master syndic;do
@@ -646,15 +708,34 @@ handle_export() {
 
         fi
         # remove vagrant conf as it can contain doublons on first load
+        output " [*] Reset network interface file"
         sed -ne "/VAGRANT-BEGIN/,\$!p" /etc/network/interfaces > /etc/network/interfaces.buf
         if [[ "$(grep lo /etc/network/interfaces|grep -v grep|wc -l)" != "0" ]];then
             cp -f /etc/network/interfaces.buf /etc/network/interfaces
             rm -f /etc/network/interfaces.buf
         fi
+        # on import, check that the bundled makina-states is not marked as
+        # to be upgraded, and in case upgrade it
+        if [[ $(test_online) == "0" ]];then
+            for i in /srv/{salt,mastersalt}/makina-states;do
+                if [[ -e "$i" ]];then
+                    cd "$i"
+                    if [[ $(detected_old_changesets) == *"$(git_changeset)"* ]];then
+                        output " [*] Upgrade makina-states detected, going to pull the master"
+                        git fetch origin
+                        git reset --hard origin/master
+                    fi
+                    cd - &>/dev/null
+                fi
+            done
+        else
+            output " [*] Warning, cant update makina-states, offline"
+        fi
         unmark_exported
+        if [[ -n $DEVHOST_DEBUG ]];then
+            set +x
+        fi
     fi
-
-
 }
 
 get_devhost_num() {
@@ -665,6 +746,7 @@ if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
     output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
     output " [*] You can safely relaunch this script from within the vm"
     set_vars
+    reset_hostname
     #
     install_keys
     handle_export

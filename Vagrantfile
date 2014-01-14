@@ -13,7 +13,8 @@ require 'rbconfig'
 CWD=File.dirname(__FILE__)
 VSETTINGS_N="vagrant_config"
 VSETTINGS_P=File.dirname(__FILE__)+"/"+VSETTINGS_N+".rb"
-devhost_debug=ENV.fetch("MAKINA_DEVHOST_DEBUG", "").strip()
+DEVHOST_DEBUG=ENV.fetch("DEVHOST_DEBUG", "").strip()
+devhost_debug=DEVHOST_DEBUG
 if devhost_debug.to_s.strip.length == 0
   devhost_debug=false
 else
@@ -49,6 +50,10 @@ end
 #    CPUS="1"
 #    MAX_CPU_USAGE_PERCENT="25"
 #    DNS_SERVER="8.8.8.8"
+#    # set it to true to replace default Virtualbox shares
+#    # by nfs shares, if you have problems with guests additions
+#    # for example
+#    DEVHOST_HAS_NFS=false
 # end
 # -------------o<---------------
 
@@ -254,6 +259,8 @@ if defined?(BOX_NAME)
 else
     BOX_NAME="debian-#{DEBIAN_RELEASE_NUMBER}-#{DEBIAN_RELEASE}64"
 end
+# Can be overidden by env. (used by manage.sh import/export)
+REAL_BOX_NAME = ENV.fetch("DEVHOST_FORCED_BOX_NAME", BOX_NAME).strip()
 if defined?(BOX_URI)
     vagrant_config_lines << "BOX_URI=\"#{BOX_URI}\""
 else
@@ -268,7 +275,7 @@ VAGRANTFILE_API_VERSION = "2"
 #Vagrant::Config.run do |config|
 Vagrant.configure("2") do |config|
   # Setup virtual machine box. This VM configuration code is always executed.
-  config.vm.box = BOX_NAME
+  config.vm.box = REAL_BOX_NAME
   config.vm.box_url = BOX_URI
   config.vm.host_name = VM_HOSTNAME
   config.vm.provider "virtualbox" do |vb|
@@ -277,8 +284,15 @@ Vagrant.configure("2") do |config|
 
   # -- VirtualBox Guest Additions ----------
   if Vagrant.has_plugin?('vbguest management')
-    config.vbguest.auto_update = AUTO_UPDATE_VBOXGUEST_ADD
-    config.vbguest.auto_reboot = true
+    if DEVHOST_HAS_NFS
+        config.vbguest.auto_update = false
+        config.vbguest.auto_reboot = false
+        config.vbguest.no_install = true
+    else
+        config.vbguest.auto_update = AUTO_UPDATE_VBOXGUEST_ADD
+        config.vbguest.auto_reboot = true
+        config.vbguest.no_install = false
+    end
   end
 
   #------------- NETWORKING ----------------
@@ -512,10 +526,12 @@ if [[ ! -e "/vagrant/vagrant/provision_script.sh" ]];then
 fi
 EOF},
     %{cat > /root/vagrant/provision_settings.sh  << EOF
+DEVHOST_DEBUG="#{DEVHOST_DEBUG}"
 DEVHOST_HAS_NFS="#{DEVHOST_HAS_NFS}"
 DEVHOST_AUTO_UPDATE="#{DEVHOST_AUTO_UPDATE}"
 DNS_SERVER="#{DNS_SERVER}"
 DEVHOST_NUM="#{DEVHOST_NUM}"
+DEVHOST_HOSTNAME="#{VM_HOSTNAME}"
 PREVIOUS_OFFICIAL_MIRROR="#{PREVIOUS_OFFICIAL_MIRROR}"
 PREVIOUS_LOCAL_MIRROR="#{PREVIOUS_LOCAL_MIRROR}"
 OFFICIAL_MIRROR="#{OFFICIAL_MIRROR}"

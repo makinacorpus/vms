@@ -54,7 +54,7 @@ Following theses instructions you can install this git repository on a directory
 
 Prerequisites
 -------------
-You need to have ``virtualbox``, ``vagrant`` and ``sshfs``.
+You need to have ``virtualbox``, ``vagrant`` (with ``vagrant-vbguest`` plugin) and ``sshfs``.
 
 On macosx, sshfs is also known as MacFuse or MacFusion.
 
@@ -63,7 +63,11 @@ We have improved performances by some techniques:
 
     * Increasing the **MTU to 9000** (jumbo frames) on host and guest Ethernet nics
     * Leaving most of files on the guest side, leaving up to you to access the files
-      on the guest. We recommend and also  integrate this access to be via sshfs.
+      on the guest. We recommend and also integrate this access to be via sshfs.
+      On previous versions tests were made with NFS, having project files stored on
+      the host and shared in the guest. This was too slow for read-heavy services
+      like salt and plone, for example, so we finally choose to share files from the
+      guest to the host.
 
 sshfs documentation
 ++++++++++++++++++++

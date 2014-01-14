@@ -33,6 +33,10 @@ log(){
 THIS="$0"
 where="${VAGRANT_VM_PATH:-$(dirname "$THIS")}"
 cd "${where}" || exit 1
+MANAGE_DEBUG="$MANAGE_DEBUG"
+if [[ -z $DEVHOST_DEBUG ]] && [[ -n $MANAGE_DEBUG ]];then
+    DEVHOST_DEBUG=$MANAGE_DEBUG
+fi
 RSYNC=$(which rsync)
 VMPATH=$PWD
 internal_ssh_config=${VMPATH}/.vagrant/internal-ssh-config
@@ -305,12 +309,24 @@ suspend() {
 
 internal_ssh() {
     cd "${VMPATH}"
-    $(which ssh) -F "$internal_ssh_config" "$(get_ssh_host $internal_ssh_config)" $@
+    local sshhost="$(get_ssh_host "$internal_ssh_config")"
+    if [[ -n $sshhost ]];then
+        $(which ssh) -F "$internal_ssh_config" "$sshhost" $@
+    else
+        log "Cant internal ssh, empty host"
+        exit 1
+    fi
 }
 
 ssh_() {
     cd "${VMPATH}"
-    $(which ssh) -F "$ssh_config" "$(get_ssh_host $ssh_config)" $@
+    local sshhost="$(get_ssh_host "$ssh_config")"
+    if [[ -n $sshhost ]];then
+        $(which ssh) -F "$ssh_config" "$sshhost" $@
+    else
+        log "Cant ssh, empty host"
+        exit 1
+    fi
 }
 
 get_devhost_num() {
@@ -482,7 +498,9 @@ release() {
     else
         echo "$rver" > "$rfile"
         git add "$rfile"
-        git commit -am "RELEASE: $rname" && git push
+        git commit -am "RELEASE: $rname" &&\
+            log "You ll need to git push when you ll have test an init"
+            log "somewhere and the download works and the sf.net mirrors are well synchron,ized"
         log "End of release"
     fi
 
@@ -527,7 +545,15 @@ is_mounted() {
 }
 
 get_ssh_host() {
-    grep "Host\ " $1 |awk '{print $2}'
+    sshconfig="$1"
+    if [[ ! -e "$sshconfig" ]];then
+        gen_ssh_config
+    fi
+    if [[ ! -e "$sshconfig" ]];then
+        log "Invalid $sshconfig, does not exist"
+        exit 1
+    fi
+    grep "Host\ " "$sshconfig" |awk '{print $2}' 2>/dev/null
 }
 
 mount_vm() {
@@ -543,9 +569,14 @@ mount_vm() {
             mkdir "$VM"
         fi
         ssh_pre_reqs
-        sshhost=$(get_ssh_host $ssh_config)
-        log "Mounting $VM -> devhost($sshhost):/"
-        sshfs -F "$ssh_config" root@${sshhost}:/ -o nonempty "$VM"
+        local sshhost=$(get_ssh_host "$ssh_config")
+        if [[   -n $sshhost ]];then
+            log "Mounting devhost($sshhost):/ --sshfs--> $VM"
+            sshfs -F "$ssh_config" root@${sshhost}:/ -o nonempty "$VM"
+        else
+            log "Cant' mount devhost, empty ssh host"
+            exit -1
+        fi
     fi
 }
 
@@ -714,7 +745,6 @@ export_() {
     local abox="$(get_devhost_archive_name $bname)"
     local nincludes=""
     local includes=""
-    local gtouched=""
     local tar_preopts="cjvf"
     local tar_postopts="--numeric-owner"
     #
@@ -757,8 +787,7 @@ export_() {
             fi &&\
             internal_ssh "sudo $PROVISION_WRAPPER mark_export"
             down
-            sed -i -e "s/config\.vm\.box\s*=.*/config.vm.box = \"$bname\"/g" Vagrantfile &&\
-            gtouched="1" &&\
+            export DEVHOST_FORCED_BOX_NAME="$bname" &&\
             log "Be patient, exporting now" &&\
             vagrant package --vagrantfile "$packaged_vagrantfile" --output "$box" 2> /dev/null
             rm -f "$EXPORT_VAGRANTFILE"*
@@ -782,10 +811,6 @@ export_() {
         log "${VMPATH}/$abox, delete it to redo"
     fi &&\
     local lret=$?
-    # reseting Vagrantfile in any case
-    if [[ -n $gtouched ]];then
-        git checkout Vagrantfile 2>/dev/null
-    fi
     if [[ $lret != 0 ]];then
         log "Error while exporting"
         exit $lret
@@ -799,16 +824,32 @@ download() {
     local wget=""
     local url="$1"
     local fname="${2:-${basename $url}}"
+    # UA do not work in fact, redirect loop and empty file
     local G_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.22 (KHTML, like Gecko) Ubuntu Chromium/25.0.1364.160 Chrome/25.0.1364.160 Safari/537.22"
     # freebsd
     if [[ $(uname) == "FreeBSD" ]] && [[ -e $(which fetch 2>&1) ]];then
+        if [[ -n $MANAGE_DEBUG  ]];then
+            set -x
+        fi
         $(which fetch) -pra -o $fname $url
+        set +x &> /dev/null
     # wget
+
     elif [[ -e $(which wget) ]];then
-        $(which wget) --no-check-certificate -U "${G_UA}" -c -O $fname $url
+        if [[ -n $MANAGE_DEBUG  ]];then
+            set -x
+        fi
+        #$(which wget) --no-check-certificate -U "${G_UA}" -c -O $fname $url
+        $(which wget) --no-check-certificate -c -O $fname $url
+        set +x &> /dev/null
     # curl
     elif [[ -e $(which curl 2>&1) ]];then
-        $(which curl) -A "${G_UA}" --insecure -C - -a -o $fname $url
+        if [[ -n $MANAGE_DEBUG  ]];then
+            set -x
+        fi
+        #$(which curl) -A "${G_UA}" --insecure -C - -a -o $fname $url
+        $(which curl) --insecure -C - -a -o $fname $url
+        set +x &> /dev/null
     fi
     if [[ "$?" != "0" ]];then
         log "Error downloading $url -> $fname"
@@ -819,7 +860,6 @@ download() {
 import() {
     NO_SYNC_HOSTS=1
     cd "${VMPATH}"
-    local gtouched=""
     local image="${1:-$(get_devhost_archive_name $(get_release_name))}"
     local tar_preopts="-xjvpf"
     local tar_postopts="--numeric-owner"
@@ -883,17 +923,12 @@ import() {
             fi
         fi
         log "Initialiasing host from $box" &&\
-            sed -i -e "s/config\.vm\.box\s*=.*/config.vm.box = \"$bname\"/g" Vagrantfile &&\
+            export DEVHOST_FORCED_BOX_NAME="$bname" &&\
             sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
             sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb
-        gtouched="1"
         # load initial box image & do initial provisionning
         up && lret="0"
         down
-        # reseting Vagrantfile in any case
-        if [[ -n $gtouched ]];then
-            git checkout Vagrantfile 2>/dev/null
-        fi
         if [[ "$lret" != "0" ]];then
             log "Error while importing $box"
             exit $lret
