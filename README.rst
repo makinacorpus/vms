@@ -69,17 +69,6 @@ We have improved performances by some techniques:
       like salt and plone, for example, so we finally choose to share files from the
       guest to the host.
 
-sshfs documentation
-++++++++++++++++++++
-Linux / *BSD
-~~~~~~~~~~~~~~
-- Install your sshfs distribution package (surely **sshfs**).
-- Relog into a new session or reboot
-
-MacOSX
-~~~~~~
-- Install `macfusion <http://macfusionapp.org>`_
-- Relog into a new session or reboot
 
 Virtualbox
 ++++++++++
@@ -113,6 +102,19 @@ For a Debian / Ubuntu deb-like host, version 1.3.5 64 bits::
 host virtualbox version::
 
     vagrant plugin install vagrant-vbguest
+
+
+sshfs documentation
+++++++++++++++++++++
+Linux / *BSD
+~~~~~~~~~~~~~~
+- Install your sshfs distribution package (surely **sshfs**).
+- Relog into a new session or reboot
+
+MacOSX
+~~~~~~
+- Install `macfusion <http://macfusionapp.org>`_
+- Relog into a new session or reboot
 
 Optimizations (optional but recommended)
 ++++++++++++++++++++++++++++++++++++++++
