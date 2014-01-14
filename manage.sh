@@ -1101,6 +1101,7 @@ clonevm() {
     local import_uri="${2}"
     if [[ -e "$NEWVMPATH" ]];then
         log "Directory already exists, please delete it"
+        exit 1
     fi
     rsync -azv --exclude=VM --exclude="*.tar.bz2" ./ "$NEWVMPATH/"
     VMPATH="$NEWVMPATH"
