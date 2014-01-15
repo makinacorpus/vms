@@ -583,13 +583,13 @@ install_keys() {
         home=$(awk -F: -v v="$user" '{if ($1==v && $6!="") print $6}' /etc/passwd)
         if [[ -e "$home" ]];then
             rsync\
-                -a\
+                -av\
                 --exclude=authorized_keys* \
                 /mnt/parent_ssh/ "$home/.ssh/"
             for i in /home/vagrant/.ssh/author*;do
                 dest=$home/.ssh/$(basename $i)
                 if [[ "$i" != "$dest" ]];then
-                    cp -rf "$i" "$dest"
+                    cp -rvf "$i" "$dest"
                 fi
             done
             chmod -Rf 700 "$home/.ssh"
