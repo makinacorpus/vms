@@ -234,7 +234,8 @@ MD5=Digest::MD5.hexdigest(CWD)
 #VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME} (#{MD5})"
 # as we have now mecanisms to select a new devnum, force the facct that we cant have more that one
 # vm with the same devnum
-VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME}"
+SCWD = CWD.gsub(/\//, '_').slice(1..-1)
+VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME} (#{SCWD})"
 eprintf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 eprintf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
 eprintf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
@@ -275,7 +276,7 @@ Vagrant.configure("2") do |config|
   config.vm.box_url = BOX_URI
   config.vm.host_name = VM_HOSTNAME
   config.vm.provider "virtualbox" do |vb|
-      vb.name=VIRTUALBOX_VM_NAME
+      vb.name="#{VIRTUALBOX_VM_NAME}"
   end
 
   # -- VirtualBox Guest Additions ----------

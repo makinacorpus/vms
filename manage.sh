@@ -5,6 +5,7 @@ actions_main_usage="usage init ssh up reload destroy down suspend status sync_ho
 actions_exportimport="export import"
 actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm umount_vm release internal_ssh gen_ssh_config reset"
 actions_alias="-h --help --long-help -l "
+vagrant_ssh="vagrant ssh -c"
 actions="
     $actions_exportimport
     $actions_main_usage
@@ -262,58 +263,6 @@ status() {
     status_|egrep "^default    "|grep -v grep|sed -e "s/^default\s*//"|sed -e "s/\s*[(].*//"
 }
 
-test() {
-    NO_SYNC_HOSTS=1
-    where="$(dirname "$THIS")"
-    cd "${where}" || exit 1
-    local VMPATH=$PWD
-    local name=$(grep ' UBUNTU_RELEASE="' Vagrantfile|grep -v grep|sed -e 's/.*="//' -e 's/"//g')
-    local dname=$(grep ' DEBIAN_RELEASE="' Vagrantfile|grep -v grep|sed -e 's/.*="//' -e 's/"//g')
-    local TESTPATH="${VMPATH}-test"
-    sudo rsync -av "${VMPATH}/" "${TESTPATH}/" \
-        --exclude=salt/ \
-        --exclude=mastersalt --exclude=mastersalt-pillar \
-        --exclude=pillar \
-        --exclude=projects --exclude=docker/ \
-        --exclude=.vagrant --exclude=packer --exclude=vagrant_config.rb
-    cd "${TESTPATH}" || exit -1
-    git checkout docker
-    git checkout packer
-    if [[ "$name" == "saucy" ]];then
-        num="52"
-    elif [[ "$name" == "raring" ]];then
-        num="53"
-    elif [[ "$name" == "precise" ]];then
-        num="55"
-    elif [[ "$dname" == "wheezy" ]];then
-        num="56"
-    else
-        die "invalid test"
-    fi
-    if [[ ! -e vagrant_config.rb ]];then
-        write_test_config $num
-    fi
-    if [[ -n "$NOCLEAN" ]];then
-        log "Warning, no clean!"
-    else
-        if [[ -n "$NODESTROY" ]];then
-            log "Warning, no destroy!"
-        else
-            ./manage.sh destroy
-        fi
-        sudo rm -rf salt projects pillar
-    fi
-    if [[ ! -e vagrant_config.rb ]];then
-        write_test_config $num
-    fi
-    if [[ -n "$NOCLEAN" ]];then
-        ./manage.sh down
-    fi
-    ./manage.sh up
-    NO_SYNC_HOSTS=$DEFAULT_NO_SYNC_HOSTS
-    exit $?
-}
-
 destroy() {
     cd "${VMPATH}"
     log "Destroy !"
@@ -366,7 +315,7 @@ ssh_() {
 get_devhost_num() {
     local devhost_num=""
     if [[ -n "$(is_wrapper_present)" ]];then
-        devhost_num="$(internal_ssh sudo $PROVISION_WRAPPER get_devhost_num)"
+        devhost_num="$($vagrant_ssh "sudo $PROVISION_WRAPPER get_devhost_num 2>/dev/null" 2>/dev/null)"
     fi
     if [[ -n "$devhost_num" ]];then
         echo "$devhost_num"
@@ -375,7 +324,7 @@ get_devhost_num() {
 
 is_wrapper_present(){
     local present=""
-    if [[ "$(internal_ssh test -e "$PROVISION_WRAPPER";echo $?)" == "0" ]];then
+    if [[ "$($vagrant_ssh "test -e \"$PROVISION_WRAPPER\" &>/dev/null;echo $?" 2>/dev/null)" == "0" ]];then
         present="1"
     fi
     echo $present
@@ -391,10 +340,14 @@ gen_ssh_config() {
         mkdir .vagrant
     fi
     active_echo
-    vagrant ssh-config 2>/dev/null > "$internal_ssh_config"
+    vagrant ssh-config 2>/dev/null 1>"$internal_ssh_config"
+    if [[ ! -f "$internal_ssh_config" ]];then
+        log "Cant generate $internal_ssh_config"
+        exit 1
+    fi
     # replace the ip by the hostonly interface one in our ssh wrappers
-    local hostip=$(vagrant ssh -c "ip addr show dev eth1 2> /dev/null")
-    if [[ -n $hostip ]];then
+    local hostip=$($vagrant_ssh "ip addr show dev eth1 2> /dev/null" 2>/dev/null)
+    if [[ -n "$hostip" ]];then
         hostip=$(echo "$hostip"|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
     fi
     local devhost_num="$(get_devhost_num)"
@@ -413,20 +366,24 @@ gen_ssh_config() {
 }
 
 cleanup_keys() {
+    active_echo
     ssh_pre_reqs
     if [[ -n "$(is_wrapper_present)" ]];then
-        internal_ssh sudo $PROVISION_WRAPPER cleanup_keys
+        $vagrant_ssh "sudo $PROVISION_WRAPPER cleanup_keys" 2>/dev/null
     else
         log "Warning: could not cleanup ssh keys, shared folder mountpoint seems not present"
     fi
+    unactive_echo
 }
 
 install_keys() {
+    active_echo
     if [[ -n "$(is_wrapper_present)" ]];then
-        internal_ssh sudo $PROVISION_WRAPPER install_keys
+        $vagrant_ssh "sudo $PROVISION_WRAPPER install_keys" 2>/dev/null
     else
         log "Warning: could not install ssh keys, shared folder mountpoint seems not present"
     fi
+    unactive_echo
 }
 
 ssh_pre_reqs() {
@@ -445,7 +402,7 @@ ssh() {
 pre_down() {
     if [[ "$(status)" == "running" ]];then
         umount_vm
-        internal_ssh sudo sync
+        $vagrant_ssh "sudo sync" 2>/dev/null
     else
         log " [*] pre_down: VM already stopped"
     fi
@@ -732,7 +689,7 @@ up() {
     lret=$?
     # be sure of jumbo frames
     if [[ -n $notrunning ]];then
-        internal_ssh "sudo ifconfig eth1 mtu 9000"
+        $vagrant_ssh "sudo ifconfig eth1 mtu 9000" 2>/dev/null
     fi
     post_up $lret $@
 }
@@ -820,6 +777,7 @@ export_() {
     if [[ $(uname) != "Darwin" ]];then
         tar_preopts="${tar_preopts}p"
     fi
+    local netrules="/etc/udev/rules.d/70-persistent-net.rules"
     if [[ -z "$nozerofree" ]];then
         log "Zerofree starting in 20 seconds, you can control C before the next log"
         log "and relaunch with the same cmdline with nozerofree appended: eg ./manage.sh export nozerofree"
@@ -838,10 +796,10 @@ export_() {
                 exit -1
             fi &&\
             if [[ -z $nosed ]];then \
-                internal_ssh \
-                'if [[ -e /etc/udev/rules.d/70-persistent-net.rules ]];then sudo sed -re "s/^SUBSYSTEM/#SUBSYSTEM/g" -i /etc/udev/rules.d/70-persistent-net.rules;fi';\
+                $vagrant_ssh "if [[ -d $netrules ]];then rm -rf $netrules;touch $netrules;fi";\
+                $vagrant_ssh "if [[ -e $netrules ]];then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i $netrules;fi";\
             fi &&\
-            internal_ssh "sudo $PROVISION_WRAPPER mark_export"
+            $vagrant_ssh "sudo $PROVISION_WRAPPER mark_export" 2>/dev/null
             down
             export DEVHOST_FORCED_BOX_NAME="$bname" &&\
             log "Be patient, exporting now" &&\
@@ -849,7 +807,7 @@ export_() {
             rm -f "$EXPORT_VAGRANTFILE"*
         local lret="$?"
         down
-        up --no-provision && internal_ssh "sudo $PROVISION_WRAPPER unmark_exported" && down
+        up --no-provision && $vagrant_ssh "sudo $PROVISION_WRAPPER unmark_exported" 2>/dev/null && down
         if [[ "$lret" != "0" ]];then
             log "error exporting $box"
             exit 1
@@ -1089,31 +1047,52 @@ reset() {
     fi
 }
 
-
 get_abspath() {
     python -c "import os;print os.path.abspath(os.path.expanduser('$1'))" 2> /dev/null
 
 }
 
 clonevm() {
-    cd "$VMPATH"||exit -1
+    local NEWVMPATH="$1"
+    local OLDVMPATH="$VMPATH"
     local tarballs="$(ls -1rt *.tar.bz2)"
     local tarball="$(ls -1rt devhost*.tar.bz2|head -n1)"
-    local OLDVMPATH="$VMPATH"
-    local NEWVMPATH="$1"
-    local import_uri="${2}"
-    if [[ -e "$NEWVMPATH" ]];then
-        log "Directory already exists, please delete it with rm -rf '$NEWVMPATH' or choose another directory"
-        exit 1
+    if [[ ! -e $NEWVMPATH ]];then
+        mkdir "$NEWVMPATH"
     fi
-    rsync -azv --exclude=VM --exclude="*.tar.bz2" ./ "$NEWVMPATH/"
-    VMPATH="$NEWVMPATH"
-    cd $VMPATH || exit -1
-    VMPATH=$(pwd)
+    local import_uri="${2}"
+    local can_continue=""
     if [[ -n $MANAGE_DEBUG ]];then
         set -x
     fi
-    reset &&\
+    if [[ -e "$NEWVMPATH" ]];then
+        if [[ -d "$NEWVMPATH" ]];then
+            if [[ -z "$NOINPUT" ]] || [[ "$input" == "y" ]];then
+                log "Do you really want to nuke vm in $NEWVMPATH ?"
+                log "[press y+ENTER, or CONTROL+C to abort]";read input
+            fi
+            if [[ -n "$NOINPUT" ]] || [[ "$input" == "y" ]];then
+                cd "$NEWVMPATH"
+                if [[ -f manage.sh ]];then
+                    ./manage.sh reset
+                fi
+                can_continue=1
+            fi
+        fi
+    fi
+    if [[ -e "$NEWVMPATH" ]] && [[ ! -n $can_continue ]];then
+        log "File already exists, please delete it with rm -rf '$NEWVMPATH' or choose another path"
+        exit 1
+    fi
+    cd "$OLDVMPATH"||exit -1
+    sudo rsync -av\
+        --exclude="*.tar.bz2"\
+        --exclude=.vagrant --exclude=vagrant_config.rb \
+        "$OLDVMPATH/" "$NEWVMPATH/"
+    cd "$NEWVMPATH"||exit -1
+    if [[ -f manage.sh ]];then
+        ./manage.sh reset
+    fi &&\
         for i in $tarballs;do
             local oldp="$OLDVMPATH/$i"
             local newp="$NEWVMPATH/$i"
@@ -1138,10 +1117,16 @@ clonevm() {
         local ntarball="$(ls -1rt devhost*.tar.bz2|head -n1)" &&\
         if [[ ! -e "$ntarball" ]];then ntarball="${import_uri:-$(get_release_url)}";fi &&\
         log "Init in $VMPATH" &&\
-        init "$ntarball"
+        cd "$NEWVMPATH" &&\
+        ./manage.sh init "$ntarball"
     if [[ -n $MANAGE_DEBUG ]];then
         set +x
     fi
+}
+
+test() {
+    local TESTPATH="${VMPATH}-test"
+    NO_SYNC_HOSTS=1  MANAGE_DEBUG=1 NOINPUT=1 clonevm "$TESTPATH"
 }
 
 do_zerofree() {
