@@ -23,7 +23,7 @@ if [[ -n $NO_COLORS ]];then
     CYAN=""
     NORMAL=""
 fi
-DEBUG=${BOOT_SALT_DEBUG:-}
+DEBUG=${BOOT_SALT_DEBUG:-$DEBUG}
 output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
 log() { output "$@"; }
 die_if_error() { if [[ "$?" != "0" ]];then output "There were errors";exit 1;fi; }
@@ -82,6 +82,8 @@ detect_os() {
 }
 
 set_vars() {
+    NOT_EXPORTED="proc sys dev lost+found"
+    VM_EXPORT_MOUNTPOINT="/guest"
     ROOT="/"
     CONF_ROOT="${CONF_ROOT:-"${ROOT}etc"}"
     PREFIX="${PREFIX:-"${ROOT}srv"}"
@@ -157,6 +159,15 @@ ready_to_run() {
     output "   * You can run one specific state with \"salt-call [-l all] state.sls name-of-state\""
     output " If you want to share this wm, use ./manage.sh export | import"
     output " Stop vm with './manage.sh down', connect it with './manage.sh ssh'"
+}
+
+is_mounted() {
+    local mounted=""
+    local mp="$1"
+    if [[ "$(mount|awk '{print $3}'|egrep "$mp$"|wc -l)" != "0" ]];then
+        mounted="1"
+    fi
+    echo $mounted
 }
 
 deactivate_ifup_debugging() {
@@ -683,6 +694,56 @@ git_changeset() {
     git log|head -n1|awk '{print $2}'
 }
 
+create_vm_mountpoint() {
+    if [[ -n $DEBUG ]];then
+        set -x
+    fi
+    if [[ ! -e "$VM_EXPORT_MOUNTPOINT" ]];then
+        mkdir "$VM_EXPORT_MOUNTPOINT"
+    fi
+    cd /
+    for mountpoint in $(ls -d *);do
+        dest="$VM_EXPORT_MOUNTPOINT/$mountpoint"
+        if [[ -n $(is_mounted "$dest") ]];then
+            log "Already mounted point: $mountpoint"
+        else
+            if [[ " $NOT_EXPORTED " != *" $mountpoint "* ]];then
+                if [[ -d "$mountpoint" ]];then
+                    if [[ ! -d "$dest" ]];then
+                        mkdir -pv "$dest"
+                    fi
+                elif [[ -e "$mountpoint" ]];then
+                    touch "$dest"
+                fi
+                echo is_mounted "$dest"
+                is_mounted "$dest"
+                if [[ -z "$(is_mounted "$dest")" ]];then
+                    log "Bind-Mounting /$mountpoint -> $dest"
+                    mount -o bind,rw,exec "$mountpoint" "$dest"
+                    cat /proc/mounts>/etc/mtab
+                else
+                    if [[ -n $DEBUG ]];then
+                        log "Skipping $mountpoint, not exported (not a dir/file)"
+                    fi
+                fi
+            else
+                if [[ -n $DEBUG ]];then
+                    log "Skipping $mountpoint, not exported"
+                fi
+            fi
+        fi
+    done
+    if [[ -n $DEBUG ]];then
+        set +x
+    fi
+}
+
+umount_guest_mountpoint(){
+    for i in $(mount|grep bind|awk '{print $3}');do
+        umount -f "$i"
+        log "Umounted point: $i"
+    done
+}
 
 handle_export() {
     if [[ -e "$export_marker" ]];then
@@ -760,6 +821,8 @@ if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
     open_routes
     cleanup_space
     check_restart
+    umount_guest_mountpoint
+    create_vm_mountpoint
     ready_to_run
     sync
 fi
