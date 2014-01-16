@@ -95,10 +95,12 @@ You could make you a supersudoer without password to avoid sudo questions when l
     # Allow members of group sudo to execute any command
     %sudo   ALL=(ALL:ALL) NOPASSWD:ALL
 
-For a Debian / Ubuntu deb-like host, version 1.3.5 64 bits::
+For a Debian / Ubuntu deb-like host:
 
-    wget http://files.vagrantup.com/packages/a40522f5fabccb9ddabad03d836e120ff5d14093/vagrant_1.3.5_x86_64.deb
+    url="https://dl.bintray.com/mitchellh/vagrant/vagrant_1.4.3_x86_64.deb";wget "$url"
     sudo dpkg -i vagrant_1.3.5_x86_64.deb
+
+For macosx, use `<https://dl.bintray.com/mitchellh/vagrant/Vagrant-1.4.3.dmg>`_
 
 **IMPORTANT** THE VBGUEST PLUGIN, to sync the guest addition packages from your
 host virtualbox version::
