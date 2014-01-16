@@ -720,6 +720,7 @@ create_vm_mountpoint() {
                 if [[ -z "$(is_mounted "$dest")" ]];then
                     log "Bind-Mounting /$mountpoint -> $dest"
                     mount -o bind,rw,exec "$mountpoint" "$dest"
+                    cat /proc/mounts>/etc/mtab
                 else
                     if [[ -n $DEBUG ]];then
                         log "Skipping $mountpoint, not exported (not a dir/file)"
