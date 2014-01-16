@@ -585,7 +585,8 @@ mount_vm() {
         local sshhost=$(get_ssh_host "$ssh_config")
         if [[   -n $sshhost ]];then
             log "Mounting devhost($sshhost):/ --sshfs--> $VM"
-            sshfs -F "$ssh_config" root@${sshhost}:/ -o nonempty "$VM"
+            sshopts="nonempty,transform_symlinks,reconnect,BatchMode=yes"
+            sshfs -F "$ssh_config" root@${sshhost}:/ -o $sshopts "$VM"
         else
             log "Cant' mount devhost, empty ssh host"
             exit -1
