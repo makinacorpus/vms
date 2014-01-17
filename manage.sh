@@ -571,6 +571,9 @@ get_ssh_host() {
 
 mount_vm() {
     cd "${VMPATH}"
+    if [[ -n $MANAGE_DEBUG ]];then
+        set -x
+    fi
     # something is wrong with the mountpath, killing it
     test_not_connected="$(LANG=C ls VM 2>&1)"
     if [[ ! -e "$VM/home/vagrant/.ssh" ]]\
@@ -586,11 +589,17 @@ mount_vm() {
         if [[   -n $sshhost ]];then
             log "Mounting devhost($sshhost):/ --sshfs--> $VM"
             sshopts="nonempty,transform_symlinks,reconnect,BatchMode=yes"
+            if [[ "$(egrep "^user_allow_other" /etc/fuse.conf 2>/dev/null|wc -l)" != 0 ]];then
+                sshopts="$sshopts,allow_other"
+            fi
             sshfs -F "$ssh_config" root@${sshhost}:/guest -o $sshopts "$VM"
         else
             log "Cant' mount devhost, empty ssh host"
             exit -1
         fi
+    fi
+    if [[ -n $MANAGE_DEBUG ]];then
+        set +x
     fi
 }
 
