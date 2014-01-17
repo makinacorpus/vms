@@ -744,10 +744,16 @@ mount_guest_mountpoint() {
 }
 
 umount_guest_mountpoint(){
+    local hdone="0"
     for i in $(mount|grep $VM_EXPORT_MOUNTPOINT|awk '{print $3}');do
         umount -f "$i"
         log "Umounted point: $i"
+        hdone="1"
     done
+    # is a symlink on debian, to /proc/mounts
+    if [[ -n "$hdone" ]] && [[ "$(readlink "$mountpoint/etc/mtab")" != "/proc/mounts" ]];then
+        cat /proc/mounts>/etc/mtab
+    fi
 }
 
 handle_export() {
