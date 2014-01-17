@@ -715,12 +715,15 @@ create_vm_mountpoint() {
                 elif [[ -e "$mountpoint" ]];then
                     touch "$dest"
                 fi
-                echo is_mounted "$dest"
                 is_mounted "$dest"
                 if [[ -z "$(is_mounted "$dest")" ]];then
                     log "Bind-Mounting /$mountpoint -> $dest"
                     mount -o bind,rw,exec "$mountpoint" "$dest"
-                    cat /proc/mounts>/etc/mtab
+                    # is a symlink on debian, to /proc/mounts
+                    if [[ ! -e "$(readlink $mountpoint/etc/mtab)" ]]\
+                        && [[ ! -e "$(readlink $mountpoint/etc/mtab)" == "/proc/mounts" ]];then
+                        cat /proc/mounts>/etc/mtab
+                    fi
                 else
                     if [[ -n $DEBUG ]];then
                         log "Skipping $mountpoint, not exported (not a dir/file)"
@@ -738,8 +741,12 @@ create_vm_mountpoint() {
     fi
 }
 
+mount_guest_mountpoint() {
+    create_vm_mountpoint $@
+}
+
 umount_guest_mountpoint(){
-    for i in $(mount|grep bind|awk '{print $3}');do
+    for i in $(mount|grep $VM_EXPORT_MOUNTPOINT|awk '{print $3}');do
         umount -f "$i"
         log "Umounted point: $i"
     done
