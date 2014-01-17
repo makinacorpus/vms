@@ -715,7 +715,6 @@ create_vm_mountpoint() {
                 elif [[ -e "$mountpoint" ]];then
                     touch "$dest"
                 fi
-                is_mounted "$dest"
                 if [[ -z "$(is_mounted "$dest")" ]];then
                     log "Bind-Mounting /$mountpoint -> $dest"
                     mount -o bind,rw,exec "$mountpoint" "$dest"
