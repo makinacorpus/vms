@@ -176,7 +176,7 @@ You will have to use ``./manage.sh``, a wrapper to ``vagrant`` in the spirit but
 
     git clone https://github.com/makinacorpus/vms.git -b vagrant-debian-7-wheezy64 vm-debian
     cd vm-debian
-	
+
 - start the VM a first time, this will launch the base vm download from DNS, then VM creation and
   provisioning::
 
@@ -216,7 +216,7 @@ Reloading the vm is::
 To remove an outdated or broken VM::
 
   ./manage.sh destroy
-	
+
 Daily usage
 ------------
 
@@ -250,7 +250,7 @@ Manual way
   rsync -azv --exclude=VM --exclude="*.tar.bz2" <VM-template>/ <NEW-VM>/
   cd <NEW-VM>
   ./manage reset && ./manage init ../<VM-TEMPLATE>/<devhost_master*tar.bz2> # the downloaded archive at init time
-  
+
 New clone
 ~~~~~~~~~~~~~~
 
@@ -260,10 +260,10 @@ New clone
   git clone https://github.com/makinacorpus/vms.git vm2
   cd vm2
   or c
-  
+
 m ID and Subnet.
 
-Edit VM core settings 
+Edit VM core settings
 ++++++++++++++++++++++
 You must read at least once the Vagrantfile, it will be easier for you to know how to alter the vm settings.
 Such settings can go from MAX_CPU_USAGE_PERCENT,CPUS & MEMORY settings. to more useful: change this second v
@@ -528,6 +528,36 @@ And uninstall them with
     sudo su
     cd /srv/docker
     ./make.sh teardown
+
+
+Git merge From branch a to branch b
+------------------------------------
+Some weird changes can happen in Vagrant file
+
+Say that you want to put master commits in debian (vagrant-debian-7-wheezy64) branch::
+
+    git merge --no-commit --no-ff -e origin/master
+
+Verify and discard or merge any changes to Vagrantfile::
+
+    git diff --cached Vagrantfile
+
+Discard::
+
+    git show origin/vagrant-debian-7-wheezy64>Vagrantfile
+    git add Vagrantfile
+
+2 ways merge::
+
+    git show origin/master>Vagrantfile.a
+    git show origin/vagrant-debian-7-wheezy64>Vagrantfile
+    vimdiff Vagrantfile.a Vagrantfile
+    git add Vagrantfile
+
+commit && push the result::
+
+    git commit && push
+
 
 Use NFS Shared folders (obsolete)
 -----------------------------------
