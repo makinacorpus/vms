@@ -1132,6 +1132,9 @@ clonevm() {
         --exclude=.vagrant --exclude=vagrant_config.rb \
         "$OLDVMPATH/" "$NEWVMPATH/"
     cd "$NEWVMPATH"||exit -1
+    ID=$(whoami)
+    sudo chown -f "$ID" packer VM docker
+    sudo chown -Rf "$ID" .git vagrant vagrant_config.rb .vagrant
     if [[ -f manage.sh ]];then
         ./manage.sh reset
     fi &&\
