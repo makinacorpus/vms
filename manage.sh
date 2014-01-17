@@ -5,7 +5,6 @@ actions_main_usage="usage init ssh up reload destroy down suspend status sync_ho
 actions_exportimport="export import"
 actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm umount_vm release internal_ssh gen_ssh_config reset"
 actions_alias="-h --help --long-help -l "
-vagrant_ssh="vagrant ssh -c"
 actions="
     $actions_exportimport
     $actions_main_usage
@@ -64,6 +63,10 @@ SFTP_URL=frs.sourceforge.net:/home/frs/$PROJECT_PATH
 PROVISION_WRAPPER="/vagrant/vagrant/provision_script_wrapper.sh"
 EXPORT_VAGRANTFILE="Vagrantfile-export"
 DEFAULT_NO_SYNC_HOSTS=$NO_SYNC_HOSTS
+SSH_CONFIG_DONE=""
+HOSTONLY_SSH_CONFIG_DONE=""
+WRAPPER_PRESENT=""
+DEVHOST_NUM=""
 
 die() { echo $@ 1>&2; exit -1; }
 
@@ -263,11 +266,28 @@ status() {
     status_|egrep "^default    "|grep -v grep|sed -e "s/^default\s*//"|sed -e "s/\s*[(].*//"
 }
 
+vagrant_ssh() {
+    if [[ -z $SSH_CONFIG_DONE ]];then
+        if [[ -n $@ ]];then
+            vagrant ssh -c "$@"
+        else
+            vagrant ssh
+        fi
+    else
+        if [[ -n $@ ]];then
+            internal_ssh "$@"
+        else
+            internal_ssh
+        fi
+    fi
+}
+
 destroy() {
     cd "${VMPATH}"
     log "Destroy !"
     down
     vagrant destroy -f
+    mark_ssh_config_not_done
 }
 
 suspend() {
@@ -312,22 +332,64 @@ ssh_() {
     fi
 }
 
-get_devhost_num() {
-    local devhost_num=""
-    if [[ -n "$(is_wrapper_present)" ]];then
-        devhost_num="$($vagrant_ssh "sudo $PROVISION_WRAPPER get_devhost_num 2>/dev/null" 2>/dev/null)"
-    fi
-    if [[ -n "$devhost_num" ]];then
-        echo "$devhost_num"
+set_wrapper_present(){
+    if [[ -z $WRAPPER_PRESENT ]];then
+        if [[ "$(vagrant_ssh "test -e \"$PROVISION_WRAPPER\" &>/dev/null;echo $?" 2>/dev/null)" == "0" ]];then
+            WRAPPER_PRESENT="1"
+        fi
     fi
 }
 
-is_wrapper_present(){
-    local present=""
-    if [[ "$($vagrant_ssh "test -e \"$PROVISION_WRAPPER\" &>/dev/null;echo $?" 2>/dev/null)" == "0" ]];then
-        present="1"
+set_devhost_num() {
+    if [[ -z $DEVHOST_NUM ]] && [[ -n "$WRAPPER_PRESENT" ]];then
+        DEVHOST_NUM="$(vagrant_ssh "sudo $PROVISION_WRAPPER get_devhost_num 2>/dev/null" 2>/dev/null)"
     fi
-    echo $present
+    if [[ -n $DEVHOST_NUM ]];then
+        if [[ -e "$internal_ssh_config" ]];then
+            sed -i "s/Host default/Host devhost${DEVHOST_NUM}/g" "$internal_ssh_config"
+        fi
+        if [[ -e "$ssh_config" ]];then
+            sed -i "s/Host default/Host devhost${DEVHOST_NUM}/g" "$ssh_config"
+        fi
+    fi
+}
+
+mark_ssh_config_not_done() {
+    HOSTONLY_SSH_CONFIG_DONE=""
+    SSH_CONFIG_DONE=""
+    WRAPPER_PRESENT=""
+    DEVHOST_NUM=""
+}
+
+gen_internal_ssh_config() {
+    if [[ -n $SSH_CONFIG_DONE ]];then return 0;fi
+    vagrant ssh-config 2>/dev/null 1>"$internal_ssh_config"
+    if [[ ! -f "$internal_ssh_config" ]];then
+        log "Cant generate $internal_ssh_config"
+        exit 1
+    else
+        SSH_CONFIG_DONE="1"
+    fi
+}
+
+gen_hostonly_ssh_config() {
+    if [[ -n $HOSTONLY_SSH_CONFIG_DONE ]];then return 0;fi
+    # replace the ip by the hostonly interface one in our ssh wrappers
+    local hostip=$(vagrant_ssh "ip addr show dev eth1 2> /dev/null" 2>/dev/null)
+    local devhost_num="$DEVHOST_NUM"
+    cp -f "$internal_ssh_config" "$ssh_config"
+    if [[ -n "$hostip" ]];then
+        hostip=$(echo "$hostip"|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
+    fi
+    if [[ -z $hostip ]];then
+        log "Fallback to internal as we could not detect any ip on eth1"
+        ssh_config=$internal_ssh_config
+        HOSTONLY_SSH_CONFIG_DONE=""
+    else
+        sed -i "s/HostName.*/HostName $hostip/g" "$ssh_config"
+        sed -i "s/Port.*//g" "$ssh_config"
+        HOSTONLY_SSH_CONFIG_DONE="1"
+    fi
 }
 
 gen_ssh_config() {
@@ -340,36 +402,18 @@ gen_ssh_config() {
         mkdir .vagrant
     fi
     active_echo
-    vagrant ssh-config 2>/dev/null 1>"$internal_ssh_config"
-    if [[ ! -f "$internal_ssh_config" ]];then
-        log "Cant generate $internal_ssh_config"
-        exit 1
-    fi
-    # replace the ip by the hostonly interface one in our ssh wrappers
-    local hostip=$($vagrant_ssh "ip addr show dev eth1 2> /dev/null" 2>/dev/null)
-    if [[ -n "$hostip" ]];then
-        hostip=$(echo "$hostip"|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
-    fi
-    local devhost_num="$(get_devhost_num)"
-    if [[ -n $devhost_num ]];then
-        sed -i "s/Host default/Host devhost${devhost_num}/g" "$internal_ssh_config"
-    fi
-    cp -f "$internal_ssh_config" "$ssh_config"
-    if [[ -z $hostip ]];then
-        log "Fallback to internal as we could not detect any ip on eth1"
-        ssh_config=$internal_ssh_config
-    else
-        sed -i "s/HostName.*/HostName $hostip/g" "$ssh_config"
-        sed -i "s/Port.*//g" "$ssh_config"
-    fi
+    gen_internal_ssh_config
+    set_wrapper_present
+    set_devhost_num
+    gen_hostonly_ssh_config
     unactive_echo
 }
 
 cleanup_keys() {
     active_echo
     ssh_pre_reqs
-    if [[ -n "$(is_wrapper_present)" ]];then
-        $vagrant_ssh "sudo $PROVISION_WRAPPER cleanup_keys" 2>/dev/null
+    if [[ -n "$WRAPPER_PRESENT" ]];then
+        vagrant_ssh "sudo $PROVISION_WRAPPER cleanup_keys" 2>/dev/null
     else
         log "Warning: could not cleanup ssh keys, shared folder mountpoint seems not present"
     fi
@@ -378,8 +422,9 @@ cleanup_keys() {
 
 install_keys() {
     active_echo
-    if [[ -n "$(is_wrapper_present)" ]];then
-        $vagrant_ssh "sudo $PROVISION_WRAPPER install_keys" 2>/dev/null
+    gen_ssh_config
+    if [[ -n "$WRAPPER_PRESENT" ]];then
+        vagrant_ssh "sudo $PROVISION_WRAPPER install_keys" 2>/dev/null
     else
         log "Warning: could not install ssh keys, shared folder mountpoint seems not present"
     fi
@@ -402,7 +447,7 @@ ssh() {
 pre_down() {
     if [[ "$(status)" == "running" ]];then
         umount_vm
-        $vagrant_ssh "sudo sync" 2>/dev/null
+        vagrant_ssh "sudo sync" 2>/dev/null
     else
         log " [*] pre_down: VM already stopped"
     fi
@@ -414,6 +459,7 @@ down() {
     if [[ "$(status)" == "running" ]];then
         pre_down
         vagrant halt -f
+        mark_ssh_config_not_done
     else
         log " [*] VM already stopped"
     fi
@@ -425,7 +471,7 @@ maybe_finish_creation() {
     local restart_marker="/tmp/vagrant_provision_needs_restart"
     if [[ "$lret" != "0" ]];then
         for i in $(seq 3);do
-            local marker="$(vagrant ssh -c "test -e $restart_marker" &> /dev/null;echo $?)"
+            local marker="$(vagrant_ssh "test -e $restart_marker" &> /dev/null;echo $?)"
             if [[ "$marker" == "0" ]];then
                 log "First runs, we issue a scheduled reload after the first up(s)"
                 reload $@
@@ -571,9 +617,7 @@ get_ssh_host() {
 
 mount_vm() {
     cd "${VMPATH}"
-    if [[ -n $MANAGE_DEBUG ]];then
-        set -x
-    fi
+    active_echo
     # something is wrong with the mountpath, killing it
     test_not_connected="$(LANG=C ls VM 2>&1)"
     if [[ ! -e "$VM/home/vagrant/.ssh" ]]\
@@ -598,9 +642,7 @@ mount_vm() {
             exit -1
         fi
     fi
-    if [[ -n $MANAGE_DEBUG ]];then
-        set +x
-    fi
+    unactive_echo
 }
 
 get_pid_line() {
@@ -699,7 +741,7 @@ up() {
     lret=$?
     # be sure of jumbo frames
     if [[ -n $notrunning ]];then
-        $vagrant_ssh "sudo ifconfig eth1 mtu 9000" 2>/dev/null
+        vagrant_ssh "sudo ifconfig eth1 mtu 9000" 2>/dev/null
     fi
     post_up $lret $@
 }
@@ -717,6 +759,7 @@ reload() {
     log "Reload!"
     umount_vm
     if [[ "$(status)" != "running" ]];then
+        mark_ssh_config_not_done
         up
     else
         pre_down
@@ -801,15 +844,15 @@ export_() {
     if [[ ! -e "$box" ]];then
         vagrant box remove $bname
         down && up &&\
-            if [[ -z $(is_wrapper_present) ]];then \
+            if [[ -z $WRAPPER_PRESENT ]];then \
                 log "$PROVISION_WRAPPER is not there in the VM"
                 exit -1
             fi &&\
             if [[ -z $nosed ]];then \
-                $vagrant_ssh "if [[ -d $netrules ]];then rm -rf $netrules;touch $netrules;fi";\
-                $vagrant_ssh "if [[ -e $netrules ]];then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i $netrules;fi";\
+                vagrant_ssh "if [[ -d $netrules ]];then rm -rf $netrules;touch $netrules;fi";\
+                vagrant_ssh "if [[ -e $netrules ]];then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i $netrules;fi";\
             fi &&\
-            $vagrant_ssh "sudo $PROVISION_WRAPPER mark_export" 2>/dev/null
+            vagrant_ssh "sudo $PROVISION_WRAPPER mark_export" 2>/dev/null
             down
             export DEVHOST_FORCED_BOX_NAME="$bname" &&\
             log "Be patient, exporting now" &&\
@@ -817,7 +860,7 @@ export_() {
             rm -f "$EXPORT_VAGRANTFILE"*
         local lret="$?"
         down
-        up --no-provision && $vagrant_ssh "sudo $PROVISION_WRAPPER unmark_exported" 2>/dev/null && down
+        up --no-provision && vagrant_ssh "sudo $PROVISION_WRAPPER unmark_exported" 2>/dev/null && down
         if [[ "$lret" != "0" ]];then
             log "error exporting $box"
             exit 1
@@ -845,6 +888,7 @@ export_() {
 }
 
 download() {
+    active_echo
     local wget=""
     local url="$1"
     local fname="${2:-${basename $url}}"
@@ -852,33 +896,22 @@ download() {
     local G_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.22 (KHTML, like Gecko) Ubuntu Chromium/25.0.1364.160 Chrome/25.0.1364.160 Safari/537.22"
     # freebsd
     if [[ $(uname) == "FreeBSD" ]] && [[ -e $(which fetch 2>&1) ]];then
-        if [[ -n $MANAGE_DEBUG  ]];then
-            set -x
-        fi
         $(which fetch) -pra -o $fname $url
-        set +x &> /dev/null
     # wget
 
     elif [[ -e $(which wget) ]];then
-        if [[ -n $MANAGE_DEBUG  ]];then
-            set -x
-        fi
         #$(which wget) --no-check-certificate -U "${G_UA}" -c -O $fname $url
         $(which wget) --no-check-certificate -c -O $fname $url
-        set +x &> /dev/null
     # curl
     elif [[ -e $(which curl 2>&1) ]];then
-        if [[ -n $MANAGE_DEBUG  ]];then
-            set -x
-        fi
         #$(which curl) -A "${G_UA}" --insecure -C - -a -o $fname $url
         $(which curl) --insecure -C - -a -o $fname $url
-        set +x &> /dev/null
     fi
     if [[ "$?" != "0" ]];then
         log "Error downloading $url -> $fname"
         exit 1
     fi
+    unactive_echo
 }
 
 import() {
@@ -1072,9 +1105,7 @@ clonevm() {
     fi
     local import_uri="${2}"
     local can_continue=""
-    if [[ -n $MANAGE_DEBUG ]];then
-        set -x
-    fi
+    active_echo
     if [[ -e "$NEWVMPATH" ]];then
         if [[ -d "$NEWVMPATH" ]];then
             if [[ -z "$NOINPUT" ]] || [[ "$input" == "y" ]];then
@@ -1096,6 +1127,7 @@ clonevm() {
     fi
     cd "$OLDVMPATH"||exit -1
     sudo rsync -av\
+        --exclude=VM\
         --exclude="*.tar.bz2"\
         --exclude=.vagrant --exclude=vagrant_config.rb \
         "$OLDVMPATH/" "$NEWVMPATH/"
@@ -1129,9 +1161,7 @@ clonevm() {
         log "Init in $VMPATH" &&\
         cd "$NEWVMPATH" &&\
         ./manage.sh init "$ntarball"
-    if [[ -n $MANAGE_DEBUG ]];then
-        set +x
-    fi
+    unactive_echo
 }
 
 test() {
