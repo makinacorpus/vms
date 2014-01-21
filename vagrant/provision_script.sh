@@ -767,7 +767,6 @@ lazy_ms_update() {
     else
         export SALT_BOOT_SKIP_CHECKOUTS=1
         export SALT_BOOT_SKIP_HIGHSTATES=1
-
     fi
 }
 
