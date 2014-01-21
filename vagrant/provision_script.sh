@@ -828,6 +828,27 @@ lazy_ms_update() {
     unmark_bootsalt_done
 }
 
+handle_invalid() {
+    # on import, check that the bundled makina-states is not marked as
+    # to be upgraded, and in case upgrade it
+    if [[ $(test_online) == "0" ]];then
+        for i in /srv/{salt,mastersalt}/makina-states;do
+            if [[ -e "$i" ]];then
+                cd "$i"
+                for fic in bin bin/salt-master bin/salt-minion bin/buildout;do
+                    if [[ ! -e "$fic" ]];then
+                        output " [*] Invalid installation detected, rerun bootstrap."
+                        lazy_ms_update
+                    fi
+                done
+                cd - &>/dev/null
+            fi
+        done
+    else
+        output " [*] Warning, cant update makina-states, offline"
+    fi
+}
+
 handle_old_changeset() {
     if [[ -n $DEVHOST_DEBUG ]];then
         set +x
@@ -914,6 +935,7 @@ if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
     #
     install_keys
     handle_export
+    handle_invalid
     handle_old_changeset
     create_base_dirs
     disable_base_box_services
