@@ -309,12 +309,7 @@ cleanup_restart_marker() {
 
 configure_network() {
     output " [*] Temporary DNs overrides in /etc/resolv.conf : ${DNS_SERVER}, 8.8.8.8 & 4.4.4.4"
-    if [[ "$(egrep "\s+localhost" /etc/hosts|wc -l)" == "0" ]];then
-        # add localhost if missing
-        sed "/127.0.0.1/ {
-a 127.0.0.1 localhost
-}" -i /etc/hosts
-    fi
+    ensure_localhost_in_hosts
     # DNS TMP OVERRIDE
     cat > /etc/resolv.conf << DNSEOF
 nameserver ${DNS_SERVER}
@@ -679,15 +674,20 @@ reset_hostname() {
             cp -f /etc/hosts /etc/hosts.bak
             echo "127.0.0.1 $dn $fqdn">/etc/hosts
             cat /etc/hosts.bak>>/etc/hosts
-            if [[ "$(egrep "127\\..*localhost" /etc/hosts 2> /dev/null|wc -l)" == "0" ]];then
-                echo "127.0.0.1 localhost">>/etc/hosts
-            fi
+            ensure_localhost_in_hosts
             echo "127.0.0.1 $dn $fqdn">>/etc/hosts
             rm -f /etc/hosts.bak
         fi
+
         if [[ -e /etc/init/nscd.conf ]] || [[ -e /etc/init.d/nscd ]];then
             service nscd restart
         fi
+    fi
+}
+
+ensure_localhost_in_hosts() {
+    if [[ "$(egrep "127\\..*localhost" /etc/hosts 2> /dev/null|wc -l)" == "0" ]];then
+        echo "127.0.0.1 localhost">>/etc/hosts
     fi
 }
 
