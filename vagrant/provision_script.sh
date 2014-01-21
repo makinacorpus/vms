@@ -392,7 +392,11 @@ EOF
 
 initial_upgrade() {
     marker="$MARKERS/vbox_init_global_upgrade"
-    if [[ ! -e "$marker" ]] || [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
+    local force_apt_update=""
+    if [[ -e "$export_marker" ]] && [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
+        force_apt_update="1"
+    fi
+    if [[ ! -e "$marker" ]] || [[ -n "$force_apt_update" ]];then
         output " [*] Upgrading base image"
         if [[ -n "$IS_DEBIAN_LIKE" ]];then
             output " [*] apt-get upgrade & dist-upgrade"
@@ -727,7 +731,7 @@ create_vm_mountpoint() {
                     log "Bind-Mounting /$mountpoint -> $dest"
                     mount -o bind,rw,exec "$mountpoint" "$dest"
                     # is a symlink on debian, to /proc/mounts
-                    if [[ "$(readlink "$mountpoint/etc/mtab")" != "/proc/mounts" ]];then
+                    if [[ "$(readlink "/etc/mtab")" != "/proc/mounts" ]];then
                         cat /proc/mounts>/etc/mtab
                     fi
                 else
