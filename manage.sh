@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 LAUNCH_ARGS="$@"
 actions=""
-actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm"
+actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm"
 actions_exportimport="export import"
-actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm umount_vm release internal_ssh gen_ssh_config reset"
+actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm release internal_ssh gen_ssh_config reset"
 actions_alias="-h --help --long-help -l "
 actions="
     $actions_exportimport
@@ -202,6 +202,10 @@ usage() {
                 umount_vm)
                     help_header $i
                     help_content "      Umount the vm filesystem"
+                    ;;
+                remount_vm)
+                    help_header $i
+                    help_content "      Mount or Remount the vm filesystem"
                     ;;
                 release)
                     help_header $i
@@ -451,6 +455,11 @@ pre_down() {
     else
         log " [*] pre_down: VM already stopped"
     fi
+}
+
+remount_vm() {
+    log "Remounting vm"
+    umount_vm && mount_vm
 }
 
 down() {

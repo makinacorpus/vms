@@ -701,6 +701,14 @@ detected_old_changesets() {
     echo "$OLD_CHANGESETS"
 }
 
+detected_old_salt_changesets() {
+    # bugged releases, list here old makinastates git commit ids to mark as to
+    # upgrade on import
+    OLD_CHANGESETS=""
+    OLD_CHANGESETS="$OLD_CHANGESETS a5cc9003b025e798d362dd20dc11821e27118a51"
+    echo "$OLD_CHANGESETS"
+}
+
 git_changeset() {
     # current working directory git commit id
     git log|head -n1|awk '{print $2}'
@@ -791,11 +799,25 @@ handle_old_changeset() {
     # on import, check that the bundled makina-states is not marked as
     # to be upgraded, and in case upgrade it
     if [[ $(test_online) == "0" ]];then
+        for i in /srv/{salt,mastersalt}/makina-states/src/salt;do
+            if [[ -e "$i" ]];then
+                cd "$i"
+                if [[ " $(detected_old_salt_changesets) " == *"$(git_changeset)"* ]];then
+                    output " [*] Upgrade makina-states/salt detected, going to pull the develop branch"
+                    # for now, just update code and do not trigger states rebuild if and only
+                    # salt code has upgraded
+                    # lazy_ms_update
+                    git fetch origin
+                    git reset --hard origin/develop
+                fi
+                cd - &>/dev/null
+            fi
+        done
         for i in /srv/{salt,mastersalt}/makina-states;do
             if [[ -e "$i" ]];then
                 cd "$i"
                 if [[ " $(detected_old_changesets) " == *"$(git_changeset)"* ]];then
-                    output " [*] Upgrade makina-states detected, going to pull the master"
+                    output " [*] Upgrade makina-states detected, going to pull the master branch"
                     lazy_ms_update
                     git fetch origin
                     git reset --hard origin/master
