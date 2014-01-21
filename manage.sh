@@ -68,7 +68,31 @@ HOSTONLY_SSH_CONFIG_DONE=""
 WRAPPER_PRESENT=""
 DEVHOST_NUM=""
 
-die() { echo $@ 1>&2; exit -1; }
+die_() {
+    warn_log
+    ret=$1
+    shift
+    echo -e "${CYAN}${@}${NORMAL}" 1>&2
+    exit $ret
+}
+
+die() {
+    die_ 1 $@
+}
+
+die_in_error_() {
+    local ret=$1
+    shift
+    local msg="${@:-"$ERROR_MSG"}"
+    if [[ "$ret" != "0" ]];then
+        die_ "$ret" "$msg"
+    fi
+}
+
+die_in_error() {
+    die_in_error_ "$?" "$@"
+}
+
 
 actions=" $actions "
 

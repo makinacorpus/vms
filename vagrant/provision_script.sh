@@ -26,7 +26,32 @@ fi
 DEBUG=${BOOT_SALT_DEBUG:-$DEBUG}
 output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
 log() { output "$@"; }
-die_if_error() { if [[ "$?" != "0" ]];then output "There were errors";exit 1;fi; }
+
+ERROR_MSG="There were errors"
+
+die_() {
+    ret=$1
+    shift
+    echo -e "${CYAN}${@}${NORMAL}" 1>&2
+    exit $ret
+}
+
+die() {
+    die_ 1 $@
+}
+
+die_in_error_() {
+    local ret=$1
+    shift
+    local msg="${@:-"$ERROR_MSG"}"
+    if [[ "$ret" != "0" ]];then
+        die_ "$ret" "$msg"
+    fi
+}
+
+die_in_error() {
+    die_in_error_ "$?" "$@"
+}
 
 detect_os() {
     # make as a function to be copy/pasted as-is in multiple scripts
@@ -49,6 +74,7 @@ detect_os() {
             BEFORE_SAUCY=y
         fi
         if [[ "$DISTRIB_ID" == "Ubuntu" ]];then
+            ret=$?
             IS_UBUNTU="y"
         fi
     fi
@@ -255,7 +281,7 @@ backport_for_raring() {
     if [[ ! -e "$vbox_marker" ]];then
         output " [*] Installing  $VB_PKGS"
         apt-get install -y --force-yes $VB_PKGS
-        die_if_error
+        die_in_error
         touch "$vbox_marker" "$restart_marker"
     fi
     if [[ ! -e "${kernel_marker}" ]];then
@@ -400,7 +426,7 @@ initial_upgrade() {
                 apt-get upgrade -y &&\
                 apt-get dist-upgrade -y --force-yes
         fi
-        die_if_error
+        die_in_error
         touch "$marker"
     fi
 }
@@ -450,6 +476,7 @@ install_backports() {
 run_boot_salt() {
     bootsalt="$MS/_scripts/boot-salt.sh"
     boot_args="-C -M -n vagrantvm -m devhost${DEVHOST_NUM}"
+    local ret="0"
     if [[ ! -e "$bootsalt_marker" ]];then
         boot_word="Bootstrap"
     else
@@ -472,11 +499,12 @@ run_boot_salt() {
             set -x
         fi
         "$bootsalt" $boot_args && touch "$bootsalt_marker"
+        ret=$?
         if [[ -n $DEVHOST_DEBUG ]];then
             set +x
         fi
     fi
-    die_if_error
+    die_in_error_ $ret "Bootsalt failed"
     . /etc/profile
 }
 
@@ -491,8 +519,9 @@ install_or_refresh_makina_states() {
     fi
     # upgrade salt only if online
     if [[ $(test_online) == "0" ]];then
+        export SALT_BOOT_SKIP_CHECKOUTS=1
         run_boot_salt
-        die_if_error
+        die_in_error
     else
         if [[ ! -e "$bootsalt_marker" ]];then
             output " [*] Warning, we are not online, and thus boot-salt can't be runned"
@@ -699,6 +728,9 @@ detected_old_changesets() {
     OLD_CHANGESETS="$OLD_CHANGESETS 881a12f77092f16311320d4a1c75132be947ebab"
     OLD_CHANGESETS="$OLD_CHANGESETS a122493ab5e7cdb1122c214d3558eec4efaaa5dc"
     OLD_CHANGESETS="$OLD_CHANGESETS 6b72d15bde27ff3ab1f4fa36a3354d0661f58c70"
+    OLD_CHANGESETS="$OLD_CHANGESETS bb27e6bb835435a0ffa46b17dd262cecf15d65ca"
+    OLD_CHANGESETS="$OLD_CHANGESETS 8e4af1ec37bbfe29de4410d5d821748e901a8999"
+    OLD_CHANGESETS="$OLD_CHANGESETS 7c6d76f31a931a9a64e8e278af1b92d8bbac8142"
     echo "$OLD_CHANGESETS"
 }
 
@@ -803,8 +835,9 @@ handle_old_changeset() {
         for i in /srv/{salt,mastersalt}/makina-states/src/salt;do
             if [[ -e "$i" ]];then
                 cd "$i"
-                if [[ " $(detected_old_salt_changesets) " == *"$(git_changeset)"* ]];then
-                    output " [*] Upgrade makina-states/salt detected, going to pull the develop branch"
+                local changeset="$(git_changeset)"
+                if [[ " $(detected_old_salt_changesets) " == *"$changeset"* ]];then
+                    output " [*] Upgrade makina-states/salt detected ($changeset), going to pull the develop branch"
                     # for now, just update code and do not trigger states rebuild if and only
                     # salt code has upgraded
                     # lazy_ms_update
@@ -817,8 +850,9 @@ handle_old_changeset() {
         for i in /srv/{salt,mastersalt}/makina-states;do
             if [[ -e "$i" ]];then
                 cd "$i"
-                if [[ " $(detected_old_changesets) " == *"$(git_changeset)"* ]];then
-                    output " [*] Upgrade makina-states detected, going to pull the master branch"
+                local changeset="$(git_changeset)"
+                if [[ " $(detected_old_changesets) " == *"$changeset"* ]];then
+                    output " [*] Upgrade makina-states detected ($changeset), going to pull the master branch"
                     lazy_ms_update
                     git fetch origin
                     git reset --hard origin/master
