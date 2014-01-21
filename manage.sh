@@ -563,15 +563,19 @@ release() {
         echo "$rver" > "$rfile"
         git add "$rfile"
         git commit -am "RELEASE: $rname" &&\
-            log "You ll need to git push when you ll have test an init"
-            log "somewhere and the download works and the sf.net mirrors are well synchron,ized"
+            log "You ll need to git push when you ll have test an init" &&\
+            log "somewhere and the download works and the sf.net mirrors are well synchron,ized" &&\
+            log "URL to test is: $(get_release_url $rname)" &&\
+            log "Automatic commit in 4 hours, or pres CC and issue git push manually" &&\
+            sleep "$((4 * 60 * 60))" && git push
         log "End of release"
     fi
 
 }
 
 get_release_url() {
-    echo "$BASE_URL/$(get_devhost_archive_name $(get_release_name))"
+    local rname="${1:-$(get_release_name)}"
+    echo "$BASE_URL/$(get_devhost_archive_name $rname)"
 }
 
 init() {
