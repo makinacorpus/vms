@@ -28,11 +28,17 @@ output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
 log() { output "$@"; }
 
 ERROR_MSG="There were errors"
-die() {
+
+die_() {
+    warn_log
     ret=$1
     shift
     echo -e "${CYAN}${@}${NORMAL}" 1>&2
     exit $ret
+}
+
+die() {
+    die_ 1 $@
 }
 
 die_in_error_() {
@@ -40,7 +46,7 @@ die_in_error_() {
     shift
     local msg="${@:-"$ERROR_MSG"}"
     if [[ "$ret" != "0" ]];then
-        die "$ret" "$msg"
+        die_ "$ret" "$msg"
     fi
 }
 
@@ -516,8 +522,6 @@ install_or_refresh_makina_states() {
     if [[ $(test_online) == "0" ]];then
         export SALT_BOOT_SKIP_CHECKOUTS=1
         run_boot_salt
-        echo $?
-        exit -1
         die_in_error
     else
         if [[ ! -e "$bootsalt_marker" ]];then
