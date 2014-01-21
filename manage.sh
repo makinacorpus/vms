@@ -1169,7 +1169,7 @@ clonevm() {
 
 test() {
     local TESTPATH="${VMPATH}-test"
-    NO_SYNC_HOSTS=1  MANAGE_DEBUG=1 NOINPUT=1 clonevm "$TESTPATH"
+    NO_SYNC_HOSTS=1 NOINPUT=1 clonevm "$TESTPATH"
 }
 
 do_zerofree() {
