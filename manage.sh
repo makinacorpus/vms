@@ -887,6 +887,20 @@ export_() {
     NO_SYNC_HOSTS=$DEFAULT_NO_SYNC_HOSTS
 }
 
+check_tmp_file() {
+    local fname="$1"
+    local res="ok"
+    if [[ -e $fname ]];then
+        local tmpsize=$(dd if=$fname bs=4046 count=40000 2>/dev/null|wc -c)
+        if [[ $tmpsize != "161840000" ]];then
+            log "Invalid download, deleting tmp file"
+            rm -f "$fname"
+            res=""
+        fi
+    fi
+    echo $res
+}
+
 download() {
     active_echo
     local wget=""
@@ -931,7 +945,14 @@ import() {
         if [[ "$image" == http* ]];then
             local url="$image"
             image="$(basename $image)"
-            if [[ ! -f "$image" ]];then
+            local do_download=""
+            if [[ ! -e $image ]];then
+                do_download="1"
+            fi
+            if [[ -z "$(check_tmp_file $image)" ]];then
+                do_download="1"
+            fi
+            if [[ -n $do_download ]];then
                 download "$url" "$image"
             else
                 log "$image already exists, "
