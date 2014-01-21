@@ -614,7 +614,8 @@ cleanup_salt() {
     rm -rvf /var/cache/salt/* /var/cache/mastersalt/* 2> /dev/null
     rm -rvf /var/log/salt/* /var/log/mastersalt/* 2> /dev/null
     rm -vf /srv/*pillar/{mastersalt,salt}.sls
-    rm -vf /etc/*salt/minion_id "$bootsalt_marker"
+    rm -vf /etc/*salt/minion_id
+    unmark_bootsalt_done
     find /etc/*salt/pki -type f -delete
     if [[ -e /srv/pillar/top.sls ]];then
         sed -re /"\s*- salt/ d" -i /srv/pillar/top.sls
@@ -674,6 +675,9 @@ reset_hostname() {
             cp -f /etc/hosts /etc/hosts.bak
             echo "127.0.0.1 $dn $fqdn">/etc/hosts
             cat /etc/hosts.bak>>/etc/hosts
+            if [[ "$(egrep "127\\..*localhost" /etc/hosts 2> /dev/null)" != "$dn" ]];then
+                echo "127.0.0.1 localhost">>/etc/hosts
+            fi
             echo "127.0.0.1 $dn $fqdn">>/etc/hosts
             rm -f /etc/hosts.bak
         fi
@@ -689,6 +693,7 @@ detected_old_changesets() {
     OLD_CHANGESETS="723f485750bff7f34835755030b790f046859fc5"
     OLD_CHANGESETS="$OLD_CHANGESETS 881a12f77092f16311320d4a1c75132be947ebab"
     OLD_CHANGESETS="$OLD_CHANGESETS a122493ab5e7cdb1122c214d3558eec4efaaa5dc"
+    OLD_CHANGESETS="$OLD_CHANGESETS 6b72d15bde27ff3ab1f4fa36a3354d0661f58c70"
     echo "$OLD_CHANGESETS"
 }
 
@@ -759,6 +764,10 @@ umount_guest_mountpoint(){
     fi
 }
 
+unmark_bootsalt_done() {
+    rm -vf "$bootsalt_marker"
+}
+
 lazy_ms_update() {
     # no auto update unless configured
     if [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
@@ -768,6 +777,7 @@ lazy_ms_update() {
         export SALT_BOOT_SKIP_CHECKOUTS=1
         export SALT_BOOT_SKIP_HIGHSTATES=1
     fi
+    unmark_bootsalt_done
 }
 
 handle_old_changeset() {
