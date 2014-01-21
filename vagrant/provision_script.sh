@@ -686,7 +686,9 @@ reset_hostname() {
 detected_old_changesets() {
     # bugged releases, list here old makinastates git commit ids to mark as to
     # upgrade on import
-    echo "723f485750bff7f34835755030b790f046859fc5"
+    OLD_CHANGESETS="723f485750bff7f34835755030b790f046859fc5"
+    OLD_CHANGESETS="$OLD_CHANGESETS 881a12f77092f16311320d4a1c75132be947ebab"
+    echo "$OLD_CHANGESETS"
 }
 
 git_changeset() {
@@ -792,7 +794,7 @@ handle_export() {
             for i in /srv/{salt,mastersalt}/makina-states;do
                 if [[ -e "$i" ]];then
                     cd "$i"
-                    if [[ $(detected_old_changesets) == *"$(git_changeset)"* ]];then
+                    if [[ "$(detected_old_changesets)" == *"$(git_changeset)"* ]];then
                         output " [*] Upgrade makina-states detected, going to pull the master"
                         git fetch origin
                         git reset --hard origin/master
