@@ -149,7 +149,7 @@ usage() {
                     ;;
                 sync_hosts)
                     help_header $i "[DEVHOST hosts block file] [/etc/hosts path]"
-                    help_content "      Synchronise the devhost $DEFAULT_DNS_BLOCKFILE to the host /etc/hosts"
+                    help_content "      Synchronize the devhost $DEFAULT_DNS_BLOCKFILE to the host /etc/hosts"
                     help_content "      It is called automatically upon reload & up, but you can also call it manually"
                     ;;
                 status)
