@@ -118,7 +118,7 @@ end
 if defined?(DEVHOST_AUTO_UPDATE)
     vagrant_config_lines << "DEVHOST_AUTO_UPDATE=#{DEVHOST_AUTO_UPDATE}"
 else
-    DEVHOST_AUTO_UPDATE=false
+    DEVHOST_AUTO_UPDATE=true
 end
 
 # IP managment
