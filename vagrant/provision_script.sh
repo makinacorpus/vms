@@ -839,6 +839,7 @@ handle_invalid() {
                     if [[ ! -e "$fic" ]];then
                         output " [*] Invalid installation detected, rerun bootstrap."
                         lazy_ms_update
+                        break
                     fi
                 done
                 cd - &>/dev/null
