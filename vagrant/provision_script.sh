@@ -492,6 +492,7 @@ install_or_refresh_makina_states() {
     # upgrade salt only if online
     if [[ $(test_online) == "0" ]];then
         run_boot_salt
+        die_if_error
     else
         if [[ ! -e "$bootsalt_marker" ]];then
             output " [*] Warning, we are not online, and thus boot-salt can't be runned"
