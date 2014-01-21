@@ -669,13 +669,13 @@ reset_hostname() {
             output " [*] Reseting /etc/hostname: $dn"
             echo "$dn">/etc/hostname
         fi
-        if [[ "$(egrep "127\\..*$hostname" /etc/hosts 2> /dev/null)" != "$dn" ]];\
+        if [[ "$(egrep "127\\..*$hostname" /etc/hosts 2> /dev/null|wc -l)" == "0" ]];\
         then
             output " [*] Reset hostname to /etc/hosts"
             cp -f /etc/hosts /etc/hosts.bak
             echo "127.0.0.1 $dn $fqdn">/etc/hosts
             cat /etc/hosts.bak>>/etc/hosts
-            if [[ "$(egrep "127\\..*localhost" /etc/hosts 2> /dev/null)" != "$dn" ]];then
+            if [[ "$(egrep "127\\..*localhost" /etc/hosts 2> /dev/null|wc -l)" == "0" ]];then
                 echo "127.0.0.1 localhost">>/etc/hosts
             fi
             echo "127.0.0.1 $dn $fqdn">>/etc/hosts
