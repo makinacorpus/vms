@@ -26,7 +26,27 @@ fi
 DEBUG=${BOOT_SALT_DEBUG:-$DEBUG}
 output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
 log() { output "$@"; }
-die_if_error() { if [[ "$?" != "0" ]];then output "There were errors";exit 1;fi; }
+
+ERROR_MSG="There were errors"
+die() {
+    ret=$1
+    shift
+    echo -e "${CYAN}${@}${NORMAL}" 1>&2
+    exit $ret
+}
+
+die_in_error_() {
+    local ret=$1
+    shift
+    local msg="${@:-"$ERROR_MSG"}"
+    if [[ "$ret" != "0" ]];then
+        die "$ret" "$msg"
+    fi
+}
+
+die_in_error() {
+    die_in_error_ "$?" "$@"
+}
 
 detect_os() {
     # make as a function to be copy/pasted as-is in multiple scripts
@@ -49,6 +69,7 @@ detect_os() {
             BEFORE_SAUCY=y
         fi
         if [[ "$DISTRIB_ID" == "Ubuntu" ]];then
+            ret=$?
             IS_UBUNTU="y"
         fi
     fi
@@ -255,7 +276,7 @@ backport_for_raring() {
     if [[ ! -e "$vbox_marker" ]];then
         output " [*] Installing  $VB_PKGS"
         apt-get install -y --force-yes $VB_PKGS
-        die_if_error
+        die_in_error
         touch "$vbox_marker" "$restart_marker"
     fi
     if [[ ! -e "${kernel_marker}" ]];then
@@ -400,7 +421,7 @@ initial_upgrade() {
                 apt-get upgrade -y &&\
                 apt-get dist-upgrade -y --force-yes
         fi
-        die_if_error
+        die_in_error
         touch "$marker"
     fi
 }
@@ -450,6 +471,7 @@ install_backports() {
 run_boot_salt() {
     bootsalt="$MS/_scripts/boot-salt.sh"
     boot_args="-C -M -n vagrantvm -m devhost${DEVHOST_NUM}"
+    local ret="0"
     if [[ ! -e "$bootsalt_marker" ]];then
         boot_word="Bootstrap"
     else
@@ -472,11 +494,12 @@ run_boot_salt() {
             set -x
         fi
         "$bootsalt" $boot_args && touch "$bootsalt_marker"
+        ret=$?
         if [[ -n $DEVHOST_DEBUG ]];then
             set +x
         fi
     fi
-    die_if_error
+    die_in_error_ $ret "Bootsalt failed"
     . /etc/profile
 }
 
@@ -491,8 +514,11 @@ install_or_refresh_makina_states() {
     fi
     # upgrade salt only if online
     if [[ $(test_online) == "0" ]];then
+        export SALT_BOOT_SKIP_CHECKOUTS=1
         run_boot_salt
-        die_if_error
+        echo $?
+        exit -1
+        die_in_error
     else
         if [[ ! -e "$bootsalt_marker" ]];then
             output " [*] Warning, we are not online, and thus boot-salt can't be runned"
