@@ -835,8 +835,9 @@ handle_old_changeset() {
         for i in /srv/{salt,mastersalt}/makina-states/src/salt;do
             if [[ -e "$i" ]];then
                 cd "$i"
-                if [[ " $(detected_old_salt_changesets) " == *"$(git_changeset)"* ]];then
-                    output " [*] Upgrade makina-states/salt detected, going to pull the develop branch"
+                local changeset="$(git_changeset)"
+                if [[ " $(detected_old_salt_changesets) " == *"$changeset"* ]];then
+                    output " [*] Upgrade makina-states/salt detected ($changeset), going to pull the develop branch"
                     # for now, just update code and do not trigger states rebuild if and only
                     # salt code has upgraded
                     # lazy_ms_update
@@ -849,8 +850,9 @@ handle_old_changeset() {
         for i in /srv/{salt,mastersalt}/makina-states;do
             if [[ -e "$i" ]];then
                 cd "$i"
-                if [[ " $(detected_old_changesets) " == *"$(git_changeset)"* ]];then
-                    output " [*] Upgrade makina-states detected, going to pull the master branch"
+                local changeset="$(git_changeset)"
+                if [[ " $(detected_old_changesets) " == *"$changeset"* ]];then
+                    output " [*] Upgrade makina-states detected ($changeset), going to pull the master branch"
                     lazy_ms_update
                     git fetch origin
                     git reset --hard origin/master
