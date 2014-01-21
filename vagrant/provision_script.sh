@@ -30,7 +30,6 @@ log() { output "$@"; }
 ERROR_MSG="There were errors"
 
 die_() {
-    warn_log
     ret=$1
     shift
     echo -e "${CYAN}${@}${NORMAL}" 1>&2
