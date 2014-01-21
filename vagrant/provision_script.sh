@@ -759,6 +759,47 @@ umount_guest_mountpoint(){
     fi
 }
 
+lazy_ms_update() {
+    # no auto update unless configured
+    if [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
+        export SALT_BOOT_SKIP_CHECKOUTS=""
+        export SALT_BOOT_SKIP_HIGHSTATES=""
+    else
+        export SALT_BOOT_SKIP_CHECKOUTS=1
+        export SALT_BOOT_SKIP_HIGHSTATES=1
+
+    fi
+}
+
+handle_old_changeset() {
+    if [[ -n $DEVHOST_DEBUG ]];then
+        set +x
+    fi
+    # on import, check that the bundled makina-states is not marked as
+    # to be upgraded, and in case upgrade it
+    if [[ $(test_online) == "0" ]];then
+        for i in /srv/{salt,mastersalt}/makina-states;do
+            if [[ -e "$i" ]];then
+                cd "$i"
+                if [[ " $(detected_old_changesets) " == *"$(git_changeset)"* ]];then
+                    output " [*] Upgrade makina-states detected, going to pull the master"
+                    lazy_ms_update
+                    git fetch origin
+                    git reset --hard origin/master
+                fi
+                cd - &>/dev/null
+            fi
+        done
+    else
+        output " [*] Warning, cant update makina-states, offline"
+    fi
+    # on import, check that the bundled makina-states is not marked as
+    # to be upgraded, and in case upgrade it
+    if [[ -n $DEVHOST_DEBUG ]];then
+        set +x
+    fi
+}
+
 handle_export() {
     if [[ -e "$export_marker" ]];then
         output " [*] VM export detected, resetting some stuff"
@@ -773,15 +814,6 @@ handle_export() {
             done
         done
         cleanup_salt
-        # no auto update unless configured
-        if [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
-            export SALT_BOOT_SKIP_CHECKOUTS=""
-            export SALT_BOOT_SKIP_HIGHSTATES=""
-        else
-            export SALT_BOOT_SKIP_CHECKOUTS=1
-            export SALT_BOOT_SKIP_HIGHSTATES=1
-
-        fi
         # remove vagrant conf as it can contain doublons on first load
         output " [*] Reset network interface file"
         sed -ne "/VAGRANT-BEGIN/,\$!p" /etc/network/interfaces > /etc/network/interfaces.buf
@@ -789,23 +821,7 @@ handle_export() {
             cp -f /etc/network/interfaces.buf /etc/network/interfaces
             rm -f /etc/network/interfaces.buf
         fi
-        # on import, check that the bundled makina-states is not marked as
-        # to be upgraded, and in case upgrade it
-        if [[ $(test_online) == "0" ]];then
-            for i in /srv/{salt,mastersalt}/makina-states;do
-                if [[ -e "$i" ]];then
-                    cd "$i"
-                    if [[ " $(detected_old_changesets) " == *"$(git_changeset)"* ]];then
-                        output " [*] Upgrade makina-states detected, going to pull the master"
-                        git fetch origin
-                        git reset --hard origin/master
-                    fi
-                    cd - &>/dev/null
-                fi
-            done
-        else
-            output " [*] Warning, cant update makina-states, offline"
-        fi
+        lazy_ms_update
         unmark_exported
         if [[ -n $DEVHOST_DEBUG ]];then
             set +x
@@ -825,6 +841,7 @@ if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
     #
     install_keys
     handle_export
+    handle_old_changeset
     create_base_dirs
     disable_base_box_services
     cleanup_restart_marker
