@@ -205,7 +205,7 @@ usage() {
                     ;;
                 remount_vm)
                     help_header $i
-                    help_content "       Mount or Remount the vm filesystem"
+                    help_content "      Mount or Remount the vm filesystem"
                     ;;
                 release)
                     help_header $i
