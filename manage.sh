@@ -69,7 +69,6 @@ WRAPPER_PRESENT=""
 DEVHOST_NUM=""
 
 die_() {
-    warn_log
     ret=$1
     shift
     echo -e "${CYAN}${@}${NORMAL}" 1>&2
@@ -694,11 +693,15 @@ smartkill_() {
             if [[ -z "$NOINPUT" ]] || [[ "$input" == "y" ]];then
                 log "Do you really want to kill:"
                 log "$(get_pid_line $pid)"
-                log "[press y+ENTER, or CONTROL+C to abort]";read input
+                log "[press y+ENTER, or CONTROL+C to abort, or ignore to continue]";read input
             fi
             if [[ -n "$NOINPUT" ]] || [[ "$input" == "y" ]];then
                 log "killing $pid"
                 kill -9 $pid
+            fi
+            if [[ "$input" == "ignore" ]];then
+                log "ignoring $pid"
+                break
             fi
         done
     done
@@ -1055,6 +1058,7 @@ import() {
 }
 
 sync_hosts() {
+    log "Synchronize hosts entries"
     if [[ -n $NO_SYNC_HOSTS ]];then return;fi
     local block="${1:-$DEFAULT_DNS_BLOCKFILE}"
     local hosts="${2:-$DEFAULT_HOSTS_FILE}"
@@ -1064,7 +1068,7 @@ sync_hosts() {
     fi
     cd "$VMPATH"
     if [[ ! -d .vagrant ]];then mkdir .vagrant;fi
-    if [[ ! -e "$block" ]];then die "invalid block file: $block";fi
+    if [[ ! -e "$block" ]];then die "invalid hosts block file: $block";fi
     if [[ ! -e "$hosts" ]];then die "invalid hosts file: $hosts";fi
     local START=$(cat "$block"|head -n1)
     local END=$(cat "$block"|tail -n1)
