@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 LAUNCH_ARGS="$@"
 actions=""
-actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm"
+actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm version"
 actions_exportimport="export import"
 actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm release internal_ssh gen_ssh_config reset"
-actions_alias="-h --help --long-help -l "
+actions_alias="-h --help --long-help -l -v --version"
 actions="
     $actions_exportimport
     $actions_main_usage
@@ -158,6 +158,10 @@ usage() {
                 up)
                     help_header $i
                     help_content "      Launch a VM"
+                    ;;
+                version)
+                    help_header $i
+                    help_content "      Versions info"
                     ;;
                 reload)
                     help_header $i
@@ -1146,6 +1150,19 @@ sync_hosts() {
     rm -f hosts
 }
 
+version() {
+    log "VMS"
+    git log|head -n1|awk '{print $2}'|sed "s/^/    /g"
+    log Virtualbox
+    VBoxManage --version|sed "s/^/    /g"
+    log Vagrant
+    vagrant --version|sed "s/^/    /g"
+    vagrant plugin list|sed "s/^/    /g"
+    log sshfs
+    sshfs --version 2>&1|sed "s/^/    /g"
+
+}
+
 reset() {
     if [[ -e "$VMPATH" ]];then
         cd "$VMPATH"
@@ -1275,6 +1292,8 @@ if [[ -z $MANAGE_AS_FUNCS ]];then
         shift
         case $action in
             export) action="export_"
+                ;;
+            -v|--version) action="version"
                 ;;
             usage|-h|--help) action="usage"
                 ;;
