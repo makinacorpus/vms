@@ -662,7 +662,7 @@ mark_export() {
     touch  "$export_marker"
 }
 
-mark_exported(){
+mark_exported() {
     mark_export "$@"
 }
 
