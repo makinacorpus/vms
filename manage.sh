@@ -1246,7 +1246,7 @@ clonevm() {
         else
             pb="init" &&\
             log "UP in $VMPATH" &&\
-            ./manage.sh up
+            ./manage.sh reload
         fi
         die_in_error "problem while cloning / $pb"
     unactive_echo

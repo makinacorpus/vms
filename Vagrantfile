@@ -44,8 +44,8 @@ end
 # module MyConfig
 #    DEVHOST_NUM="3"
 #    VIRTUALBOX_VM_NAME="Super devhost Vm"
-#    BOX_NAME="jessie64"
-#    BOX_URI="http://foo/jessie64.img
+#    BOX_NAME="saucy64"
+#    BOX_URI="http://foo/saucy64.img
 #    MEMORY="512"
 #    CPUS="1"
 #    MAX_CPU_USAGE_PERCENT="25"
@@ -75,24 +75,20 @@ rescue LoadError
 end
 # --- End Load optional config file -----------------
 
-if defined?(DEBIAN_RELEASE)
-    vagrant_config_lines << "DEBIAN_RELEASE=\"#{DEBIAN_RELEASE}\""
-    vagrant_config_lines << "DEBIAN_RELEASE_NUMBER=\"#{DEBIAN_RELEASE_NUMBER}\""
+if defined?(UBUNTU_RELEASE)
+    vagrant_config_lines << "UBUNTU_RELEASE=\"#{UBUNTU_RELEASE}\""
 else
-    DEBIAN_RELEASE="wheezy"
-    DEBIAN_RELEASE_NUMBER="7"
+    UBUNTU_RELEASE="saucy"
 end
-if defined?(DEBIAN_STABLE_RELEASE)
-    vagrant_config_lines << "DEBIAN_STABLE_RELEASE=\"#{DEBIAN_STABLE_RELEASE}\""
+if defined?(UBUNTU_LTS_RELEASE)
+    vagrant_config_lines << "UBUNTU_LTS_RELEASE=\"#{UBUNTU_LTS_RELEASE}\""
 else
-    DEBIAN_STABLE_RELEASE="wheezy"
-    DEBIAN_STABLE_RELEASE_NUMBER="7"
+    UBUNTU_LTS_RELEASE="precise"
 end
-if defined?(DEBIAN_NEXT_RELEASE)
-    vagrant_config_lines << "DEBIAN_NEXT_RELEASE=\"#{DEBIAN_NEXT_RELEASE}\""
+if defined?(UBUNTU_NEXT_RELEASE)
+    vagrant_config_lines << "UBUNTU_NEXT_RELEASE=\"#{UBUNTU_NEXT_RELEASE}\""
 else
-    DEBIAN_NEXT_RELEASE="jessie"
-    DEBIAN_NEXT_RELEASE_NUMBER="8"
+    UBUNTU_NEXT_RELEASE="trusty"
 end
 
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
@@ -189,23 +185,23 @@ end
 if defined?(LOCAL_MIRROR)
     vagrant_config_lines << "LOCAL_MIRROR=\"#{LOCAL_MIRROR}\""
 else
-    LOCAL_MIRROR="http://ftp.de.debian.org/"
+    LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
 end
 if defined?(OFFICIAL_MIRROR)
     vagrant_config_lines << "OFFICIAL_MIRROR=\"#{OFFICIAL_MIRROR}\""
 else
-    OFFICIAL_MIRROR="http://ftp.debian.org/"
+    OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu"
 end
 # let this one to the previous mirror for it to be automaticly replaced
 if defined?(PREVIOUS_LOCAL_MIRROR)
     vagrant_config_lines << "PREVIOUS_LOCAL_MIRROR=\"#{PREVIOUS_LOCAL_MIRROR}\""
 else
-    PREVIOUS_LOCAL_MIRROR="http://ftp.de.debian.org/"
+    PREVIOUS_LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
 end
 if defined?(PREVIOUS_OFFICIAL_MIRROR)
     vagrant_config_lines << "PREVIOUS_OFFICIAL_MIRROR=\"#{PREVIOUS_OFFICIAL_MIRROR}\""
 else
-    PREVIOUS_OFFICIAL_MIRROR="http://ftp.debian.org/"
+    PREVIOUS_OFFICIAL_MIRROR="http://us.archive.ubuntu.com/ubuntu"
 end
 
 # ----------------- END CONFIGURATION ZONE ----------------------------------
@@ -220,7 +216,7 @@ BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
 # we also setup a specific docker network subnet per virtualbox host
 DOCKER_NETWORK_IF="docker0"
 DOCKER_NETWORK_HOST_IF="eth0"
-DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.XX.0 by default
+DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.xx.0 by default
 DOCKER_NETWORK=DOCKER_NETWORK_SUBNET+".0"
 DOCKER_NETWORK_GATEWAY=DOCKER_NETWORK_SUBNET+".254"
 DOCKER_NETWORK_MASK="255.255.255.0"
@@ -228,7 +224,7 @@ DOCKER_NETWORK_MASK_NUM="24"
 
 # md5 based on currentpath
 # Name on your VirtualBox panel
-VIRTUALBOX_BASE_VM_NAME="DevHost "+DEVHOST_NUM+" Debian "+DEBIAN_RELEASE+"64"
+VIRTUALBOX_BASE_VM_NAME="DevHost "+DEVHOST_NUM+" Ubuntu "+UBUNTU_RELEASE+"64"
 VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
 MD5=Digest::MD5.hexdigest(CWD)
 #VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME} (#{MD5})"
@@ -247,21 +243,22 @@ end
 
 VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhostxx.local by default
 
-# ------------- BASE IMAGE DEBIAN  -----------------------
+
+# ------------- BASE IMAGE UBUNTU  -----------------------
 # You can pre-download this image with
-# vagrant box add debian-7-wheezy64 https://downloads.sourceforge.net/project/makinacorpus/vms/debian-7-wheezy64.box?r=&ts=1386543863&use_mirror=freefr
+# vagrant box add precise64 http://cloud-images.ubuntu.com/precise/precise/current/precise-server-cloudimg-amd64-vagrant-disk1.box
 
 if defined?(BOX_NAME)
     vagrant_config_lines << "BOX_NAME=\"#{BOX_NAME}\""
 else
-    BOX_NAME="debian-#{DEBIAN_RELEASE_NUMBER}-#{DEBIAN_RELEASE}64"
+    BOX_NAME=UBUNTU_RELEASE+"64"
 end
 # Can be overidden by env. (used by manage.sh import/export)
 REAL_BOX_NAME = ENV.fetch("DEVHOST_FORCED_BOX_NAME", BOX_NAME).strip()
 if defined?(BOX_URI)
     vagrant_config_lines << "BOX_URI=\"#{BOX_URI}\""
 else
-    BOX_URI="https://downloads.sourceforge.net/project/makinacorpus/vms/debian-#{DEBIAN_RELEASE_NUMBER}-#{DEBIAN_RELEASE}64.box?r=&ts=1386543863&use_mirror=freefr"
+    BOX_URI="http://cloud-images.ubuntu.com/vagrant/"+UBUNTU_RELEASE+"/current/"+UBUNTU_RELEASE+"-server-cloudimg-amd64-vagrant-disk1.box"
 end
 
 # -- Other things ----------------------------------------------------------
@@ -360,7 +357,6 @@ Vagrant.configure("2") do |config|
   end
   # disable default /vagrant shared folder
   config.vm.synced_folder ".", "/vagrant", disabled: true
-
 
   #------------- PROVISIONING ------------------------------
   # We push all the code in a script which manages the versioning of
@@ -533,8 +529,8 @@ PREVIOUS_OFFICIAL_MIRROR="#{PREVIOUS_OFFICIAL_MIRROR}"
 PREVIOUS_LOCAL_MIRROR="#{PREVIOUS_LOCAL_MIRROR}"
 OFFICIAL_MIRROR="#{OFFICIAL_MIRROR}"
 LOCAL_MIRROR="#{LOCAL_MIRROR}"
-DEBIAN_RELEASE="#{DEBIAN_RELEASE}"
-DEBIAN_NEXT_RELEASE="#{DEBIAN_NEXT_RELEASE}"
+UBUNTU_RELEASE="#{UBUNTU_RELEASE}"
+UBUNTU_NEXT_RELEASE="#{UBUNTU_NEXT_RELEASE}"
 DOCKER_NETWORK_HOST_IF="#{DOCKER_NETWORK_HOST_IF}"
 DOCKER_NETWORK_IF="#{DOCKER_NETWORK_IF}"
 DOCKER_NETWORK_BASE="#{DOCKER_NETWORK_IF}"
@@ -575,4 +571,3 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
     end
   end
 end
-
