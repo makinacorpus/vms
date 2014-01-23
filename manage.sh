@@ -583,7 +583,6 @@ release() {
             log "Press enter to continue, you can use $0 $LAUNCH_ARGS --no-input to skip confirmation"
             read
         fi
-        echo NO_SYNC_HOSTS=1 NO_INPUT=1 NO_IMPORT=1 clonevm "$RELEASE_PATH"
         NO_SYNC_HOSTS=1 NO_INPUT=1 NO_IMPORT=1 clonevm "$RELEASE_PATH"
     fi
     export VMPATH="$RELEASE_PATH"
