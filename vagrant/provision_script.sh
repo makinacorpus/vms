@@ -885,15 +885,15 @@ handle_old_changeset() {
                 cd "$i"
                 local changeset="$(git_changeset)"
                 # look stored makina states or default to master
-                local dbranch="origin/$(echo $(cat /etc/makina-states/branch 2>/dev/null))"
+                local dbranch="$(echo $(cat /etc/makina-states/branch 2>/dev/null))"
                 if [[ -z "$dbranch" ]];then
-                    dbranch="origin/master"
+                    dbranch="master"
                 fi
                 if [[ " $(get_old_makinastates_changesets) " == *"$changeset"* ]];then
                     output " [*] Upgrade makina-states detected ($changeset), going to pull the master branch"
                     lazy_ms_update
                     git fetch origin
-                    git reset --hard "$dbranch"
+                    git reset --hard "origin/$dbranch"
                 fi
                 cd - &>/dev/null
             fi
