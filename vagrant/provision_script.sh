@@ -725,31 +725,33 @@ ensure_localhost_in_hosts() {
     fi
 }
 
-detected_old_makinastates_changesets() {
-    # bugged releases, list here old makinastates git commit ids to mark as to
-    # upgrade on import
-    OLD_CHANGESETS=""
-    OLD_CHANGESETS="$OLD_CHANGESETS 81657ea88336c52cb96b84438bc872872bde470b"
-    OLD_CHANGESETS="$OLD_CHANGESETS 723f485750bff7f34835755030b790f046859fc5"
-    OLD_CHANGESETS="$OLD_CHANGESETS 881a12f77092f16311320d4a1c75132be947ebab"
-    OLD_CHANGESETS="$OLD_CHANGESETS a122493ab5e7cdb1122c214d3558eec4efaaa5dc"
-    OLD_CHANGESETS="$OLD_CHANGESETS 6b72d15bde27ff3ab1f4fa36a3354d0661f58c70"
-    OLD_CHANGESETS="$OLD_CHANGESETS bb27e6bb835435a0ffa46b17dd262cecf15d65ca"
-    OLD_CHANGESETS="$OLD_CHANGESETS 8e4af1ec37bbfe29de4410d5d821748e901a8999"
-    OLD_CHANGESETS="$OLD_CHANGESETS 7c6d76f31a931a9a64e8e278af1b92d8bbac8142"
-    OLD_CHANGESETS="$OLD_CHANGESETS f77c00dc56ba9c1d98a7178ccc76fdf2a903dd4c"
-    OLD_CHANGESETS="$OLD_CHANGESETS f91e0e9d34eec900ed2d423d1555af504e1ba1fb"
-    echo "$OLD_CHANGESETS"
+get_git_ancestors() {
+    where="$1"
+    commit="$2"
+    cd "$where" &>/dev/null
+    git fetch origin &>/dev/null
+    echo "$(git log "$commit" 2>/dev/null|egrep "^commit"|awk '{print $2}') "
+    cd - &> /dev/null
 }
 
-detected_old_salt_changesets() {
+get_old_salt_changesets() {
     # bugged releases, list here old salt git commit ids to mark as to
     # upgrade on import
-    OLD_CHANGESETS=""
-    OLD_CHANGESETS="$OLD_CHANGESETS a5cc9003b025e798d362dd20dc11821e27118a51"
-    OLD_CHANGESETS="$OLD_CHANGESETS 81657ea88336c52cb96b84438bc872872bde470b"
-    echo "$OLD_CHANGESETS"
+    if [[ -z "$VM_OLD_SALT_CHANGESETS" ]];then
+        VM_OLD_SALT_CHANGESETS="$(get_git_ancestors "$MS/src/salt" "49cfb4fd542dfd1019a329c0f015638e8a0f9285")"
+    fi
+    echo "$VM_OLD_SALT_CHANGESETS"
 }
+
+get_old_makinastates_changesets() {
+    # bugged releases, list here old makinastates git commit ids to mark as to
+    # upgrade on import
+    if [[ -z "$VM_OLD_MAKINASTATES_CHANGESETS" ]];then
+        VM_OLD_MAKINASTATES_CHANGESETS="$(get_git_ancestors "$MS" "59d7b1721ecfa1d3844b9714767a29963976ca61")"
+    fi
+    echo "$VM_OLD_MAKINASTATES_CHANGESETS"
+}
+
 
 git_changeset() {
     # current working directory git commit id
@@ -867,7 +869,7 @@ handle_old_changeset() {
             if [[ -e "$i" ]];then
                 cd "$i"
                 local changeset="$(git_changeset)"
-                if [[ " $(detected_old_salt_changesets) " == *"$changeset"* ]];then
+                if [[ " $(get_old_salt_changesets) " == *"$changeset"* ]];then
                     output " [*] Upgrade makina-states/salt detected ($changeset), going to pull the develop branch"
                     # for now, just update code and do not trigger states rebuild if and only
                     # salt code has upgraded
@@ -887,7 +889,7 @@ handle_old_changeset() {
                 if [[ -z "$dbranch" ]];then
                     dbranch="origin/master"
                 fi
-                if [[ " $(detected_old_makinastates_changesets) " == *"$changeset"* ]];then
+                if [[ " $(get_old_makinastates_changesets) " == *"$changeset"* ]];then
                     output " [*] Upgrade makina-states detected ($changeset), going to pull the master branch"
                     lazy_ms_update
                     git fetch origin
