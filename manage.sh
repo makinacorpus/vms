@@ -1153,12 +1153,19 @@ sync_hosts() {
 version() {
     log "VMS"
     git log|head -n1|awk '{print $2}'|sed "s/^/    /g"
+    if [[ -e VM/src/salt/makina-states ]];then
+        log "Makina-States"
+        cd VM/src/salt/makina-states
+        git log|head -n1|awk '{print $2}'|sed "s/^/    /g"
+        cd - &> /dev/null
+    fi
     log Virtualbox
     VBoxManage --version|sed "s/^/    /g"
     log Vagrant
     vagrant --version|sed "s/^/    /g"
     vagrant plugin list|sed "s/^/    /g"
-    log sshfs
+    log "kernel & sshfs"
+    uname -a|sed "s/^/    /g"
     sshfs --version 2>&1|sed "s/^/    /g"
 
 }
