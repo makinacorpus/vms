@@ -693,11 +693,15 @@ smartkill_() {
             if [[ -z "$NOINPUT" ]] || [[ "$input" == "y" ]];then
                 log "Do you really want to kill:"
                 log "$(get_pid_line $pid)"
-                log "[press y+ENTER, or CONTROL+C to abort]";read input
+                log "[press y+ENTER, or CONTROL+C to abort, or ignore to continue]";read input
             fi
             if [[ -n "$NOINPUT" ]] || [[ "$input" == "y" ]];then
                 log "killing $pid"
                 kill -9 $pid
+            fi
+            if [[ "$input" == "ignore" ]];then
+                log "ignoring $pid"
+                break
             fi
         done
     done
