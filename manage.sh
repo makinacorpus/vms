@@ -235,7 +235,7 @@ usage() {
                     help_content "      Mount or Remount the vm filesystem"
                     ;;
                 release)
-                    help_header $i
+                    help_header "$i [--noinput --noclean --nocommit]"
                     help_content "      Release the current vm as the next release on the CDN: $BASE_URL"
                     if [[ -n $LONGHELP ]];then
                         help_content "          - Export the vm to $(get_next_release_name)"
