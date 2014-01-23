@@ -729,6 +729,7 @@ detected_old_changesets() {
     # bugged releases, list here old makinastates git commit ids to mark as to
     # upgrade on import
     OLD_CHANGESETS=""
+    OLD_CHANGESETS="$OLD_CHANGESETS 81657ea88336c52cb96b84438bc872872bde470b"
     OLD_CHANGESETS="$OLD_CHANGESETS 723f485750bff7f34835755030b790f046859fc5"
     OLD_CHANGESETS="$OLD_CHANGESETS 881a12f77092f16311320d4a1c75132be947ebab"
     OLD_CHANGESETS="$OLD_CHANGESETS a122493ab5e7cdb1122c214d3558eec4efaaa5dc"
