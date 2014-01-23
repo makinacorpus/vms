@@ -744,7 +744,7 @@ detected_old_changesets() {
 }
 
 detected_old_salt_changesets() {
-    # bugged releases, list here old makinastates git commit ids to mark as to
+    # bugged releases, list here old salt git commit ids to mark as to
     # upgrade on import
     OLD_CHANGESETS=""
     OLD_CHANGESETS="$OLD_CHANGESETS a5cc9003b025e798d362dd20dc11821e27118a51"
