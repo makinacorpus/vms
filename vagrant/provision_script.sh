@@ -725,12 +725,11 @@ ensure_localhost_in_hosts() {
     fi
 }
 
-detected_old_changesets() {
+detected_old_makinastates_changesets() {
     # bugged releases, list here old makinastates git commit ids to mark as to
     # upgrade on import
     OLD_CHANGESETS=""
-    OLD_CHANGESETS="$OLD_CHANGESETS 1f452ce230193ee562539a9dceec78d76175961c"
-    OLD_CHANGESETS="$OLD_CHANGESETS fc8977dab5c6dc37f0bef3bf2be1893875390513"
+    OLD_CHANGESETS="$OLD_CHANGESETS 81657ea88336c52cb96b84438bc872872bde470b"
     OLD_CHANGESETS="$OLD_CHANGESETS 723f485750bff7f34835755030b790f046859fc5"
     OLD_CHANGESETS="$OLD_CHANGESETS 881a12f77092f16311320d4a1c75132be947ebab"
     OLD_CHANGESETS="$OLD_CHANGESETS a122493ab5e7cdb1122c214d3558eec4efaaa5dc"
@@ -883,11 +882,16 @@ handle_old_changeset() {
             if [[ -e "$i" ]];then
                 cd "$i"
                 local changeset="$(git_changeset)"
-                if [[ " $(detected_old_changesets) " == *"$changeset"* ]];then
+                # look stored makina states or default to master
+                local dbranch="origin/$(echo $(cat /etc/makina-states/branch 2>/dev/null))"
+                if [[ -z "$dbranch" ]];then
+                    dbranch="origin/master"
+                fi
+                if [[ " $(detected_old_makinastates_changesets) " == *"$changeset"* ]];then
                     output " [*] Upgrade makina-states detected ($changeset), going to pull the master branch"
                     lazy_ms_update
                     git fetch origin
-                    git reset --hard origin/master
+                    git reset --hard "$dbranch"
                 fi
                 cd - &>/dev/null
             fi
