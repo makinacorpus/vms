@@ -1211,7 +1211,7 @@ clonevm() {
     ID=$(whoami)
     sudo chown -f "$ID" packer VM docker
     sudo chown -Rf "$ID" .git vagrant vagrant_config.rb .vagrant
-    if [[ -f manage.sh ]];then
+    if [[ -f manage.sh ]] && [[ -z $NO_CLEAN ]];then
         ./manage.sh reset
     fi &&\
         for i in $tarballs;do
