@@ -56,7 +56,7 @@ ssh_config=${VMPATH}/.vagrant/ssh-config
 VM=${VMPATH}/VM
 DEFAULT_DNS_BLOCKFILE="$VM/etc/devhosts"
 DEFAULT_HOSTS_FILE="/etc/hosts"
-NOINPUT=""
+NO_INPUT=""
 PROJECT_PATH="project/makinacorpus/vms/devhost"
 BASE_URL="${DEVHOST_BASE_URL:-"https://downloads.sourceforge.net/${PROJECT_PATH}"}"
 SFTP_URL=frs.sourceforge.net:/home/frs/$PROJECT_PATH
@@ -567,11 +567,26 @@ release() {
     local nocommit=""
     for i in $@;do
         case $i in
-            --no-commit) nocommit=1
+            --noinput|--no-input) NO_INPUT=1
+                ;;
+            --nocommit|--no-commit) nocommit=1
+                ;;
+            --noclean|--no-clean) NO_CLEAN=1
                 ;;
         esac
     done
     cd "$VMPATH"
+    local RELEASE_PATH="${VMPATH}-release"
+    if [[ -z "$NO_CLEAN" ]];then
+        log "Will clone and destroy the previous, release VM relaunch with $0 $LAUNCH_ARGS --noclean to not delete it"
+        if [[ -z $NO_INPUT ]];then
+            log "Press enter to continue, you can use $0 $LAUNCH_ARGS --no-input to skip confirmation"
+            read
+        fi
+        echo NO_SYNC_HOSTS=1 NO_INPUT=1 NO_IMPORT=1 clonevm "$RELEASE_PATH"
+        NO_SYNC_HOSTS=1 NO_INPUT=1 NO_IMPORT=1 clonevm "$RELEASE_PATH"
+    fi
+    export VMPATH="$RELEASE_PATH"
     log "Releasing $rname" &&\
         if [[ ! -f "$rarc" ]];then
             export_ "$rname" nozerofree
@@ -690,12 +705,12 @@ smartkill_() {
     PIDS=$@
     for pid in $PIDS;do
         while [[ $(get_pid_line $pid|wc -l) != "0" ]];do
-            if [[ -z "$NOINPUT" ]] || [[ "$input" == "y" ]];then
+            if [[ -z "$NO_INPUT" ]] || [[ "$input" == "y" ]];then
                 log "Do you really want to kill:"
                 log "$(get_pid_line $pid)"
                 log "[press y+ENTER, or CONTROL+C to abort, or ignore to continue]";read input
             fi
-            if [[ -n "$NOINPUT" ]] || [[ "$input" == "y" ]];then
+            if [[ -n "$NO_INPUT" ]] || [[ "$input" == "y" ]];then
                 log "killing $pid"
                 kill -9 $pid
             fi
@@ -1122,12 +1137,12 @@ sync_hosts() {
     diff=$(which diff)
     diff -q "$hosts" "$lhosts" &> /dev/null
     if [[ $? != 0 ]];then
-        if [[ -z $NOINPUT ]];then
+        if [[ -z $NO_INPUT ]];then
             diff -u "$hosts" "$lhosts"
             log "Add content of $lhosts to $hosts?"
             log "[press y+ENTER, or CONTROL+C to abort]";read input
         fi
-        if [[ -n "$NOINPUT" ]] || [[ "$input" == "y" ]];then
+        if [[ -n "$NO_INPUT" ]] || [[ "$input" == "y" ]];then
             log "Replacing $hosts"
             sudo cp -f "$lhosts" "$hosts"
         else
@@ -1170,11 +1185,11 @@ clonevm() {
     active_echo
     if [[ -e "$NEWVMPATH" ]];then
         if [[ -d "$NEWVMPATH" ]];then
-            if [[ -z "$NOINPUT" ]] || [[ "$input" == "y" ]];then
+            if [[ -z "$NO_INPUT" ]] || [[ "$input" == "y" ]];then
                 log "Do you really want to nuke vm in $NEWVMPATH ?"
                 log "[press y+ENTER, or CONTROL+C to abort]";read input
             fi
-            if [[ -n "$NOINPUT" ]] || [[ "$input" == "y" ]];then
+            if [[ -n "$NO_INPUT" ]] || [[ "$input" == "y" ]];then
                 cd "$NEWVMPATH"
                 if [[ -f manage.sh ]];then
                     ./manage.sh reset
@@ -1223,15 +1238,24 @@ clonevm() {
         done &&\
         local ntarball="$(ls -1rt devhost*.tar.bz2|head -n1)" &&\
         if [[ ! -e "$ntarball" ]];then ntarball="${import_uri:-$(get_release_url)}";fi &&\
-        log "Init in $VMPATH" &&\
+        local pb=""
         cd "$NEWVMPATH" &&\
-        ./manage.sh init "$ntarball"
+        if [[ -z $NO_IMPORT ]];then
+            pb="import" &&\
+            log "Init in $VMPATH" &&\
+            ./manage.sh init "$ntarball"
+        else
+            pb="init" &&\
+            log "UP in $VMPATH" &&\
+            ./manage.sh up
+        fi
+        die_in_error "problem while cloning / $pb"
     unactive_echo
 }
 
 test() {
     local TESTPATH="${VMPATH}-test"
-    NO_SYNC_HOSTS=1 NOINPUT=1 clonevm "$TESTPATH"
+    NO_SYNC_HOSTS=1 NO_INPUT=1 clonevm "$TESTPATH"
 }
 
 do_zerofree() {
