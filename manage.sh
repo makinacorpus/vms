@@ -577,14 +577,7 @@ release() {
     done
     cd "$VMPATH"
     local RELEASE_PATH="${VMPATH}-release"
-    if [[ -z "$NO_CLEAN" ]];then
-        log "Will clone and destroy the previous, release VM relaunch with $0 $LAUNCH_ARGS --noclean to not delete it"
-        if [[ -z $NO_INPUT ]];then
-            log "Press enter to continue, you can use $0 $LAUNCH_ARGS --no-input to skip confirmation"
-            read
-        fi
-        NO_SYNC_HOSTS=1 NO_INPUT=1 NO_IMPORT=1 clonevm "$RELEASE_PATH"
-    fi
+    NO_SYNC_HOSTS=1 NO_IMPORT=1 clonevm "$RELEASE_PATH"
     export VMPATH="$RELEASE_PATH"
     log "Releasing $rname" &&\
         if [[ ! -f "$rarc" ]];then
@@ -1182,6 +1175,7 @@ clonevm() {
     local import_uri="${2}"
     local can_continue=""
     active_echo
+    log "Syncing in $NEWVMPATH"
     if [[ -e "$NEWVMPATH" ]];then
         if [[ -d "$NEWVMPATH" ]];then
             if [[ -z "$NO_INPUT" ]] || [[ "$input" == "y" ]];then
@@ -1190,7 +1184,7 @@ clonevm() {
             fi
             if [[ -n "$NO_INPUT" ]] || [[ "$input" == "y" ]];then
                 cd "$NEWVMPATH"
-                if [[ -f manage.sh ]];then
+                if [[ -z $NO_CLEAN ]] && [[ -f manage.sh ]];then
                     ./manage.sh reset
                 fi
                 can_continue=1
@@ -1212,8 +1206,10 @@ clonevm() {
     sudo chown -f "$ID" packer VM docker
     sudo chown -Rf "$ID" .git vagrant vagrant_config.rb .vagrant
     if [[ -f manage.sh ]] && [[ -z $NO_CLEAN ]];then
+        log "Wiping in $NEWVMPATH"
         ./manage.sh reset
     fi &&\
+        log "Cloning in $NEWVMPATH" &&\
         for i in $tarballs;do
             local oldp="$OLDVMPATH/$i"
             local newp="$NEWVMPATH/$i"
@@ -1245,7 +1241,7 @@ clonevm() {
             ./manage.sh init "$ntarball"
         else
             pb="init" &&\
-            log "UP in $VMPATH" &&\
+            log "UP in $NEWVMPATH" &&\
             ./manage.sh reload
         fi
         die_in_error "problem while cloning / $pb"
