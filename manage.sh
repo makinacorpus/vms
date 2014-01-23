@@ -1058,6 +1058,7 @@ import() {
 }
 
 sync_hosts() {
+    log "Synchronize hosts entries"
     if [[ -n $NO_SYNC_HOSTS ]];then return;fi
     local block="${1:-$DEFAULT_DNS_BLOCKFILE}"
     local hosts="${2:-$DEFAULT_HOSTS_FILE}"
@@ -1067,7 +1068,7 @@ sync_hosts() {
     fi
     cd "$VMPATH"
     if [[ ! -d .vagrant ]];then mkdir .vagrant;fi
-    if [[ ! -e "$block" ]];then die "invalid block file: $block";fi
+    if [[ ! -e "$block" ]];then die "invalid hosts block file: $block";fi
     if [[ ! -e "$hosts" ]];then die "invalid hosts file: $hosts";fi
     local START=$(cat "$block"|head -n1)
     local END=$(cat "$block"|tail -n1)
