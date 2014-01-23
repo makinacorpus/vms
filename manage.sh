@@ -69,7 +69,6 @@ WRAPPER_PRESENT=""
 DEVHOST_NUM=""
 
 die_() {
-    warn_log
     ret=$1
     shift
     echo -e "${CYAN}${@}${NORMAL}" 1>&2
