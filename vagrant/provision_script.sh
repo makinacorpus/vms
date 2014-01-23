@@ -662,6 +662,10 @@ mark_export() {
     touch  "$export_marker"
 }
 
+mark_exported() {
+    mark_export "$@"
+}
+
 unmark_exported() {
     output " [*] Cleaning and unmarking vm as exported"
     rm -f  "$export_marker"
