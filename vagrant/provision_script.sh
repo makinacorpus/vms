@@ -110,7 +110,7 @@ detect_os() {
 set_vars() {
     VM_OLD_SALT_CHANGESET="eb7769b3fd1e3fbedd0850001e51eacece52759a"
     VM_OLD_MAKINASTATES_CHANGESET="59d7b1721ecfa1d3844b9714767a29963976ca61"
-    NOT_EXPORTED="proc sys dev lost+found"
+    NOT_EXPORTED="proc sys dev lost+found guest"
     VM_EXPORT_MOUNTPOINT="/guest"
     ROOT="/"
     CONF_ROOT="${CONF_ROOT:-"${ROOT}etc"}"
