@@ -658,6 +658,7 @@ cleanup_salt() {
 
 mark_export() {
     output " [*] Cleaning and marking vm as exported"
+    reset_git_configs
     cleanup_keys
     cleanup_misc
     # cleanup_salt
@@ -926,6 +927,7 @@ handle_export() {
             done
         done
         cleanup_salt
+        reset_git_configs
         # remove vagrant conf as it can contain doublons on first load
         output " [*] Reset network interface file"
         sed -ne "/VAGRANT-BEGIN/,\$!p" /etc/network/interfaces > /etc/network/interfaces.buf
@@ -939,6 +941,18 @@ handle_export() {
             set +x
         fi
     fi
+}
+
+reset_git_configs() {
+    find / -type d -name .git -not \( -path guest -prune \)|while read dotgit;
+    do
+        cd "$dotgit" &> /dev/null &&\
+        output " [*] Resetting $dotgit" &&\
+        for i in user.email user.name;do
+            git config --local --unset $i;
+        done &&\
+        cd -  &> /dev/null
+    done
 }
 
 get_devhost_num() {
