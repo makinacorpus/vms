@@ -751,6 +751,8 @@ get_old_makinastates_changesets() {
     if [[ -z "$VM_OLD_MAKINASTATES_CHANGESETS" ]];then
         VM_OLD_MAKINASTATES_CHANGESETS="$(get_git_ancestors "$MS" "${VM_OLD_MAKINASTATES_CHANGESET}")"
     fi
+    # add rebased commits
+    VM_OLD_MAKINASTATES_CHANGESETS="${VM_OLD_MAKINASTATES_CHANGESETS} 431cb85be17f1013be1660db272539f1dda27e4b"
     echo "$VM_OLD_MAKINASTATES_CHANGESETS"
 }
 
