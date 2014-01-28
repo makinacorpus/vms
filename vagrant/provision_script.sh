@@ -108,6 +108,8 @@ detect_os() {
 }
 
 set_vars() {
+    VM_OLD_SALT_CHANGESET="eb7769b3fd1e3fbedd0850001e51eacece52759a"
+    VM_OLD_MAKINASTATES_CHANGESET="59d7b1721ecfa1d3844b9714767a29963976ca61"
     NOT_EXPORTED="proc sys dev lost+found"
     VM_EXPORT_MOUNTPOINT="/guest"
     ROOT="/"
@@ -738,7 +740,7 @@ get_old_salt_changesets() {
     # bugged releases, list here old salt git commit ids to mark as to
     # upgrade on import
     if [[ -z "$VM_OLD_SALT_CHANGESETS" ]];then
-        VM_OLD_SALT_CHANGESETS="$(get_git_ancestors "$MS/src/salt" "49cfb4fd542dfd1019a329c0f015638e8a0f9285")"
+        VM_OLD_SALT_CHANGESETS="$(get_git_ancestors "$MS/src/salt" "${VM_OLD_SALT_CHANGESET}")"
     fi
     echo "$VM_OLD_SALT_CHANGESETS"
 }
@@ -747,7 +749,7 @@ get_old_makinastates_changesets() {
     # bugged releases, list here old makinastates git commit ids to mark as to
     # upgrade on import
     if [[ -z "$VM_OLD_MAKINASTATES_CHANGESETS" ]];then
-        VM_OLD_MAKINASTATES_CHANGESETS="$(get_git_ancestors "$MS" "59d7b1721ecfa1d3844b9714767a29963976ca61")"
+        VM_OLD_MAKINASTATES_CHANGESETS="$(get_git_ancestors "$MS" "${VM_OLD_MAKINASTATES_CHANGESET}")"
     fi
     echo "$VM_OLD_MAKINASTATES_CHANGESETS"
 }
