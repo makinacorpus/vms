@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 LAUNCH_ARGS="$@"
 actions=""
-actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm"
+actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm version"
 actions_exportimport="export import"
 actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm release internal_ssh gen_ssh_config reset"
-actions_alias="-h --help --long-help -l "
+actions_alias="-h --help --long-help -l -v --version"
 actions="
     $actions_exportimport
     $actions_main_usage
@@ -159,6 +159,10 @@ usage() {
                     help_header $i
                     help_content "      Launch a VM"
                     ;;
+                version)
+                    help_header $i
+                    help_content "      Versions info"
+                    ;;
                 reload)
                     help_header $i
                     help_content "      Restarts a VM"
@@ -231,7 +235,7 @@ usage() {
                     help_content "      Mount or Remount the vm filesystem"
                     ;;
                 release)
-                    help_header $i
+                    help_header "$i [--noinput --noclean --nocommit]"
                     help_content "      Release the current vm as the next release on the CDN: $BASE_URL"
                     if [[ -n $LONGHELP ]];then
                         help_content "          - Export the vm to $(get_next_release_name)"
@@ -577,14 +581,7 @@ release() {
     done
     cd "$VMPATH"
     local RELEASE_PATH="${VMPATH}-release"
-    if [[ -z "$NO_CLEAN" ]];then
-        log "Will clone and destroy the previous, release VM relaunch with $0 $LAUNCH_ARGS --noclean to not delete it"
-        if [[ -z $NO_INPUT ]];then
-            log "Press enter to continue, you can use $0 $LAUNCH_ARGS --no-input to skip confirmation"
-            read
-        fi
-        NO_SYNC_HOSTS=1 NO_INPUT=1 NO_IMPORT=1 clonevm "$RELEASE_PATH"
-    fi
+    NO_SYNC_HOSTS=1 NO_IMPORT=1 clonevm "$RELEASE_PATH"
     export VMPATH="$RELEASE_PATH"
     log "Releasing $rname" &&\
         if [[ ! -f "$rarc" ]];then
@@ -1153,6 +1150,26 @@ sync_hosts() {
     rm -f hosts
 }
 
+version() {
+    log "VMS"
+    git log|head -n1|awk '{print $2}'|sed "s/^/    /g"
+    if [[ -e VM/src/salt/makina-states ]];then
+        log "Makina-States"
+        cd VM/src/salt/makina-states
+        git log|head -n1|awk '{print $2}'|sed "s/^/    /g"
+        cd - &> /dev/null
+    fi
+    log Virtualbox
+    VBoxManage --version|sed "s/^/    /g"
+    log Vagrant
+    vagrant --version|sed "s/^/    /g"
+    vagrant plugin list|sed "s/^/    /g"
+    log "kernel & sshfs"
+    uname -a|sed "s/^/    /g"
+    sshfs --version 2>&1|sed "s/^/    /g"
+
+}
+
 reset() {
     if [[ -e "$VMPATH" ]];then
         cd "$VMPATH"
@@ -1182,6 +1199,7 @@ clonevm() {
     local import_uri="${2}"
     local can_continue=""
     active_echo
+    log "Syncing in $NEWVMPATH"
     if [[ -e "$NEWVMPATH" ]];then
         if [[ -d "$NEWVMPATH" ]];then
             if [[ -z "$NO_INPUT" ]] || [[ "$input" == "y" ]];then
@@ -1190,7 +1208,7 @@ clonevm() {
             fi
             if [[ -n "$NO_INPUT" ]] || [[ "$input" == "y" ]];then
                 cd "$NEWVMPATH"
-                if [[ -f manage.sh ]];then
+                if [[ -z $NO_CLEAN ]] && [[ -f manage.sh ]];then
                     ./manage.sh reset
                 fi
                 can_continue=1
@@ -1211,9 +1229,11 @@ clonevm() {
     ID=$(whoami)
     sudo chown -f "$ID" packer VM docker
     sudo chown -Rf "$ID" .git vagrant vagrant_config.rb .vagrant
-    if [[ -f manage.sh ]];then
+    if [[ -f manage.sh ]] && [[ -z $NO_CLEAN ]];then
+        log "Wiping in $NEWVMPATH"
         ./manage.sh reset
     fi &&\
+        log "Cloning in $NEWVMPATH" &&\
         for i in $tarballs;do
             local oldp="$OLDVMPATH/$i"
             local newp="$NEWVMPATH/$i"
@@ -1245,7 +1265,7 @@ clonevm() {
             ./manage.sh init "$ntarball"
         else
             pb="init" &&\
-            log "UP in $VMPATH" &&\
+            log "UP in $NEWVMPATH" &&\
             ./manage.sh reload
         fi
         die_in_error "problem while cloning / $pb"
@@ -1279,6 +1299,8 @@ if [[ -z $MANAGE_AS_FUNCS ]];then
         shift
         case $action in
             export) action="export_"
+                ;;
+            -v|--version) action="version"
                 ;;
             usage|-h|--help) action="usage"
                 ;;
