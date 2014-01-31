@@ -24,6 +24,7 @@ if [[ -n $NO_COLORS ]];then
     NORMAL=""
 fi
 DEBUG=${BOOT_SALT_DEBUG:-$DEBUG}
+red_output() { echo -e "${RED}$@${NORMAL}" >&2; }
 output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
 log() { output "$@"; }
 
@@ -109,8 +110,8 @@ detect_os() {
 
 set_vars() {
     ADDITIONNAL_BOOTSALT_ARGS="${ADDITIONNAL_BOOTSALT_ARGS:-}"
-    VM_OLD_SALT_CHANGESET="50d11bd74bce97ae23d4189826b9133769804a04"
-    VM_OLD_MAKINASTATES_CHANGESET="d61c84cfe5f39ba5ef6eff0706c3449c6616c83a"
+    VM_OLD_SALT_CHANGESET="ce6fe2be3f0ddb6dd156fb1676996b5261431b86"
+    VM_OLD_MAKINASTATES_CHANGESET="4b1db5cb7840ca242bfe0938c6a9f730ba12c56e"
     NOT_EXPORTED="proc sys dev lost+found guest"
     VM_EXPORT_MOUNTPOINT="/guest"
     ROOT="/"
@@ -753,10 +754,10 @@ get_old_makinastates_changesets() {
     # upgrade on import
     if [[ -z "$VM_OLD_MAKINASTATES_CHANGESETS" ]];then
         VM_OLD_MAKINASTATES_CHANGESETS="$(get_git_ancestors "$MS" "${VM_OLD_MAKINASTATES_CHANGESET}")"
+        VM_OLD_MAKINASTATES_CHANGESETS="$(get_git_ancestors "$MS" "${VM_OLD_MAKINASTATES_CHANGESET}")"
     fi
     # add rebased commits
-    VM_OLD_MAKINASTATES_CHANGESETS="${VM_OLD_MAKINASTATES_CHANGESETS} 431cb85be17f1013be1660db272539f1dda27e4b"
-    VM_OLD_MAKINASTATES_CHANGESETS="${VM_OLD_MAKINASTATES_CHANGESETS} b8e6f44710e0418f073786ca59ce77ca5da38eb2"
+    #VM_OLD_MAKINASTATES_CHANGESETS="${VM_OLD_MAKINASTATES_CHANGESETS} $(get_git_ancestors 431cb85be17f1013be1660db272539f1dda27e4b)"
     echo "$VM_OLD_MAKINASTATES_CHANGESETS"
 }
 
@@ -764,6 +765,11 @@ get_old_makinastates_changesets() {
 git_changeset() {
     # current working directory git commit id
     git log|head -n1|awk '{print $2}'
+}
+
+git_changesets() {
+    # current working directory git commits id
+    git log $1|egrep  ^"commit "|awk '{print $2}'
 }
 
 create_vm_mountpoint() {
@@ -845,12 +851,16 @@ handle_invalid() {
     # on import, check that the bundled makina-states is not marked as
     # to be upgraded, and in case upgrade it
     if [[ $(test_online) == "0" ]];then
-        for i in /srv/{salt,mastersalt}/makina-states;do
+        reps="salt"
+        if [ x"${IS_MASTERSALT}" != "x" ];then
+            reps="${reps},mastersalt"
+        fi
+        for i in /srv/{${reps}}/makina-states;do
             if [[ -e "$i" ]];then
                 cd "$i"
                 for fic in bin bin/salt-master bin/salt-minion bin/buildout;do
                     if [[ ! -e "$fic" ]];then
-                        output " [*] Invalid installation detected, rerun bootstrap."
+                        output " [*] Invalid installation detected (missing ${i}/${fic}), rerun bootstrap."
                         lazy_ms_update
                         break
                     fi
@@ -871,22 +881,33 @@ handle_old_changeset() {
     # to be upgraded, and in case upgrade it
     if [[ $(test_online) == "0" ]];then
         for i in /srv/{salt,mastersalt}/makina-states/src/salt;do
-            if [[ -e "$i" ]];then
+            if [[ -e "$i/.git" ]];then
                 cd "$i"
                 local changeset="$(git_changeset)"
-                if [[ " $(get_old_salt_changesets) " == *"$changeset"* ]];then
+                if [[ " $(git_changesets) " != *"${VM_OLD_SALT_CHANGESETS}"* ]];then
                     output " [*] Upgrade makina-states/salt detected ($changeset), going to pull the develop branch"
                     # for now, just update code and do not trigger states rebuild if and only
                     # salt code has upgraded
                     # lazy_ms_update
+                    chrono="$(date "+%F_%H:%M:%S")"
                     git fetch origin
-                    git reset --hard origin/develop
+                    git merge --ff-only "origin/develop"
+                    if [ x"$?" != "x0" ];then
+                        reflog="${PWD}/.git.{reflog}.${chrono}"
+                        red_output "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                        red_output "${PWD}: Failed to merge with local branch"
+                        red_output "Saving local commits in ${reflog}"
+                        red_output "and hard resetting to origin/develop"
+                        red_output "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                        git reflog > "${reflog}"
+                        git reset --hard origin/develop
+                    fi
                 fi
                 cd - &>/dev/null
             fi
         done
         for i in /srv/{salt,mastersalt}/makina-states;do
-            if [[ -e "$i" ]];then
+            if [[ -e "$i/.git" ]];then
                 cd "$i"
                 local changeset="$(git_changeset)"
                 # look stored makina states or default to master
@@ -894,11 +915,24 @@ handle_old_changeset() {
                 if [[ -z "$dbranch" ]];then
                     dbranch="master"
                 fi
-                if [[ " $(get_old_makinastates_changesets) " == *"$changeset"* ]];then
-                    output " [*] Upgrade makina-states detected ($changeset), going to pull the master branch"
+                # if the local commits do no contain the distant commit, upgrade
+                if [[ " $(git_changesets) " != *"${VM_OLD_MAKINASTATES_CHANGESET}"* ]];then
+                    output " [*] Upgrade makina-states detected ($changeset -> master)),"
+                    output " [*] going to pull the master branch"
                     lazy_ms_update
+                    chrono="$(date "+%F_%H:%M:%S")"
                     git fetch origin
-                    git reset --hard "origin/$dbranch"
+                    git merge --ff-only "origin/${dbranch}"
+                    if [ x"$?" != "x0" ];then
+                        reflog="${PWD}/.git.reflog.{$chrono}"
+                        red_output "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                        red_output "${PWD}: Failed to merge with local branch"
+                        red_output "Saving local commits in ${reflog}"
+                        red_output "and hard resetting to origin/${dbranch}"
+                        red_output "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                        git reflog > "${reflog}"
+                        git reset --hard "origin/${dbranch}"
+                    fi
                 fi
                 cd - &>/dev/null
             fi
