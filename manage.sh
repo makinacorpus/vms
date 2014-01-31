@@ -580,7 +580,8 @@ release() {
         esac
     done
     cd "$VMPATH"
-    local RELEASE_PATH="${VMPATH}-release"
+    OLD_VM_PATH="${VMPATH}"
+    RELEASE_PATH="${VMPATH}-release"
     NO_SYNC_HOSTS=1 NO_IMPORT=1 clonevm "$RELEASE_PATH"
     export VMPATH="$RELEASE_PATH"
     log "Releasing $rname" &&\
@@ -594,9 +595,10 @@ release() {
         log "Error while uploading images"
         exit $lret
     else
-        echo "$rver" > "$rfile"
-        git add "$rfile"
-        git commit -am "RELEASE: $rname" &&\
+        cd "${OLD_VM_PATH}" &&\
+            echo "$rver" > "$rfile" &&\
+            git add "$rfile" &&\
+            git commit -am "RELEASE: $rname" &&\
             log "You ll need to git push when you ll have test an init" &&\
             log "somewhere and the download works and the sf.net mirrors are well synchron,ized" &&\
             log "URL to test is: $(get_release_url $rname)" &&\
