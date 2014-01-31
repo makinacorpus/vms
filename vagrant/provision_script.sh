@@ -109,7 +109,7 @@ detect_os() {
 
 set_vars() {
     VM_OLD_SALT_CHANGESET="50d11bd74bce97ae23d4189826b9133769804a04"
-    VM_OLD_MAKINASTATES_CHANGESET="8a7c74b167dde29aa91c189853f8d877ae772fc1"
+    VM_OLD_MAKINASTATES_CHANGESET="972301fccd9c524988ec4ef64c14cdcf72866ed7"
     NOT_EXPORTED="proc sys dev lost+found guest"
     VM_EXPORT_MOUNTPOINT="/guest"
     ROOT="/"
@@ -483,7 +483,7 @@ run_boot_salt() {
         boot_word="Bootstrap"
     else
         boot_word="Refresh"
-        boot_args="-S $boot_args"
+        boot_args="-S --buildout-rebootstrap $boot_args"
     fi
     output " [*] $boot_word makina-states..."
     if [[ ! -e "$bootsalt" ]];then
