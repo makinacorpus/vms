@@ -108,8 +108,9 @@ detect_os() {
 }
 
 set_vars() {
+    ADDITIONNAL_BOOTSALT_ARGS="${ADDITIONNAL_BOOTSALT_ARGS:-}"
     VM_OLD_SALT_CHANGESET="50d11bd74bce97ae23d4189826b9133769804a04"
-    VM_OLD_MAKINASTATES_CHANGESET="972301fccd9c524988ec4ef64c14cdcf72866ed7"
+    VM_OLD_MAKINASTATES_CHANGESET="d61c84cfe5f39ba5ef6eff0706c3449c6616c83a"
     NOT_EXPORTED="proc sys dev lost+found guest"
     VM_EXPORT_MOUNTPOINT="/guest"
     ROOT="/"
@@ -483,8 +484,9 @@ run_boot_salt() {
         boot_word="Bootstrap"
     else
         boot_word="Refresh"
-        boot_args="-S --buildout-rebootstrap $boot_args"
+        boot_args="-S $boot_args"
     fi
+    boot_args="${boot_args} ${ADDITIONNAL_BOOTSALT_ARGS}"
     output " [*] $boot_word makina-states..."
     if [[ ! -e "$bootsalt" ]];then
         output " [*] Running makina-states bootstrap directly from github"
@@ -832,12 +834,9 @@ unmark_bootsalt_done() {
 lazy_ms_update() {
     # no auto update unless configured
     if [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
-        export SALT_BOOT_SKIP_CHECKOUTS=""
-        export SALT_BOOT_SKIP_HIGHSTATES=""
-    else
-        export SALT_BOOT_SKIP_CHECKOUTS=1
-        export SALT_BOOT_SKIP_HIGHSTATES=1
+        ADDITIONNAL_BOOTSALT_ARGS="${ADDITIONNAL_BOOTSALT_ARGS} -s -S"
     fi
+    ADDITIONNAL_BOOTSALT_ARGS="${ADDITIONNAL_BOOTSALT_ARGS} --buildout-rebootstrap"
     unmark_bootsalt_done
 }
 
