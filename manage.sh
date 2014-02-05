@@ -1073,7 +1073,7 @@ import() {
 sync_hosts() {
     log "Synchronize hosts entries"
     if [[ -n $NO_SYNC_HOSTS ]];then return;fi
-    local block="${1:-$DEFAULT_DNS_BLOCKFILE}"
+    local blockp="${1:-$DEFAULT_DNS_BLOCKFILE}"
     local hosts="${2:-$DEFAULT_HOSTS_FILE}"
     local lhosts=.vagrant/hosts
     if [[ "$(status)" != "running" ]];then
@@ -1082,7 +1082,7 @@ sync_hosts() {
     cd "$VMPATH"
     cp "$hosts" "$lhosts"
     # search for all devhosts files
-    ls -1 "${block}"* 2>/dev/null | egrep -v '.bak$' | while read block;do
+    ls -1 "${blockp}"* 2>/dev/null | egrep -v '.bak$' | while read block;do
         if [[ -z ${block} ]];then
             break
         fi
@@ -1143,7 +1143,7 @@ sync_hosts() {
     if [[ $? != 0 ]];then
         if [[ -z $NO_INPUT ]];then
             diff -u "$hosts" "$lhosts"
-            log "Add content of $lhosts to $hosts (from $block)?"
+            log "Add content of $lhosts to $hosts?"
             log "[press y+ENTER, or CONTROL+C to abort]";read input
         fi
         if [[ -n "$NO_INPUT" ]] || [[ "$input" == "y" ]];then
@@ -1153,7 +1153,7 @@ sync_hosts() {
             log "Leaving $hosts as-is"
         fi
     else
-        log "$block is already up-to-date"
+        log "/etc/hosts is already up-to-date"
     fi
 }
 
