@@ -1080,64 +1080,70 @@ sync_hosts() {
         up
     fi
     cd "$VMPATH"
-    if [[ ! -d .vagrant ]];then mkdir .vagrant;fi
-    if [[ ! -e "$block" ]];then die "invalid hosts block file: $block";fi
-    if [[ ! -e "$hosts" ]];then die "invalid hosts file: $hosts";fi
-    local START=$(cat "$block"|head -n1)
-    local END=$(cat "$block"|tail -n1)
-    local start_lines=$(grep -- "$START" "$hosts"|wc -l)
-    local end_lines=$(grep -- "$END" "$hosts"|wc -l)
-    local block_start_lines=$(grep -- "$START" "$block"|wc -l)
-    local block_end_lines=$(grep -- "$END" "$block"|wc -l)
-    if [[ -z "$START" ]];then
-        die "missing start tag"
-    fi
-    if [[ -z "$END" ]];then
-        die "missing end tag"
-    fi
-    if [[ "$START" != "#-- start devhost"* ]];then
-        die "invalid start tag(c): $START"
-    fi
-    if [[ "$END" != "#-- end devhost"* ]];then
-        die "invalid end tag(c): $END"
-    fi
-    if [[ "$START" == "$END" ]];then
-        die "invalid start tag is same as end: $END"
-    fi
-    if [[ "$start_lines" != "0" ]] || [[ "$end_lines" != "0" ]];then
-        if [[ "$start_lines" != "1" ]];then
-            die "Weird start/end markers is absent or multiple, balling out (s:$start_lines/$end_lines)"
-        fi
-        if [[ "$end_lines" != "1" ]];then
-            die "Weird start/end markers is absent or multiple, balling out (e:$end_lines/$end_lines)"
-        fi
-    fi
-    if [[ "$block_start_lines" != "0" ]] || [[ "$block_end_lines" != "0" ]];then
-        if [[ "$block_start_lines" != "1" ]];then
-            die "Weird block_tart/block_end markers is absent or multiple, balling out (s:$block_start_lines/$block_end_lines)"
-        fi
-        if [[ "$block_end_lines" != "1" ]];then
-            die "Weird block_start/block_end markers is absent or multiple, balling out (e:$block_end_lines/$block_end_lines)"
-        fi
-    fi
-    log "Adding $block hosts to $hosts"
     cp "$hosts" "$lhosts"
-    if [[ $(grep -- "$START" "$hosts"|wc -l) == "0" ]];then
-        # Add block in /etc/hosts
-        echo >> "$lhosts"
-        cat "$block" >> "$lhosts"
-    else
-        # replace block in /etc/hosts
-        sed  -ne "1,/$START\$/ p" "$hosts"|egrep -v "^$START" > "$lhosts"
-        cat "$block"                      >> "$lhosts"
-        sed  -ne "/$END\$/,\$ p" "$hosts" |egrep -v "^$END" >> "$lhosts"
-    fi
+    # search for all devhosts files
+    ls -1 "${block}"* 2>/dev/null | egrep -v '.bak$' | while read block;do
+        if [[ -z ${block} ]];then
+            break
+        fi
+        if [[ ! -d .vagrant ]];then mkdir .vagrant;fi
+        if [[ ! -e "$block" ]];then die "invalid hosts block file: $block";fi
+        if [[ ! -e "$hosts" ]];then die "invalid hosts file: $hosts";fi
+        local START=$(cat "$block"|head -n1)
+        local END=$(cat "$block"|tail -n1)
+        local start_lines=$(grep -- "$START" "$hosts"|wc -l)
+        local end_lines=$(grep -- "$END" "$hosts"|wc -l)
+        local block_start_lines=$(grep -- "$START" "$block"|wc -l)
+        local block_end_lines=$(grep -- "$END" "$block"|wc -l)
+        if [[ -z "$START" ]];then
+            die "missing start tag"
+        fi
+        if [[ -z "$END" ]];then
+            die "missing end tag"
+        fi
+        if [[ "$START" != "#-- start devhost"* ]];then
+            die "invalid start tag(c): $START"
+        fi
+        if [[ "$END" != "#-- end devhost"* ]];then
+            die "invalid end tag(c): $END"
+        fi
+        if [[ "$START" == "$END" ]];then
+            die "invalid start tag is same as end: $END"
+        fi
+        if [[ "$start_lines" != "0" ]] || [[ "$end_lines" != "0" ]];then
+            if [[ "$start_lines" != "1" ]];then
+                die "Weird start/end markers is absent or multiple, balling out (s:$start_lines/$end_lines)"
+            fi
+            if [[ "$end_lines" != "1" ]];then
+                die "Weird start/end markers is absent or multiple, balling out (e:$end_lines/$end_lines)"
+            fi
+        fi
+        if [[ "$block_start_lines" != "0" ]] || [[ "$block_end_lines" != "0" ]];then
+            if [[ "$block_start_lines" != "1" ]];then
+                die "Weird block_tart/block_end markers is absent or multiple, balling out (s:$block_start_lines/$block_end_lines)"
+            fi
+            if [[ "$block_end_lines" != "1" ]];then
+                die "Weird block_start/block_end markers is absent or multiple, balling out (e:$block_end_lines/$block_end_lines)"
+            fi
+        fi
+        log "Adding $block hosts to $hosts"
+        if [[ $(grep -- "$START" "$hosts"|wc -l) == "0" ]];then
+            # Add block in /etc/hosts
+            echo >> "$lhosts"
+            cat "$block" >> "$lhosts"
+        else
+            # replace block in /etc/hosts
+            sed  -ne "1,/$START\$/ p" "$hosts"|egrep -v "^$START" > "$lhosts"
+            cat "$block"                      >> "$lhosts"
+            sed  -ne "/$END\$/,\$ p" "$hosts" |egrep -v "^$END" >> "$lhosts"
+        fi
+    done
     diff=$(which diff)
     diff -q "$hosts" "$lhosts" &> /dev/null
     if [[ $? != 0 ]];then
         if [[ -z $NO_INPUT ]];then
             diff -u "$hosts" "$lhosts"
-            log "Add content of $lhosts to $hosts?"
+            log "Add content of $lhosts to $hosts (from $block)?"
             log "[press y+ENTER, or CONTROL+C to abort]";read input
         fi
         if [[ -n "$NO_INPUT" ]] || [[ "$input" == "y" ]];then
@@ -1149,7 +1155,6 @@ sync_hosts() {
     else
         log "$block is already up-to-date"
     fi
-    rm -f hosts
 }
 
 version() {
