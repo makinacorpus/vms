@@ -884,7 +884,7 @@ handle_old_changeset() {
             if [[ -e "$i/.git" ]];then
                 cd "$i"
                 local changeset="$(git_changeset)"
-                if [[ " $(git_changesets) " != *"${VM_OLD_SALT_CHANGESETS}"* ]];then
+                if [[ " $(git_changesets) " != *"${VM_OLD_SALT_CHANGESET}"* ]];then
                     output " [*] Upgrade makina-states/salt detected ($changeset), going to pull the develop branch"
                     # for now, just update code and do not trigger states rebuild if and only
                     # salt code has upgraded
