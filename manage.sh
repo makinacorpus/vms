@@ -669,23 +669,26 @@ mount_vm() {
     active_echo
     # something is wrong with the mountpath, killing it
     test_not_connected="$(LANG=C ls VM 2>&1)"
-    if [[ ! -e "$VM/home/vagrant/.ssh" ]]\
-        || [[ "$test_not_connected"  == *"is not connected"* ]];then
+    if [ ! -e "$VM/home/vagrant/.ssh" ]\
+        || [ "x$(echo "${test_not_connected}"|grep -q "is not connected";echo $?)" = "x0" ];then
         umount_vm
     fi
-    if [[ ! -e "$VM/home/vagrant/.ssh" ]];then
-        if [[ ! -e "$VM" ]];then
+    if [ ! -e "$VM/home/vagrant/.ssh" ];then
+        if [ ! -e "$VM" ];then
             mkdir "$VM"
         fi
         ssh_pre_reqs
         local sshhost=$(get_ssh_host "$ssh_config")
-        if [[   -n $sshhost ]];then
+        if [ "x${sshhost}" != "x" ];then
             log "Mounting devhost($sshhost):/ --sshfs--> $VM"
             sshopts="nonempty,transform_symlinks,reconnect,BatchMode=yes"
-            if [[ "$(egrep "^user_allow_other" /etc/fuse.conf 2>/dev/null|wc -l)" != 0 ]];then
+            if [ "$(egrep "^user_allow_other" /etc/fuse.conf 2>/dev/null|wc -l)" != "x0" ];then
                 sshopts="$sshopts,allow_other"
             fi
             sshfs -F "$ssh_config" root@${sshhost}:/guest -o $sshopts "$VM"
+            if [ ! -e "$VM/home/vagrant/.ssh" ];then
+                internal_ssh "sudo /vagrant/vagrant/provision_script_wrapper.sh create_vm_mountpoint"
+            fi
         else
             log "Cant' mount devhost, empty ssh host"
             exit -1
