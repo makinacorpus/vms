@@ -109,6 +109,7 @@ detect_os() {
 }
 
 set_vars() {
+    LTS_KVER='saucy'
     ADDITIONNAL_BOOTSALT_ARGS="${ADDITIONNAL_BOOTSALT_ARGS:-}"
     VM_OLD_SALT_CHANGESET="ce6fe2be3f0ddb6dd156fb1676996b5261431b86"
     VM_OLD_MAKINASTATES_CHANGESET="4b1db5cb7840ca242bfe0938c6a9f730ba12c56e"
@@ -301,9 +302,9 @@ backport_for_precise() {
     if [[ ! -e $kernel_marker ]];then
         lazy_apt_get_install\
             dkms\
-            linux-image-generic-lts-raring build-essential\
+            linux-image-generic-lts-${LTS_KVER} build-essential\
+            linux-headers-generic-lts-${LTS_KVER}\
             xserver-xorg xserver-xorg-core \
-            linux-headers-generic-lts-raring\
             && touch "$kernel_marker"
         touch $restart_marker
     fi
