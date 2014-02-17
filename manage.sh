@@ -530,7 +530,7 @@ get_version_file() {
 get_version() {
     local ver="0"
     local vfile="$(get_version_file)"
-    if [[ -e "$vfile" ]];then
+    if [ -e "$vfile" ];then
         ver="$(cat "$vfile")"
     fi
     echo "$ver"
@@ -1296,12 +1296,12 @@ do_zerofree() {
 
 action="$1"
 
-if [[ -z $MANAGE_AS_FUNCS ]];then
-    if [[ -z "$RSYNC" ]];then
+if [ "x${MANAGE_AS_FUNCS}" = "x" ];then
+    if [ "x${RSYNC}" = "x" ];then
         log "Please install rsync"
         exit -1
     fi
-    if [[ -z $action ]];then
+    if [ "x${action}" = "x" ];then
         action=usage
     fi
     thismatch=$(echo " $actions "|sed -e "s/.* $action .*/match/g")
