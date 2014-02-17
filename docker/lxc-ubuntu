@@ -34,12 +34,12 @@
 
 
 
-
-cd $(dirname $0)
-W=$PWD
+CURPATH=$(dirname "$0")
+cd "$CURPATH"
+CURPATH=$PWD
 release=${release:-raring}
 MIRROR=${MIRROR:-http://fr.archive.ubuntu.com/ubuntu}
-cache="$W/cache"
+cache="$CURPATH/cache"
 export DEBIAN_FRONTEND=noninteractive
 PACKAGES="
 cron

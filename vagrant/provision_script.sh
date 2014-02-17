@@ -8,28 +8,59 @@
 # as it backport a lot of saucy packages, see ../backport-pgks.sh
 # for backporting things on a bare metal machine
 #
+# In there we have only core configuration (network, ssh access, salt init)
+# The rest is done salt side, see makina-states.nodetypes.vagrantvm
+#
+#
+
 YELLOW='\e[1;33m'
 RED="\\033[31m"
 CYAN="\\033[36m"
 NORMAL="\\033[0m"
-DEBUG=${BOOT_SALT_DEBUG:-}
+if [[ -n $NO_COLORS ]];then
+    YELLOW=""
+    RED=""
+    CYAN=""
+    NORMAL=""
+fi
+DEBUG=${BOOT_SALT_DEBUG:-$DEBUG}
+red_output() { echo -e "${RED}$@${NORMAL}" >&2; }
 output() { echo -e "${YELLOW}$@${NORMAL}" >&2; }
 log() { output "$@"; }
-die_if_error() { if [[ "$?" != "0" ]];then output "There were errors";exit 1;fi; }
 
-output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
-output " [*] You can safely relaunch this script from within the vm"
+ERROR_MSG="There were errors"
 
-# migrate old settings location
-if [[ ! -e /root/vagrant/provision_settings.sh ]];then
-    cp -f /root/vagrant_provision_settings.sh /root/vagrant/provision_settings.sh
-fi
+die_() {
+    ret=$1
+    shift
+    echo -e "${CYAN}${@}${NORMAL}" 1>&2
+    exit $ret
+}
+
+die() {
+    die_ 1 $@
+}
+
+die_in_error_() {
+    local ret=$1
+    shift
+    local msg="${@:-"$ERROR_MSG"}"
+    if [[ "$ret" != "0" ]];then
+        die_ "$ret" "$msg"
+    fi
+}
+
+die_in_error() {
+    die_in_error_ "$?" "$@"
+}
 
 detect_os() {
+    # make as a function to be copy/pasted as-is in multiple scripts
     IS_UBUNTU=""
     IS_DEBIAN=""
-    if [[ -e /etc/lsb-release ]];then
-        . /etc/lsb-release
+    IS_DEBIAN_LIKE=""
+    if [[ -e $CONF_ROOT/lsb-release ]];then
+        . $CONF_ROOT/lsb-release
         if [[ "$DISTRIB_CODENAME" == "lucid" ]]\
             || [[ "$DISTRIB_CODENAME" == "maverick" ]]\
             || [[ "$DISTRIB_CODENAME" == "natty" ]]\
@@ -43,76 +74,131 @@ detect_os() {
         if [[ "$DISTRIB_CODENAME" == "raring" ]] || [[ -n "$EARLY_UBUNTU" ]];then
             BEFORE_SAUCY=y
         fi
+        if [[ "$DISTRIB_ID" == "Ubuntu" ]];then
+            ret=$?
+            IS_UBUNTU="y"
+        fi
     fi
-    if [[ -e /etc/debian_version ]] && [[ "$DISTRIB_ID" != "Ubuntu" ]];then
+    if [[ -e "$CONF_ROOT/os-release" ]];then
+        OS_RELEASE_ID=$(egrep ^ID= $CONF_ROOT/os-release|sed -re "s/ID=//g")
+        OS_RELEASE_NAME=$(egrep ^NAME= $CONF_ROOT/os-release|sed -re "s/NAME=""//g")
+        OS_RELEASE_VERSION=$(egrep ^VERSION= $CONF_ROOT/os-release|sed -re "s/VERSION=/""/g")
+        OS_RELEASE_PRETTY_NAME=$(egrep ^PRETTY_NAME= $CONF_ROOT/os-release|sed -re "s/PRETTY_NAME=""//g")
+
+    fi
+    if [[ -e $CONF_ROOT/debian_version ]] && [[ "$OS_RELEASE_ID" == "debian" ]] && [[ "$DISTRIB_ID" != "Ubuntu" ]];then
         IS_DEBIAN="y"
+        SALT_BOOT_OS="debian"
+        DISTRIB_CODENAME="$(echo $OS_RELEASE_PRETTY_NAME |sed -re "s/.*\((.*)\).*/\1/g")"
+    fi
+    if [[ -n "$IS_UBUNTU" ]];then
+        SALT_BOOT_OS="ubuntu"
+        DISTRIB_NEXT_RELEASE="saucy"
+        DISTRIB_BACKPORT="$DISTRIB_NEXT_RELEASE"
+    elif [[ -n "$IS_DEBIAN" ]];then
+        if [[ "$DISTRIB_CODENAME"  == "wheezy" ]];then
+            DISTRIB_NEXT_RELEASE="jessie"
+        elif [[ "$DISTRIB_CODENAME"  == "squeeze" ]];then
+            DISTRIB_NEXT_RELEASE="wheezy"
+        fi
+        DISTRIB_BACKPORT="wheezy-backports"
+    fi
+    if [[ -n "$IS_UBUNTU" ]] || [[ -n "$IS_DEBIAN" ]];then
+        IS_DEBIAN_LIKE="y"
     fi
 }
-detect_os
-# source a maybe existing settings file
-SETTINGS="${SETTINGS:-"/root/vagrant/provision_settings.sh"}"
-if [[ -f "$SETTINGS" ]];then
-    output " [*] Loading custom settings in $SETTINGS"
-    . "$SETTINGS"
-fi
-PREFIX="${PREFIX:-"/srv"}"
-VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
-export SALT_BOOT='server'
-BOOT_GRAIN="makina.bootstrap.$SALT_BOOT"
-VBOX_ADD_VER="4.2.16"
 
-# Markers must not be on a shared folder for a new VM to be reprovisionned correctly
-VENV_PATH="/salt-venv"
-MARKERS="${MARKERS:-"/root/vagrant/markers"}"
-DNS_SERVER="${DNS_SERVER:-"8.8.8.8"}"
-PREVIOUS_OFFICIAL_MIRROR="${PREVIOUS_OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
-PREVIOUS_LOCAL_MIRROR="${PREVIOUS_LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
-OFFICIAL_MIRROR="${OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
-LOCAL_MIRROR="${LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
-UBUNTU_RELEASE="${UBUNTU_RELEASE:-"raring"}"
-UBUNTU_NEXT_RELEASE="${UBUNTU_NEXT_RELEASE:-"saucy"}"
-DOCKER_NETWORK_HOST_IF="${DOCKER_NETWORK_HOST_IF:-eth0}"
-DOCKER_NETWORK_IF="${DOCKER_NETWORK_IF:-docker0}"
-DOCKER_NETWORK_GATEWAY="${DOCKER_NETWORK_GATEWAY:-"172.17.42.1"}"
-DOCKER_NETWORK="${DOCKER_NETWORK:-"172.17.0.0"}"
-DOCKER_NETWORK_MASK="${DOCKER_NETWORK_MASK:-"255.255.0.0"}"
-DOCKER_NETWORK_MASK_NUM="${DOCKER_NETWORK_MASK_NUM:-"16"}"
-restart_marker=/tmp/vagrant42
+set_vars() {
+    LTS_KVER='saucy'
+    ADDITIONNAL_BOOTSALT_ARGS="${ADDITIONNAL_BOOTSALT_ARGS:-}"
+    VM_OLD_SALT_CHANGESET="ce6fe2be3f0ddb6dd156fb1676996b5261431b86"
+    VM_OLD_MAKINASTATES_CHANGESET="4b1db5cb7840ca242bfe0938c6a9f730ba12c56e"
+    NOT_EXPORTED="proc sys dev lost+found guest"
+    VM_EXPORT_MOUNTPOINT="/guest"
+    ROOT="/"
+    CONF_ROOT="${CONF_ROOT:-"${ROOT}etc"}"
+    PREFIX="${PREFIX:-"${ROOT}srv"}"
+    SALT_ROOT="${SALT_ROOT:-"$PREFIX/salt"}"
+    MASTERSALT_ROOT="${MASTERSALT_ROOT:-"$PREFIX/mastersalt"}"
+    # source a maybe existing settings file
+    SETTINGS="${SETTINGS:-"${ROOT}root/vagrant/provision_settings.sh"}"
+    if [[ -f "$SETTINGS" ]];then
+        output " [*] Loading custom settings in $SETTINGS"
+        . "$SETTINGS"
+    fi
+    MS="$SALT_ROOT/makina-states"
+    MMS="$MASTERSALT_ROOT/makina-states"
+    VPREFIX="${PREFIX:-"$PREFIX/vagrant"}"
+    VBOX_ADD_VER="4.2.16"
 
-# disable some useless and harmfull services
-PLYMOUTH_SERVICES=$(find /etc/init -name 'plymouth*'|grep -v override|sed -re "s:/etc/init/(.*)\.conf:\1:g")
-UPSTART_DISABLED_SERVICES="$PLYMOUTH_SERVICES"
-CHRONO="$(date "+%F_%H-%M-%S")"
+    # Markers must not be on a shared folder for a new VM to be reprovisionned correctly
+    VENV_PATH="${ROOT}salt-venv"
+    MARKERS="${MARKERS:-"${ROOT}root/vagrant/markers"}"
+    DNS_SERVER="${DNS_SERVER:-"8.8.8.8"}"
+    PREVIOUS_OFFICIAL_MIRROR="${PREVIOUS_OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
+    PREVIOUS_LOCAL_MIRROR="${PREVIOUS_LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
+    OFFICIAL_MIRROR="${OFFICIAL_MIRROR:-"http://archive.ubuntu.com/ubuntu"}"
+    LOCAL_MIRROR="${LOCAL_MIRROR:-"http://fr.archive.ubuntu.com/ubuntu"}"
+    UBUNTU_RELEASE="${UBUNTU_RELEASE:-"raring"}"
+    UBUNTU_NEXT_RELEASE="${UBUNTU_NEXT_RELEASE:-"saucy"}"
+    DOCKER_DISABLED="${DOCKER_DISABLED:-no}"
+    if [[ "$DOCKER_DISABLED" != "yes" ]];then
+        DOCKER_DISABLED=""
+    fi
+    DOCKER_NETWORK_HOST_IF="${DOCKER_NETWORK_HOST_IF:-eth0}"
+    DOCKER_NETWORK_IF="${DOCKER_NETWORK_IF:-docker0}"
+    DOCKER_NETWORK_GATEWAY="${DOCKER_NETWORK_GATEWAY:-"172.17.42.1"}"
+    DOCKER_NETWORK="${DOCKER_NETWORK:-"172.17.0.0"}"
+    DOCKER_NETWORK_MASK="${DOCKER_NETWORK_MASK:-"255.255.0.0"}"
+    DOCKER_NETWORK_MASK_NUM="${DOCKER_NETWORK_MASK_NUM:-"16"}"
+    restart_marker=/tmp/vagrant_provision_needs_restart
 
-# order is important
-LXC_PKGS="lxc apparmor apparmor-profiles"
-KERNEL_PKGS="linux-source linux-image-generic linux-headers-generic linux-image-extra-virtual"
-VB_PKGS="virtualbox virtualbox-dkms virtualbox-source virtualbox-qt"
-VB_PKGS="$VB_PKGS virtualbox-guest-additions-iso virtualbox-guest-dkms virtualbox-guest-source"
-VB_PKGS="$VB_PKGS virtualbox-guest-utils virtualbox-guest-x11 virtualbox-guest-dkms"
-kernel_marker="$MARKERS/provision_step_kernel${UBUNTU_NEXT_RELEASE}_done"
-lxc_marker="$MARKERS/vbox_lxc_from_${UBUNTU_NEXT_RELEASE}.ok"
-vbox_marker="$MARKERS/vbox_vbox_from_${UBUNTU_NEXT_RELEASE}.ok"
-mirror_marker="$MARKERS/vbox_pkg_2_init_repos_${OFFICIAL_MIRROR//\//-}_${LOCAL_MIRROR//\//-}_${PREVIOUS_LOCAL_MIRROR//\//-}"
-NEED_RESTART=""
-export DEBIAN_FRONTEND="noninteractive"
-# escape to 5 "antislash"
-# http://www./#foo -> http:\/\/www\./\#foo
-RE_PREVIOUS_OFFICIAL_MIRROR="$(echo "${PREVIOUS_OFFICIAL_MIRROR}" | sed -re "s/([.#/])/\\\\\1/g")"
-RE_PREVIOUS_LOCAL_MIRROR="$(echo "${PREVIOUS_LOCAL_MIRROR}"       | sed -re "s/([.#/])/\\\\\1/g")"
-RE_OFFICIAL_MIRROR="$(echo "${OFFICIAL_MIRROR}"                   | sed -re "s/([.#/])/\\\\\1/g")"
-RE_LOCAL_MIRROR="$(echo "${LOCAL_MIRROR}"                         | sed -re "s/([.#/])/\\\\\1/g")"
-RE_UBUNTU_RELEASE="$(echo "${UBUNTU_RELEASE}"                     | sed -re "s/([.#/])/\\\\\1/g")"
-src_l="/etc/apt/sources.list"
+    # disable some useless and harmfull services
+    CHRONO="$(date "+%F_%H-%M-%S")"
+
+    detect_os
+
+    # order is important
+    LXC_PKGS="lxc apparmor apparmor-profiles"
+    KERNEL_PKGS="linux-source linux-image-generic linux-headers-generic linux-image-extra-virtual"
+    VB_PKGS="virtualbox virtualbox-dkms virtualbox-source virtualbox-qt"
+    VB_PKGS="$VB_PKGS virtualbox-guest-additions-iso virtualbox-guest-dkms virtualbox-guest-source"
+    VB_PKGS="$VB_PKGS virtualbox-guest-utils virtualbox-guest-x11 virtualbox-guest-dkms"
+    kernel_marker="$MARKERS/provision_step_kernel${UBUNTU_NEXT_RELEASE}_done"
+    lxc_marker="$MARKERS/vbox_lxc_from_${UBUNTU_NEXT_RELEASE}.ok"
+    vbox_marker="$MARKERS/vbox_vbox_from_${UBUNTU_NEXT_RELEASE}.ok"
+    mirror_marker="$MARKERS/vbox_pkg_2_init_repos_${OFFICIAL_MIRROR//\//-}_${LOCAL_MIRROR//\//-}_${PREVIOUS_LOCAL_MIRROR//\//-}"
+    export_marker="$MARKERS/exported"
+    NEED_RESTART=""
+    export DEBIAN_FRONTEND="noninteractive"
+    # escape to 5 "antislash"
+    # http://www./#foo -> http:\/\/www\./\#foo
+    RE_PREVIOUS_OFFICIAL_MIRROR="$(echo "${PREVIOUS_OFFICIAL_MIRROR}" | sed -re "s/([.#/])/\\\\\1/g")"
+    RE_PREVIOUS_LOCAL_MIRROR="$(echo "${PREVIOUS_LOCAL_MIRROR}"       | sed -re "s/([.#/])/\\\\\1/g")"
+    RE_OFFICIAL_MIRROR="$(echo "${OFFICIAL_MIRROR}"                   | sed -re "s/([.#/])/\\\\\1/g")"
+    RE_LOCAL_MIRROR="$(echo "${LOCAL_MIRROR}"                         | sed -re "s/([.#/])/\\\\\1/g")"
+    RE_UBUNTU_RELEASE="$(echo "${UBUNTU_RELEASE}"                     | sed -re "s/([.#/])/\\\\\1/g")"
+    src_l="/etc/apt/sources.list"
+    bootsalt_marker="$MARKERS/salt_bootstrap_done"
+}
 
 ready_to_run() {
-    output " [*] VM is now ready for 'vagrant ssh' or other usages..."
+    output " [*] VM is now ready for './manage.sh ssh' or other usages..."
     output " ------------------------------- [ OK] -----------------------------------------"
-    output " 'Once connected as root in the vm with \"vagrant ssh\" and \"sudo su -\""
-    output "   * You can upgrade all your projects with \"salt '*' state.highstate\""
-    output "   * You can run one specific state with \"salt-call [-l debug] state.sls makina-state.name-of-state\""
-    output "   * You can upgrade the base salt infrastructure with \"salt '*' state.sls setup\""
-    output " 'Stop vm with 'vagrant [-f] halt', connect it with 'vagrant ssh'"
+    output " Once connected as root in the vm with \"./manage.sh ssh\" and \"sudo su -\""
+    output "   * You can upgrade all your projects with \"salt-call [-l all] state.highstate\""
+    output "   * You can run one specific state with \"salt-call [-l all] state.sls name-of-state\""
+    output " If you want to share this wm, use ./manage.sh export | import"
+    output " Stop vm with './manage.sh down', connect it with './manage.sh ssh'"
+}
+
+is_mounted() {
+    local mounted=""
+    local mp="$1"
+    if [[ "$(mount|awk '{print $3}'|egrep "$mp$"|wc -l)" != "0" ]];then
+        mounted="1"
+    fi
+    echo $mounted
 }
 
 deactivate_ifup_debugging() {
@@ -137,30 +223,17 @@ EOF
     fi
 }
 
-write_zerofree() {
-    cat > /root/vagrant/zerofree.sh << EOF
-#!/usr/bin/env bash
-echo " [*] Zerofreeing"
-apt-get install -y --force-yes zerofree
-echo s > /proc/sysrq-trigger
-echo s > /proc/sysrq-trigger
-echo u > /proc/sysrq-trigger
-mount -o remount,ro /
-zerofree -v /dev/sda1
-mount -o remount,rw /
-EOF
-    chmod +x /root/vagrant/zerofree.sh
-}
-
 delete_old_stuff() {
     # delete old generated scripts
     for old in /root/provision_nfs.sh \
-        /root/zerofree.sh \
         /root/vagrant_provision_settings.sh;do
         if [[ -e "$old" ]];then
             rm -f "$old"
         fi
     done
+    if [[ -e /srv/salt-venv ]];then
+        rm -rf /srv/salt-venv
+    fi
 }
 
 get_grain() {
@@ -183,17 +256,18 @@ lazy_apt_get_install() {
          fi
     done
     if [[ -n "$to_install" ]];then
-        log " [*] Installing $to_install"
+        output " [*] Installing $to_install"
         apt-get install -y --force-yes $to_install
     fi
 }
 
-initialize_devel_salt_grains() {
-    grain=makina.devhost
-    output " [*] Testing salt grain '$grain'"
-    if [[ "$(get_grain $grain)" != *"True"* ]];then
-        output " [*] Setting salt grain $grain=true to mark this host as a dev host for salt-stack"
-        salt-call --local grains.setval $grain true
+salt_set_grain() {
+    grain=$1
+    val=$2
+    output " [*] Testing salt grain '$grain'='$val'"
+    if [[ "$(get_grain $grain)" != *"$val"* ]];then
+        output " [*] Setting salt grain $grain=$val to mark this host as a dev host for salt-stack"
+        salt-call --local grains.setval $grain $val
         # sync grains right now, do not wait for reboot
         salt-call saltutil.sync_grains
     else
@@ -208,14 +282,29 @@ open_routes() {
     sysctl -w net.ipv4.conf.all.log_martians=1
 }
 
+backport_for_raring() {
+    if [[ ! -e "$vbox_marker" ]];then
+        output " [*] Installing  $VB_PKGS"
+        apt-get install -y --force-yes $VB_PKGS
+        die_in_error
+        touch "$vbox_marker" "$restart_marker"
+    fi
+    if [[ ! -e "${kernel_marker}" ]];then
+        output " [*] Updating kernel"
+        apt-get update -qq apt-get install -y --force-yes linux-image &&\
+        touch "$kernel_marker" && touch "$restart_marker"
+    fi
+}
+
+
 backport_for_precise() {
     output " [*] Backporting LTS Hardware Enablement Stack kernel"
     if [[ ! -e $kernel_marker ]];then
         lazy_apt_get_install\
             dkms\
-            linux-image-generic-lts-raring build-essential\
+            linux-image-generic-lts-${LTS_KVER} build-essential\
+            linux-headers-generic-lts-${LTS_KVER}\
             xserver-xorg xserver-xorg-core \
-            linux-headers-generic-lts-raring\
             && touch "$kernel_marker"
         touch $restart_marker
     fi
@@ -230,7 +319,7 @@ backport_for_precise() {
             fi &&\
             lazy_apt_get_install&&\
             output " [*] installing them" &&\
-            echo yes | /mnt/VBoxLinuxAdditions.run ;/bin/true\
+            echo yes | /mnt/VBoxLinuxAdditions.run ;/bin/true
             output " [*] unmounting them" &&\
             touch /root/vagrant/vboxguest${VBOX_ADD_VER}.ok
             touch $restart_marker
@@ -242,149 +331,25 @@ backport_for_precise() {
     fi
 }
 
-backport_for_raring() {
-    if [[ ! -e "$lxc_marker" ]];then
-        output " [*] Backporting $UBUNTU_NEXT_RELEASE LXC packages: adding repository"
-        sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i "${src_l}" && \
-        apt-get update -qq && \
-        output " [*] Backporting $UBUNTU_NEXT_RELEASE LXC packages:"
-        output " [*]   ${LXC_PKGS}"
-        apt-get install -y --force-yes ${LXC_PKGS}
-        die_if_error
-        output " [*] cleanup of apt, removing backports from sources"
-        sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i "${src_l}" && apt-get update -qq
-        die_if_error
-        touch "$lxc_marker"
-        touch $restart_marker
-    fi
-
-    if [[ ! -e "$vbox_marker" ]];then
-        output " [*] Backporting $UBUNTU_NEXT_RELEASE Virtualbox packages:"
-        output " [*]   $VB_PKGS"
-        sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
-        apt-get update -qq && apt-get install -y --force-yes $VB_PKGS
-        die_if_error
-        output " [*] Backporting Saucy Virtualbox packages: cleanup repository"
-        sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
-        die_if_error
-        touch "$vbox_marker"
-        touch $restart_marker
-    fi
-
-    if [[ ! -e "${kernel_marker}" ]]; then
-        output " [*] Backporting $UBUNTU_NEXT_RELEASE kernel ($KERNEL_PKGS)"
-        sed -re "s/(precise|${UBUNTU_RELEASE})/${UBUNTU_NEXT_RELEASE}/g" -i ${src_l} &&\
-        apt-get update -qq && apt-get install -y --force-yes $KERNEL_PKGS
-        die_if_error
-        sed -re "s/${UBUNTU_NEXT_RELEASE}/${UBUNTU_RELEASE}/g" -i ${src_l} && apt-get update -qq
-        die_if_error
-        touch "$kernel_marker"
-        touch $restart_marker
-    fi
-}
-
 cleanup_restart_marker() {
-    if [[ -e $restart_marker ]];then
+    if [[ -e "$restart_marker" ]];then
         output " [*] Removing restart marker"
-        rm -f $restart_marker
-    fi
-}
-
-configure_mirrors() {
-    if [ ! -e "$mirror_marker" ];then
-        if [[ -n $EARLY_UBUNTU ]] && [[ -n $IS_UBUNTU ]];then
-            m="$MARKERS/vbox_pkg_1_initial_update_core_pkgs"
-            if [ ! -e $m ];then
-                apt-get update -qq &&\
-                    apt-get install -y --force-yes\
-                    cloud-init\
-                    ubuntu-cloudimage-keyring ubuntu-cloud-keyring\
-                    debian-keyring debian-archive-keyring ubuntu-extras-keyring ubuntu-keyring
-                cloud-init start
-            fi
-            touch $m
-        fi
-        if [[ ! -e "$MARKERS/vbox_pkg_1_initial_update" ]];then
-            # generate a proper commented /etc/apt/source.list
-            if [[ -n $IS_UBUNTU ]];then
-                output " [*] Initial upgrade with cloud-init"
-                if [[ -n $EARLY_UBUNTU ]];then
-                    apt-get update -qq &&\
-                        lazy_apt_get_install cloud-init ubuntu-cloudimage-keyring ubuntu-cloud-keyring git git-core
-                    cloud-init start
-                fi
-                /usr/bin/cloud-init init
-                /usr/bin/cloud-init modules --mode=config
-                /usr/bin/cloud-init modules --mode=final
-                cp "${src_l}" "${src_l}.${CHRONO}.sav" || die_if_error
-            fi
-            if [[ -n $IS_DEBIAN ]];then
-                output " [*] Initial package install"
-                apt-get update -qq &&\
-                    lazy_apt_get_install build-essential m4 libtool pkg-config autoconf gettext \
-                    bzip2 groff man-db automake libsigc++-2.0-dev tcl8.5 git libssl-dev \
-                    libxml2-dev libxslt1-dev libbz2-dev zlib1g-dev python-setuptools \
-                    python-dev libjpeg62-dev libreadline-dev python-imaging wv poppler-utils \
-                    libsqlite0-dev libgdbm-dev libdb-dev tcl8.5-dev tcl8.5-dev \
-                    tcl8.4 tcl8.4-dev tk8.5-dev libsqlite3-dev
-            fi
-            touch "$MARKERS/vbox_pkg_1_initial_update"
-        fi
-        output " [*] Activating some repository and mirrors"
-        sed -re "s/(.*deb(-src)?\s+)(${RE_PREVIOUS_OFFICIAL_MIRROR}|${RE_PREVIOUS_LOCAL_MIRROR}|${RE_OFFICIAL_MIRROR})(.*)/\1${RE_LOCAL_MIRROR}\4/g" -i ${src_l}
-        if [[ -n $IS_UBUNTU ]];then
-            sed -re "s/^(#|\s)*(deb(-src)?\s+[^ ]+\s+(precise|raring|${UBUNTU_NEXT_RELEASE}|${UBUNTU_RELEASE})(-(updates|backports|security))?)\s+(.*)/\2 \7/g" -i ${src_l}
-            for rel in $UBUNTU_RELEASE ${UBUNTU_RELEASE}-updates;do
-                for i in partner restricted universe multiverse main;do
-                    ADD_DEB=1
-                    ADD_DEBSRC=1
-                    if [[ "$i" == "partner" ]];then
-                        ADD_DEBSRC=""
-                        if [[ "$rel" != "$UBUNTU_RELEASE" ]];then
-                            ADD_DEB=""
-                        fi
-                    fi
-                    if [[ ! "$(egrep "^deb\s+.*\s${rel}\s+.*$i(\s+|$)" ${src_l}|wc -l)" == "0" ]];then
-                        ADD_DEB=""
-                    fi
-                    if [[ ! "$(egrep "^deb-src\s+.*\s${rel}\s+.*$i(\s+|$)" ${src_l}|wc -l)" == "0" ]];then
-                        ADD_DEBSRC=""
-                    fi
-                    if [[ -n "$ADD_DEB" ]];then
-                        output " [*] Adding ${i}@${rel} to repos"
-                        echo "deb ${LOCAL_MIRROR} ${rel} $i" >> ${src_l}
-                    fi
-                    if [[ -n "$ADD_DEBSRC" ]];then
-                        output " [*] Adding ${i}(src)@${rel} to repos"
-                        echo "deb-src ${LOCAL_MIRROR} ${rel} $i" >> ${src_l}
-                    fi
-                done
-            done
-        fi
-        apt-get update -qq
-        die_if_error
-        touch "$mirror_marker"
-    fi
-}
-
-cleanup_repos() {
-    # cleanup old failed provisions
-    if [[ "$(grep "$UBUNTU_NEXT_RELEASE" ${src_l} | wc -l)" != "0" ]]\
-        && [[ -n "$IS_UBUNTU" ]];then
-        output " [*] Deactivating next-release($UBUNTU_NEXT_RELEASE) repos"
-        sed -re "s/$UBUNTU_NEXT_RELEASE/$UBUNTU_RELEASE/g" -i ${src_l}
-        apt-get update -qq
+        rm -f "$restart_marker"
     fi
 }
 
 configure_network() {
     output " [*] Temporary DNs overrides in /etc/resolv.conf : ${DNS_SERVER}, 8.8.8.8 & 4.4.4.4"
+    ensure_localhost_in_hosts
     # DNS TMP OVERRIDE
     cat > /etc/resolv.conf << DNSEOF
 nameserver ${DNS_SERVER}
 nameserver 8.8.8.8
 nameserver 4.4.4.4
 DNSEOF
+}
+
+configure_docker_network() {
     # Create the docker0 bridge before docker does it to hard-fcode
     # the docker network address
     if_file="/etc/network/interfaces.${DOCKER_NETWORK_IF}"
@@ -393,7 +358,7 @@ DNSEOF
     #activate_ifup_debugging
     lazy_apt_get_install git git-core bridge-utils
 
-    if [[ "$(egrep "^source.*docker0" /etc/network/interfaces  |wc -l)" == "0" ]];then
+    if [[ "$(egrep "^source.*docker0" /etc/network/interfaces|wc -l)" == "0" ]];then
         echo>>/etc/network/interfaces
         touch $if_conf
         echo "# configure dockers">>/etc/network/interfaces
@@ -451,28 +416,23 @@ EOF
     open_routes
 }
 
-disable_useless_services() {
-    if [[ -n $IS_UBUNTU ]];then
-        for service in $UPSTART_DISABLED_SERVICES;do
-            sf=/etc/init/$service.override
-            if [[ "$(cat $sf 2>/dev/null)" != "manual" ]];then
-                output " [*] Disable $service upstart service"
-                echo "manual" > "$sf"
-                service $service stop
-                if [[ -n "$BEFORE_SAUCY" ]];then
-                    touch $restart_marker
-                fi
-            fi
-        done
-    fi
-}
-
 initial_upgrade() {
-    if [ ! -e "$MARKERS/vbox_init_global_upgrade" ];then
-        output " [*] Upgrading base image (apt-get upgrade & dist-upgrade)"
-        apt-get update -qq && apt-get upgrade -y && apt-get dist-upgrade -y
-        die_if_error
-        touch "$MARKERS/vbox_init_global_upgrade"
+    marker="$MARKERS/vbox_init_global_upgrade"
+    local force_apt_update=""
+    if [[ -e "$export_marker" ]] && [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
+        force_apt_update="1"
+    fi
+    if [[ ! -e "$marker" ]] || [[ -n "$force_apt_update" ]];then
+        output " [*] Upgrading base image"
+        if [[ -n "$IS_DEBIAN_LIKE" ]];then
+            output " [*] apt-get upgrade & dist-upgrade"
+            apt-get update -qq &&\
+                install_backports &&\
+                apt-get upgrade -y &&\
+                apt-get dist-upgrade -y --force-yes
+        fi
+        die_in_error
+        touch "$marker"
     fi
 }
 
@@ -483,48 +443,33 @@ create_base_dirs() {
             mkdir -pv "$p"
         fi
     done
-}
-
-configure_langs() {
-    if [ ! -e $MARKERS/provision_step_lang_done ]; then
-      output " [*] Fix French language"
-      if [[ -n $IS_UBUNTU ]];then
-          apt-get install -y --force-yes language-pack-fr
-      fi
-      echo>/etc/locale.gen
-      echo "en_US.UTF-8 UTF-8">>/etc/locale.gen
-      echo "en_US ISO-8859-1">>/etc/locale.gen
-      echo "de_DE.UTF-8 UTF-8">>/etc/locale.gen
-      echo "de_DE ISO-8859-1">>/etc/locale.gen
-      echo "de_DE@euro ISO-8859-15">>/etc/locale.gen
-      echo "fr_FR.UTF-8 UTF-8">>/etc/locale.gen
-      echo "fr_FR ISO-8859-1">>/etc/locale.gen
-      echo "fr_FR@euro ISO-8859-15">>/etc/locale.gen
-      echo 'LANG="fr_FR.utf8"'>/etc/default/locale
-      echo "export LANG=\${LANG:-fr_FR.UTF-8}">>/etc/profile.d/0_lang.sh
-      /usr/sbin/locale-gen || die_if_error
-      update-locale LANG=fr_FR.utf8 || die_if_error
-      if [ "0" == "$?" ];then touch $MARKERS/provision_step_lang_done; fi;
-    fi
+    ## disabled as now this part is NFS shared whereas
+    ## salt & projects parts are not
+    ## # initial sync which will be done by unison later
+    ## rsync -Aazv /nfs-srv/ /srv/\
+    ##     --exclude=docker/ubuntu-*-server-cloudimg-amd64-root*\
+    ##     --exclude=docker/cache/*\
+    ##     --exclude=docker/*/*/deboostrap*\
+    ##     --exclude=packer/*cache/*
 }
 
 check_restart() {
     if [[ -e $restart_marker ]];then
         output " [*] A restart trigger to finish to provision the box has been detected."
-        output " [*] For that, issue now 'vagrant reload'"
+        output " [*] For that, issue now '$0 reload'"
         exit 1
     fi
 }
 
 install_backports() {
-    if [[ $IS_UBUNTU ]];then
+    if [[ -n "$IS_UBUNTU" ]];then
         if [[ "$DISTRIB_CODENAME" == "raring" ]]\
             || [[ "$DISTRIB_CODENAME" == "precise" ]];then
             backport_for_${DISTRIB_CODENAME}
         fi
         if [[ -z "$BEFORE_RARING" ]];then
             if [[ "$(is_apt_installed linux-image-extra-virtual)" != "yes" ]];then
-                log " [*] Installing linux-image-extra-virtual for AUFS support"
+                output " [*] Installing linux-image-extra-virtual for AUFS support"
                 lazy_apt_get_install linux-image-extra-virtual
                 touch $restart_marker
             fi
@@ -533,164 +478,545 @@ install_backports() {
     fi
 }
 
-install_docker() {
-    if [[ $IS_DEBIAN ]];then
-        lazy_apt_get_install lxc wget bsdtar curl golang git aufs-tools mercurial iptables libdevmapper-dev
+run_boot_salt() {
+    bootsalt="$MS/_scripts/boot-salt.sh"
+    boot_args="-C -M -n vagrantvm -m devhost${DEVHOST_NUM}"
+    local ret="0"
+    if [[ ! -e "$bootsalt_marker" ]];then
+        boot_word="Bootstrap"
+    else
+        boot_word="Refresh"
+        boot_args="-S $boot_args"
     fi
-    if [[ ! -e $MARKERS/provision_step_lxc_done ]];then
-        if [[  -n $IS_DEBIAN ]] || [[ -n $IS_UBUNTU ]]; then
-        output " [*] Install lxc-docker support"
-        # Add lxc-docker package
-        wget -c -q -O - https://get.docker.io/gpg | apt-key add -
-        echo deb http://get.docker.io/ubuntu docker main > ${src_l}.d/docker.list
-        output " [*] Install lxc-docker support: refresh packages list"
-        apt-get update -qq || die_if_error
-        output " [*] Install lxc-docker support: install lxc-docker package"
-        apt-get install -y --force-yes lxc-docker || die_if_error
-        # autorestart dockers on boot
-        killall -9 docker
-        service docker stop
-        if [[ -f /etc/init/docker.conf ]];then
-            sed -re "s/docker -d/docker -r -d/g" -i /etc/init/docker.conf
+    boot_args="${boot_args} ${ADDITIONNAL_BOOTSALT_ARGS}"
+    output " [*] $boot_word makina-states..."
+    if [[ ! -e "$bootsalt" ]];then
+        output " [*] Running makina-states bootstrap directly from github"
+        wget "http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh" -O "/tmp/boot-salt.sh"
+        bootsalt="/tmp/boot-salt.sh"
+    fi
+    chmod u+x "$bootsalt"
+    # no confirm / saltmaster / nodetype: vagrantvm
+    #
+    # for now we disable automatic updates when we have done at least one salt deployment
+    #
+    if [[ ! -e "$bootsalt_marker" ]];then
+        if [[ -n $DEVHOST_DEBUG ]];then
+            set -x
         fi
-        service docker start
-        die_if_error
-        touch $MARKERS/provision_step_lxc_done
-        # since apparmor backport, seem we have not to reboot anymore
-        # touch $restart_marker
+        "$bootsalt" $boot_args && touch "$bootsalt_marker"
+        ret=$?
+        if [[ -n $DEVHOST_DEBUG ]];then
+            set +x
+        fi
+    fi
+    die_in_error_ $ret "Bootsalt failed"
+    . /etc/profile
+}
+
+test_online() {
+    ping -W 10 -c 1 8.8.8.8 &> /dev/null
+    echo $?
+}
+
+install_or_refresh_makina_states() {
+    if [ -e $MS/src/salt ];then
+          sed -re "s/filemode = true/filemode = false/g" -i $MS/src/*/.git/config
+    fi
+    # upgrade salt only if online
+    if [[ $(test_online) == "0" ]];then
+        export SALT_BOOT_SKIP_CHECKOUTS=1
+        run_boot_salt
+        die_in_error
+    else
+        if [[ ! -e "$bootsalt_marker" ]];then
+            output " [*] Warning, we are not online, and thus boot-salt can't be runned"
+            exit -1
+        else
+            output " [*] Warning, we are not online, not refreshing makina-states!"
         fi
     fi
 }
 
-install_nfs() {
-    if [ ! -e $MARKERS/provision_step_nfs_done ]; then
-      output " [*] Install nfs support on guest"
-      apt-get install -y --force-yes nfs-common portmap || die_if_error
-      touch $MARKERS/provision_step_nfs_done
+old_editor_group_stuff() {
+    if [[ -e "$(which salt-call 2> /dev/null)" ]];then
+        EDITOR_GID="$(salt-call --local pillar.get salt.filesystem.gid 65753|grep -v 'local:'|sed -re 's/\s//g')"
+        EDITOR_GROUP="$(salt-call --local pillar.get salt.filesystem.group editor|grep -v 'local:'|sed -re 's/\s//g')"
     fi
-}
-
-install_saltstack() {
-    if [[ ! -e $MARKERS/salt_bootstrap_done ]];then
-      output " [ * ] Bootstrap Salt-Stack env..."
-      if [ -e /src/salt/makina-states/src/salt ];then
-        sed -re "s/filemode = true/filemode = false/g" -i /src/salt/makina-states/src/*/.git/config
-      fi
-      ms_updated=""
-      if [[ -e /srv/salt/makina-states/.git ]];then
-          output " [ * ] Bootstrap mode update in makina-states.."
-          cd /srv/salt/makina-states
-          git pull && ms_updated="1"
-      fi
-      if [[ -z $ms_updated ]];then
-          output " [ * ] Running makina-states bootstrap directly from github"
-          #wget "http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh" -O "/tmp/boot-salt.sh"
-          bootsalt="/tmp/boot-salt.sh"
-      else
-          output " [ * ] Running makina-states bootstrap"
-          bootsalt="/srv/salt/makina-states/_scripts/boot-salt.sh"
-      fi
-      chmod u+x "$bootsalt"
-      "$bootsalt"
-      die_if_error
-      . /etc/profile
-      touch $MARKERS/salt_bootstrap_done
-    fi
-}
-
-configure_saltstack() {
-    # migrate existing vms, be sure to have everywhere the same setup
-    NEED_REDO=""
-    EDITOR_GID="$(salt-call --local pillar.get salt.filesystem.gid 65753|grep -v 'local:'|sed -re 's/\s//g')"
-    EDITOR_GROUP="$(salt-call --local pillar.get salt.filesystem.group editor|grep -v 'local:'|sed -re 's/\s//g')"
     oldg=$(getent group "$EDITOR_GID"|awk -F: '{print $1}')
     if [[ "$oldg" != "$EDITOR_GROUP" ]];then
         output " [*] Changing Editor Group from '$oldg' to '$EDITOR_GROUP'"
         groupmod "$oldg" -n "$EDITOR_GROUP"
-        NEED_REDO="y"
     fi
-    if [[ -e /srv/salt-venv ]];then
-        rm -rf /srv/salt-venv
-        NEED_REDO="y"
-    fi
-    if [[ ! -e $VENV_PATH ]];then
-        NEED_REDO="y"
-    fi
-    if [[ ! -e /srv/salt/setup.sls ]] || [[ ! -e /srv/salt/top.sls ]];then
-        NEED_REDO="y"
-    fi
-    initialize_devel_salt_grains
-    vm_boot_mode=$(get_grain $BOOT_GRAIN)
-    if [[ $(egrep -- "- makina-states\.dev\s*" /srv/salt/top.sls|wc -l) == "0" ]];then
-        output " [*] Old installation detected for makina-stes.dev top file"
-        NEED_REDO=1
-    fi
-    if [[ "$vm_boot_mode" != *"True"* ]];then
-        output " [*] Old installation detected for boot grain, updating salt"
-        NEED_REDO=1
-    fi
-    if [[ "$vm_boot_mode" != *"True"* ]];then
-        output " [*] Old installation detected for boot grain, updating salt"
-        NEED_REDO=1
-    fi
-    if [[ "$(egrep  "^(  '\*':)" /srv/salt/setup.sls|wc -l)" == "0" ]];then
-        output " [*] Old installation detected for setup.sls, updating salt"
-        NEED_REDO=1
-        exit -1
-    fi
-    if [[ -n "$NEED_REDO" ]];then
-        output " [*] Updating code"
-        cd /srv/salt/makina-states
-        git pull origin master
-        cd /srv/salt/makina-states/src/salt
-        git pull origin develop
-        output " [*] Running salt state setup"
-        /srv/salt/makina-states/_scripts/boot-salt.sh
-    fi
+}
+
+fix_apt()   {
+    apt-get -f install -y --force-yes
 }
 
 cleanup_space() {
-    output " [*] Cleaning vm to reduce disk space usage"
-    output " [*] Cleaning apt"
-    apt-get clean -y
-    apt-get autoclean -y
-    # cleanup archives to preserve vm SPACE
-    if [[ $(find /var/cache/apt/archives/ -name *deb|wc -l) != "0" ]];then
-        rm -rf /var/cache/apt/archives/*deb
+    sync
+    if [[ -n "$IS_DEBIAN_LIKE" ]];then
+        # dropeed by makina-states.nodetypes.vagrantvm
+        /sbin/system-cleanup.sh
     fi
 }
 
-restart_daemons() {
-    # Always start salt and docker AFTER /srv has been mounted on the VM
-    output " [*] Manage Basic daemons using /srv"
-    output " [*] /srv is mounted quite late so we must start some daemons later"
-    # kill salt that may be running
-    ps aux|egrep "salt-(master|minion|syndic)"|awk '{print $2}'|xargs kill -9 &> /dev/null
-    service salt-master start
-    #rm -rf /etc/salt/pki/minion/minion_master.pub
-    service salt-minion start
-    service docker stop
-    service docker start
+base_packages_sanitization() {
+    if [[ -n "$IS_DEBIAN_LIKE" ]];then
+        fix_apt
+    fi
+    initial_upgrade
 }
-create_base_dirs
-delete_old_stuff
-write_zerofree
-cleanup_restart_marker
-cleanup_repos
-configure_network
-disable_useless_services
-configure_mirrors
-initial_upgrade
-install_backports
-install_nfs
-configure_langs
-install_docker
-open_routes
-install_saltstack
-configure_saltstack
-check_restart
-#deactivate_ifup_debugging
-cleanup_space
-restart_daemons
-ready_to_run
+
+disable_base_box_services() {
+    marker="$MARKERS/disabled_base_box_services"
+    if [[ ! -e "$marker" ]];then
+        for i in puppet chef-client;do
+            if [[ "$i" == "chef-client" ]];then
+                ps aux|grep -- "$i"|awk '{print $2}'|xargs kill -9
+            fi
+            if [[ -f /etc/init.d/$i ]];then
+                output " [*] Disabling $i"
+                service $i stop
+                update-rc.d -f $i remove
+                # seems that some package updates are re-enabling it
+                # enforce inactivation
+                echo "START=no" > /etc/default/$i
+            fi
+        done
+        touch "$marker"
+    fi
+}
+
+migrate_old_stuff() {
+    # migrate old settings location
+    if [[ ! -e /root/vagrant/provision_settings.sh ]];then
+        cp -f /root/vagrant_provision_settings.sh /root/vagrant/provision_settings.sh
+    fi
+    delete_old_stuff
+    # no more vms with that old stuff
+    # old_editor_group_stuff
+}
+
+cleanup_keys() {
+    lazy_apt_get_install rsync
+    for user_home in $(awk -F: '{if ($6!="") print $1 ":" $6}' /etc/passwd);do
+        user="$(echo $user_home|awk -F: '{print $1}')"
+        home="$(echo $user_home|awk -F: '{print $2}')"
+        sshf="$home/.ssh"
+        if [[ -e "$sshf" ]];then
+            for i in $(ls $sshf);do
+                fulli="$sshf/$i"
+                cleanup=y
+                # only keep authorized* files
+                case $i in
+                    author*) cleanup="";
+                        ;;
+                esac
+                if [[ -n $cleanup ]];then
+                    rm -fvr "$fulli"
+                fi
+            done
+        fi
+    done
+}
+
+install_keys() {
+    lazy_apt_get_install rsync
+    users="vagrant root"
+    for user in $users;do
+        home=$(awk -F: -v v="$user" '{if ($1==v && $6!="") print $6}' /etc/passwd)
+        if [[ -e "$home" ]];then
+            rsync\
+                -av\
+                --exclude=authorized_keys* \
+                /mnt/parent_ssh/ "$home/.ssh/"
+            for i in /home/vagrant/.ssh/author*;do
+                dest=$home/.ssh/$(basename $i)
+                if [[ "$i" != "$dest" ]];then
+                    cp -rvf "$i" "$dest"
+                fi
+            done
+            chmod -Rf 700 "$home/.ssh"
+            chown -Rf $user "$home/.ssh"
+        fi
+    done
+}
+
+cleanup_salt() {
+    output " [*] Resetting all salt configuration information"
+    rm -rvf /var/cache/salt/* /var/cache/mastersalt/* 2> /dev/null
+    rm -rvf /var/log/salt/* /var/log/mastersalt/* 2> /dev/null
+    rm -vf /srv/*pillar/{mastersalt,salt}.sls
+    rm -vf /etc/*salt/minion_id
+    unmark_bootsalt_done
+    find /etc/*salt/pki -type f -delete
+    if [[ -e /srv/pillar/top.sls ]];then
+        sed -re /"\s*- salt/ d" -i /srv/pillar/top.sls
+    fi
+    if [[ -e /srv/mastersalt-pillar/top.sls ]];then
+        sed -re /"\s*- mastersalt/ d" -i /srv/mastersalt-pillar/top.sls
+    fi
+}
+
+mark_export() {
+    output " [*] Cleaning and marking vm as exported"
+    reset_git_configs
+    cleanup_keys
+    cleanup_misc
+    # cleanup_salt
+    touch  "$export_marker"
+}
+
+mark_exported() {
+    mark_export "$@"
+}
+
+unmark_exported() {
+    output " [*] Cleaning and unmarking vm as exported"
+    rm -f  "$export_marker"
+}
+
+kill_pids(){
+    for i in $@;do
+        if [[ -n $i ]];then
+            kill -9 $i
+        fi
+    done
+}
+
+cleanup_misc() {
+    rm -vf /etc/devhosts
+    for user_home in $(awk -F: '{if ($6!="") print $1 ":" $6}' /etc/passwd);do
+        user="$(echo $user_home|awk -F: '{print $1}')"
+        home="$(echo $user_home|awk -F: '{print $2}')"
+        if [[ -e "$home/.bash_history" ]];then
+            rm -vf $home/.bash_history
+        fi
+    done
+}
+
+reset_hostname() {
+    if [[ -n "$DEVHOST_HOSTNAME" ]];then
+        local fqdn="$DEVHOST_HOSTNAME"
+        local dn="$(echo "$DEVHOST_HOSTNAME"|awk -F\. '{print $1}')"
+        if [[ "$(hostname)" != "$dn" ]];then
+            output " [*] Reseting hostname: $dn"
+            hostname "$dn"
+        fi
+        if [[ "$(cat /etc/hostname &> /dev/null)" != "$dn" ]];then
+            output " [*] Reseting /etc/hostname: $dn"
+            echo "$dn">/etc/hostname
+        fi
+        if [[ "$(egrep "127\\..*$hostname" /etc/hosts 2> /dev/null|wc -l)" == "0" ]];\
+        then
+            output " [*] Reset hostname to /etc/hosts"
+            cp -f /etc/hosts /etc/hosts.bak
+            echo "127.0.0.1 $dn $fqdn">/etc/hosts
+            cat /etc/hosts.bak>>/etc/hosts
+            ensure_localhost_in_hosts
+            echo "127.0.0.1 $dn $fqdn">>/etc/hosts
+            rm -f /etc/hosts.bak
+        fi
+
+        if [[ -e /etc/init/nscd.conf ]] || [[ -e /etc/init.d/nscd ]];then
+            service nscd restart
+        fi
+    fi
+}
+
+ensure_localhost_in_hosts() {
+    if [[ "$(egrep "127\\..*localhost" /etc/hosts 2> /dev/null|wc -l)" == "0" ]];then
+        echo "127.0.0.1 localhost">>/etc/hosts
+    fi
+}
+
+get_git_ancestors() {
+    where="$1"
+    commit="$2"
+    cd "$where" &>/dev/null
+    git fetch origin &>/dev/null
+    echo "$(git log "$commit" 2>/dev/null|egrep "^commit"|awk '{print $2}') "
+    cd - &> /dev/null
+}
+
+get_old_salt_changesets() {
+    # bugged releases, list here old salt git commit ids to mark as to
+    # upgrade on import
+    if [[ -z "$VM_OLD_SALT_CHANGESETS" ]];then
+        VM_OLD_SALT_CHANGESETS="$(get_git_ancestors "$MS/src/salt" "${VM_OLD_SALT_CHANGESET}")"
+    fi
+    echo "$VM_OLD_SALT_CHANGESETS"
+}
+
+get_old_makinastates_changesets() {
+    # bugged releases, list here old makinastates git commit ids to mark as to
+    # upgrade on import
+    if [[ -z "$VM_OLD_MAKINASTATES_CHANGESETS" ]];then
+        VM_OLD_MAKINASTATES_CHANGESETS="$(get_git_ancestors "$MS" "${VM_OLD_MAKINASTATES_CHANGESET}")"
+        VM_OLD_MAKINASTATES_CHANGESETS="$(get_git_ancestors "$MS" "${VM_OLD_MAKINASTATES_CHANGESET}")"
+    fi
+    # add rebased commits
+    #VM_OLD_MAKINASTATES_CHANGESETS="${VM_OLD_MAKINASTATES_CHANGESETS} $(get_git_ancestors 431cb85be17f1013be1660db272539f1dda27e4b)"
+    echo "$VM_OLD_MAKINASTATES_CHANGESETS"
+}
+
+
+git_changeset() {
+    # current working directory git commit id
+    git log|head -n1|awk '{print $2}'
+}
+
+git_changesets() {
+    # current working directory git commits id
+    git log $1|egrep  ^"commit "|awk '{print $2}'
+}
+
+create_vm_mountpoint() {
+    if [[ -n $DEBUG ]];then
+        set -x
+    fi
+    if [[ ! -e "$VM_EXPORT_MOUNTPOINT" ]];then
+        mkdir "$VM_EXPORT_MOUNTPOINT"
+    fi
+    cd /
+    for mountpoint in $(ls -d *);do
+        dest="$VM_EXPORT_MOUNTPOINT/$mountpoint"
+        if [[ -n $(is_mounted "$dest") ]];then
+            log "Already mounted point: $mountpoint"
+        else
+            if [[ " $NOT_EXPORTED " != *" $mountpoint "* ]];then
+                if [[ -d "$mountpoint" ]];then
+                    if [[ ! -d "$dest" ]];then
+                        mkdir -pv "$dest"
+                    fi
+                elif [[ -e "$mountpoint" ]];then
+                    touch "$dest"
+                fi
+                if [[ -z "$(is_mounted "$dest")" ]];then
+                    log "Bind-Mounting /$mountpoint -> $dest"
+                    mount -o bind,rw,exec "$mountpoint" "$dest"
+                    # is a symlink on debian, to /proc/mounts
+                    if [[ "$(readlink "/etc/mtab")" != "/proc/mounts" ]];then
+                        cat /proc/mounts>/etc/mtab
+                    fi
+                else
+                    if [[ -n $DEBUG ]];then
+                        log "Skipping $mountpoint, not exported (not a dir/file)"
+                    fi
+                fi
+            else
+                if [[ -n $DEBUG ]];then
+                    log "Skipping $mountpoint, not exported"
+                fi
+            fi
+        fi
+    done
+    if [[ -n $DEBUG ]];then
+        set +x
+    fi
+}
+
+mount_guest_mountpoint() {
+    create_vm_mountpoint $@
+}
+
+umount_guest_mountpoint(){
+    local hdone="0"
+    for i in $(mount|grep $VM_EXPORT_MOUNTPOINT|awk '{print $3}');do
+        umount -f "$i"
+        log "Umounted point: $i"
+        hdone="1"
+    done
+    # is a symlink on debian, to /proc/mounts
+    if [[ -n "$hdone" ]] && [[ "$(readlink "$mountpoint/etc/mtab")" != "/proc/mounts" ]];then
+        cat /proc/mounts>/etc/mtab
+    fi
+}
+
+unmark_bootsalt_done() {
+    rm -vf "$bootsalt_marker"
+}
+
+lazy_ms_update() {
+    # no auto update unless configured
+    if [[ $DEVHOST_AUTO_UPDATE != "false" ]];then
+        ADDITIONNAL_BOOTSALT_ARGS="${ADDITIONNAL_BOOTSALT_ARGS} -s -S"
+    fi
+    ADDITIONNAL_BOOTSALT_ARGS="${ADDITIONNAL_BOOTSALT_ARGS} --buildout-rebootstrap"
+    unmark_bootsalt_done
+}
+
+handle_invalid() {
+    # on import, check that the bundled makina-states is not marked as
+    # to be upgraded, and in case upgrade it
+    if [[ $(test_online) == "0" ]];then
+        reps="salt"
+        if [ x"${IS_MASTERSALT}" != "x" ];then
+            reps="${reps},mastersalt"
+        fi
+        for i in /srv/{${reps}}/makina-states;do
+            if [[ -e "$i" ]];then
+                cd "$i"
+                for fic in bin bin/salt-master bin/salt-minion bin/buildout;do
+                    if [[ ! -e "$fic" ]];then
+                        output " [*] Invalid installation detected (missing ${i}/${fic}), rerun bootstrap."
+                        lazy_ms_update
+                        break
+                    fi
+                done
+                cd - &>/dev/null
+            fi
+        done
+    else
+        output " [*] Warning, cant update makina-states, offline"
+    fi
+}
+
+handle_old_changeset() {
+    if [[ -n $DEVHOST_DEBUG ]];then
+        set +x
+    fi
+    # on import, check that the bundled makina-states is not marked as
+    # to be upgraded, and in case upgrade it
+    if [[ $(test_online) == "0" ]];then
+        for i in /srv/{salt,mastersalt}/makina-states/src/salt;do
+            if [[ -e "$i/.git" ]];then
+                cd "$i"
+                local changeset="$(git_changeset)"
+                if [[ " $(git_changesets) " != *"${VM_OLD_SALT_CHANGESET}"* ]];then
+                    output " [*] Upgrade makina-states/salt detected ($changeset), going to pull the develop branch"
+                    # for now, just update code and do not trigger states rebuild if and only
+                    # salt code has upgraded
+                    # lazy_ms_update
+                    chrono="$(date "+%F_%H:%M:%S")"
+                    git fetch origin
+                    git merge --ff-only "origin/develop"
+                    if [ x"$?" != "x0" ];then
+                        reflog="${PWD}/.git.{reflog}.${chrono}"
+                        red_output "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                        red_output "${PWD}: Failed to merge with local branch"
+                        red_output "Saving local commits in ${reflog}"
+                        red_output "and hard resetting to origin/develop"
+                        red_output "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                        git reflog > "${reflog}"
+                        git reset --hard origin/develop
+                    fi
+                fi
+                cd - &>/dev/null
+            fi
+        done
+        for i in /srv/{salt,mastersalt}/makina-states;do
+            if [[ -e "$i/.git" ]];then
+                cd "$i"
+                local changeset="$(git_changeset)"
+                # look stored makina states or default to master
+                local dbranch="$(echo $(cat /etc/makina-states/branch 2>/dev/null))"
+                if [[ -z "$dbranch" ]];then
+                    dbranch="master"
+                fi
+                # if the local commits do no contain the distant commit, upgrade
+                if [[ " $(git_changesets) " != *"${VM_OLD_MAKINASTATES_CHANGESET}"* ]];then
+                    output " [*] Upgrade makina-states detected ($changeset -> master)),"
+                    output " [*] going to pull the master branch"
+                    lazy_ms_update
+                    chrono="$(date "+%F_%H:%M:%S")"
+                    git fetch origin
+                    git merge --ff-only "origin/${dbranch}"
+                    if [ x"$?" != "x0" ];then
+                        reflog="${PWD}/.git.reflog.{$chrono}"
+                        red_output "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                        red_output "${PWD}: Failed to merge with local branch"
+                        red_output "Saving local commits in ${reflog}"
+                        red_output "and hard resetting to origin/${dbranch}"
+                        red_output "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                        git reflog > "${reflog}"
+                        git reset --hard "origin/${dbranch}"
+                    fi
+                fi
+                cd - &>/dev/null
+            fi
+        done
+    else
+        output " [*] Warning, cant update makina-states, offline"
+    fi
+    # on import, check that the bundled makina-states is not marked as
+    # to be upgraded, and in case upgrade it
+    if [[ -n $DEVHOST_DEBUG ]];then
+        set +x
+    fi
+}
+
+handle_export() {
+    if [[ -e "$export_marker" ]];then
+        output " [*] VM export detected, resetting some stuff"
+        if [[ -n $DEVHOST_DEBUG ]];then
+            set -x
+        fi
+        # reset salt minion id and perms
+        for i in mastersalt salt;do
+            for j in minion master syndic;do
+                service "${i}-${j}" stop &> /dev/null
+                kill_pids $(ps aux|grep "${i}-${j}"|awk '{print $2}') &> /dev/null
+            done
+        done
+        cleanup_salt
+        reset_git_configs
+        # remove vagrant conf as it can contain doublons on first load
+        output " [*] Reset network interface file"
+        sed -ne "/VAGRANT-BEGIN/,\$!p" /etc/network/interfaces > /etc/network/interfaces.buf
+        if [[ "$(grep lo /etc/network/interfaces|grep -v grep|wc -l)" != "0" ]];then
+            cp -f /etc/network/interfaces.buf /etc/network/interfaces
+            rm -f /etc/network/interfaces.buf
+        fi
+        lazy_ms_update
+        unmark_exported
+        if [[ -n $DEVHOST_DEBUG ]];then
+            set +x
+        fi
+    fi
+}
+
+reset_git_configs() {
+    find / -type d -name .git -not \( -path guest -prune \)|while read dotgit;
+    do
+        cd "$dotgit" &> /dev/null &&\
+        output " [*] Resetting $dotgit" &&\
+        for i in user.email user.name;do
+            git config --local --unset $i;
+        done &&\
+        cd -  &> /dev/null
+    done
+}
+
+get_devhost_num() {
+    echo $DEVHOST_NUM
+}
+
+if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
+    output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
+    output " [*] You can safely relaunch this script from within the vm"
+    set_vars
+    reset_hostname
+    #
+    install_keys
+    handle_export
+    handle_invalid
+    handle_old_changeset
+    create_base_dirs
+    disable_base_box_services
+    cleanup_restart_marker
+    migrate_old_stuff
+    configure_network
+    base_packages_sanitization
+    install_or_refresh_makina_states
+    open_routes
+    cleanup_space
+    check_restart
+    umount_guest_mountpoint
+    create_vm_mountpoint
+    ready_to_run
+    sync
+fi
 # vim:set et sts=4 ts=4 tw=0:
