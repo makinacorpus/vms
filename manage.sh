@@ -319,10 +319,11 @@ status() {
         | grep -v grep\
         | grep -v provider\
         | grep -i virtualbox\
-        | sed -e "s/^default\s*//g"\
-        | sed -e "s/\s*[(].*//g"\
-        | sed -e "s/^\(\s| |\t\)*//g"\
-        | sed -e "s/\(\s| |\t\)*$//g"
+        | sed -e "s/^default\([ \t]\)*//g"\
+        | sed -e "s/\([ ^\t]\)*[(].*//g"\
+        | sed -e "s/\([ \t]\)*$//g"\
+        | sed -e "s/^\([ \t]\)*//g"
+
 }
 
 vagrant_ssh() {
@@ -724,7 +725,7 @@ mount_vm() {
 
 get_pid_line() {
     local pid="$1"
-    ps -eo pid,user,comm,args --no-headers|egrep "^\s*${pid}\s"|grep -v grep
+    ps -eo pid,user,comm,args --no-headers|egrep "^[ \t]*${pid}[ \t]"|grep -v grep
 }
 
 smartkill_() {
