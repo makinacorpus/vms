@@ -99,7 +99,7 @@ mac_setup() {
     # add macfusion in the loop in available
     if [ "x$(uname)" = "xDarwin" ];then
         SSHFS="/Applications/Macfusion.app/Contents/PlugIns/sshfs.mfplugin/Contents/Resources/sshfs-static"
-        if [ -e "$(which sshfs 2>/dev/null)" ];then
+        if [ ! -e "$(which sshfs 2>/dev/null)" ];then
             if [ -e "$SSHFS" ];then
                 if [ ! -e "${VMPATH}/sshfs" ];then
                     ln -sf "$SSHFS" sshfs
