@@ -311,7 +311,7 @@ status_() {
 }
 
 status() {
-    status_|egrep "^default    "|grep -v grep|sed -e "s/^default\s*//"|sed -e "s/\s*[(].*//"
+    status_|egrep "^default    "|grep -v grep|grep -v provider|grep -i virtualbox|sed -e "s/^default\s*//"|sed -e "s/\s*[(].*//"
 }
 
 vagrant_ssh() {
