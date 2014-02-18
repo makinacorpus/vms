@@ -1,4 +1,4 @@
-#!/r/bin/env bash
+#!/usr/bin/env bash
 LAUNCH_ARGS="$@"
 actions=""
 actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm version"
