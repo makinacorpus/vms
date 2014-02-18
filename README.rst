@@ -121,7 +121,7 @@ MacOSX
 - Install `macfusion <http://macfusionapp.org>`_: `<http://macfusionapp.org/releases/Macfusion_2.0.4.zip>`_
 - Relog into a new session or reboot
 
-Optimizations (optional but recommended)
+Optimizations (optional)
 ++++++++++++++++++++++++++++++++++++++++
 
 Host kernel optimisations

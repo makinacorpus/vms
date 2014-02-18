@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/r/bin/env bash
 LAUNCH_ARGS="$@"
 actions=""
 actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm version"
@@ -67,6 +67,8 @@ SSH_CONFIG_DONE=""
 HOSTONLY_SSH_CONFIG_DONE=""
 WRAPPER_PRESENT=""
 DEVHOST_NUM=""
+FUSERMOUNT="fusermount"
+
 
 die_() {
     ret=$1
@@ -92,6 +94,21 @@ die_in_error() {
     die_in_error_ "$?" "$@"
 }
 
+
+mac_setup() {
+    # add macfusion in the loop in available
+    if [ "x$(uname)" = "Darwin" ];then
+        if [ -e /Applications/Macfusion.app/Contents/PlugIns/sshfs.mfplugin/Contents/MacOS/sshfs.static ];then
+            if [ ! -e "${VMPATH}/sshfs" ];then
+                ln -sf /Applications/Macfusion.app/Contents/PlugIns/sshfs.mfplugin/Contents/MacOS/sshfs.static sshfs
+            fi
+        else
+            die "Please install macfusion"
+        fi
+        PATH="${VMPATH}:${PATH}"
+        FUSERMOUNT="umount"
+    fi
+}
 
 actions=" $actions "
 
@@ -741,7 +758,7 @@ do_umount() {
 }
 
 do_fusermount () {
-    local lret=$(fusermount -u "$VM" 2>&1)
+    local lret=$(${FUSERMOUNT} -u "$VM" 2>&1)
     # let a little time to fusermount to do his art
     sleep 2
     local noumount=""
@@ -759,7 +776,7 @@ do_fusermount () {
     if [[ -n "$(is_mounted)" ]] || [[ $lret  == *"Permission denied"* ]];then
         # let a little time to fusermount to do his art
         sleep 2
-        sudo fusermount -u "$VM" 2>&1
+        sudo ${FUSERMOUNT} -u "$VM" 2>&1
     fi
     if [[ -z $noumount ]];then
         do_umount
@@ -1298,6 +1315,7 @@ if [[ -z $MANAGE_AS_FUNCS ]];then
         log "Please install rsync"
         exit -1
     fi
+    mac_setup
     if [[ -z $action ]];then
         action=usage
     fi
