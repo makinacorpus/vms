@@ -97,7 +97,7 @@ die_in_error() {
 
 mac_setup() {
     # add macfusion in the loop in available
-    if [ "x$(uname)" = "Darwin" ];then
+    if [ "x$(uname)" = "xDarwin" ];then
         if [ -e /Applications/Macfusion.app/Contents/PlugIns/sshfs.mfplugin/Contents/MacOS/sshfs.static ];then
             if [ ! -e "${VMPATH}/sshfs" ];then
                 ln -sf /Applications/Macfusion.app/Contents/PlugIns/sshfs.mfplugin/Contents/MacOS/sshfs.static sshfs
