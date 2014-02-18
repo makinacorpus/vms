@@ -56,7 +56,7 @@ Prerequisites
 -------------
 You need to have ``virtualbox``, ``vagrant`` (with ``vagrant-vbguest`` plugin) and ``sshfs``.
 
-On macosx, sshfs is also known as MacFuse or MacFusion.
+On macosx, sshfs is also known as MacFusion.
 
 By default file transferts between host and guest is **really, really slow**.
 We have improved performances by some techniques:
