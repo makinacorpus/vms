@@ -105,6 +105,7 @@ For macosx, use `<https://dl.bintray.com/mitchellh/vagrant/Vagrant-1.4.3.dmg>`_
 **IMPORTANT** THE VBGUEST PLUGIN, to sync the guest addition packages from your
 host virtualbox version::
 
+    vagrant plugin uninstall vagrant-vbguest
     vagrant plugin install vagrant-vbguest
 
 
