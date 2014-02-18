@@ -322,7 +322,7 @@ status() {
         | sed -e "s/^default\s*//g"\
         | sed -e "s/\s*[(].*//g"\
         | sed -e "s/^\(\s|\t)*//g"\
-        | sed -e "s/\(\s|\t)*$//g"
+        | sed -e "s/\(\s|\t\)*$//g"
 }
 
 vagrant_ssh() {
