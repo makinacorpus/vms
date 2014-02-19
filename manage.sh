@@ -19,7 +19,7 @@ RED="\\033[31m"
 CYAN="\\033[36m"
 NORMAL="\\033[0m"
 
-if [[ -n ${NO_COLORS} ]];then
+if [ "x${NO_COLORS}" != "x" ];then
     YELLOW=""
     RED=""
     CYAN=""
@@ -31,28 +31,28 @@ log(){
 }
 
 unactive_echo (){
-    if [[ -n ${MANAGE_DEBUG} ]];then
+    if [ "x${MANAGE_DEBUG}" != "x" ];then
         set +x
     fi
     if [ "x${DARWIN_DEBUG}" != "x" ];then
         set +x
-    fi  
+    fi
 }
 
 active_echo (){
-    if [[ -n ${MANAGE_DEBUG} ]];then
+    if [ "x${MANAGE_DEBUG}" != "x" ];then
         set -x
     fi
     if [ "x${DARWIN_DEBUG}" != "x" ];then
         set -x
-    fi 
+    fi
 }
 
 THIS="${0}"
 where="${VAGRANT_VM_PATH:-$(dirname "${THIS}")}"
 cd "${where}" || exit 1
 MANAGE_DEBUG="${MANAGE_DEBUG}"
-if [[ -z ${DEVHOST_DEBUG} ]] && [[ -n ${MANAGE_DEBUG} ]];then
+if [ "x${DEVHOST_DEBUG}" = "x" ] && [ "x${MANAGE_DEBUG}" != "x" ];then
     DEVHOST_DEBUG=${MANAGE_DEBUG}
 fi
 RSYNC=$(which rsync)
@@ -91,7 +91,7 @@ die_in_error_() {
     local ret=${1}
     shift
     local msg="${@:-"${ERROR_MSG}"}"
-    if [[ "${ret}" != "0" ]];then
+    if [ "x${ret}" != "x0" ];then
         die_ "${ret}" "${msg}"
     fi
 }
@@ -151,7 +151,7 @@ usage() {
                 echo -e "${YELLOW}Export/Import options${NORMAL}"
                 ;;
             "${actions_advanced}")
-                if [[ -z ${LONGHELP} ]];then
+                if [ "x${LONGHELP}" = "x" ];then
                     actions=""
                 else
                     echo -e "${YELLOW}Advanced options${NORMAL}"
@@ -205,7 +205,7 @@ usage() {
                     help_header ${i} [nozerofree]
                     help_content "      Make an entire snapshot of the current VM to an archive which can be imported"
                     help_content "      elsewhere even on the same box."
-                    if [[ -n ${LONGHELP} ]];then
+                    if [ "x${LONGHELP}" != "x" ];then
                         help_content "      nozerofree: do not run zerofree (free VM space and trim virtual hard drive"
                         help_content "                  space to minimal extent) prior to export"
                     fi
@@ -231,7 +231,7 @@ usage() {
                     help_header ${i} [args]
                     help_content "      ssh client to the VM"
                     help_content "      args are those of the /bin/ssh command and not those of the vagrant one"
-                    if [[ -n ${LONGHELP} ]];then
+                    if [ "x${LONGHELP}" != "x" ];then
                         help_content "      This will use the hostonly adapter by default but can also use the internal"
                         help_content "      (NAT) adapter if the hostonly interface is not correctly configured"
                     fi
@@ -263,7 +263,7 @@ usage() {
                 release)
                     help_header "${i} [--noinput --noclean --nocommit]"
                     help_content "      Release the current vm as the next release on the CDN: ${BASE_URL}"
-                    if [[ -n ${LONGHELP} ]];then
+                    if [ "x${LONGHELP}" != "x" ];then
                         help_content "          - Export the vm to $(get_next_release_name)"
                         help_content "          - Increment .versions/$(get_git_branch ${VMPATH}).txt"
                         help_content "          - Upload to the CDN"
@@ -282,7 +282,7 @@ usage() {
                     help_header ${i} [args]
                     help_content "      ssh client to the VM using the vagrant internal ssh interface"
                     help_content "      args are those of the /bin/ssh command and not those of the vagrant one"
-                    if [[ -n ${LONGHELP} ]];then
+                    if [ "x${LONGHELP}" != "x" ];then
                         help_content "      This will use the hostonly adapter by default but can also use the internal"
                         help_content "      (NAT) adapter if the hostonly interface is not correctly configured"
                     fi
@@ -333,14 +333,14 @@ status() {
 }
 
 vagrant_ssh() {
-    if [[ -z ${SSH_CONFIG_DONE} ]];then
-        if [[ -n ${@} ]];then
+    if [ "x${SSH_CONFIG_DONE}" = "x" ];then
+        if [ "x${@}" != "x" ];then
             vagrant ssh -c "${@}"
         else
             vagrant ssh
         fi
     else
-        if [[ -n ${@} ]];then
+        if [ "x${@}" != "x" ];then
             internal_ssh "${@}"
         else
             internal_ssh
@@ -366,12 +366,12 @@ suspend() {
 internal_ssh() {
     cd "${VMPATH}"
     local sshhost="$(get_ssh_host "${internal_ssh_config}")"
-    if [[ ! -e ${internal_ssh_config} ]];then
+    if [ ! -e ${internal_ssh_config} ];then
         log " [*] missing ${ssh_config}"
         exit 1
     fi
 
-    if [[ -n ${sshhost} ]];then
+    if [ "x${sshhost}" != "x" ];then
         active_echo
         $(which ssh) -o ConnectTimeout=2 -F "${internal_ssh_config}" "${sshhost}" ${@}
         unactive_echo
@@ -384,11 +384,11 @@ internal_ssh() {
 ssh_() {
     cd "${VMPATH}"
     local sshhost="$(get_ssh_host "${ssh_config}")"
-    if [[ ! -e ${ssh_config} ]];then
+    if [ ! -e ${ssh_config} ];then
         log " [*] missing ${ssh_config}"
         exit 1
     fi
-    if [[ -n ${sshhost} ]];then
+    if [ "x${sshhost}" != "x" ];then
         active_echo
         $(which ssh) -o ConnectTimeout=2 -F "${ssh_config}" "${sshhost}" ${@}
         unactive_echo
@@ -399,22 +399,22 @@ ssh_() {
 }
 
 set_wrapper_present(){
-    if [[ -z ${WRAPPER_PRESENT} ]];then
-        if [[ "$(vagrant_ssh "test -e \"${PROVISION_WRAPPER}\" &>/dev/null;echo ${?}" 2>/dev/null)" == "0" ]];then
+    if [ "x${WRAPPER_PRESENT}" = "x" ];then
+        if [ "x$(vagrant_ssh "test -e \"${PROVISION_WRAPPER}\" &>/dev/null;echo ${?}" 2>/dev/null)" = "x0" ];then
             WRAPPER_PRESENT="1"
         fi
     fi
 }
 
 set_devhost_num() {
-    if [[ -z ${DEVHOST_NUM} ]] && [[ -n "${WRAPPER_PRESENT}" ]];then
+    if [ "x${DEVHOST_NUM}" = "x" ] && [ "x${WRAPPER_PRESENT}" != "x" ];then
         DEVHOST_NUM="$(vagrant_ssh "sudo ${PROVISION_WRAPPER} get_devhost_num 2>/dev/null" 2>/dev/null)"
     fi
-    if [[ -n ${DEVHOST_NUM} ]];then
-        if [[ -e "${internal_ssh_config}" ]];then
+    if [ "x${DEVHOST_NUM}" != "x" ];then
+        if [ -e "${internal_ssh_config}" ];then
             sed -i -e "s/Host default/Host devhost${DEVHOST_NUM}/g" "${internal_ssh_config}"
         fi
-        if [[ -e "${ssh_config}" ]];then
+        if [ -e "${ssh_config}" ];then
             sed -i -e "s/Host default/Host devhost${DEVHOST_NUM}/g" "${ssh_config}"
         fi
     fi
@@ -428,9 +428,9 @@ mark_ssh_config_not_done() {
 }
 
 gen_internal_ssh_config() {
-    if [[ -n ${SSH_CONFIG_DONE} ]];then return 0;fi
+    if [ "x${SSH_CONFIG_DONE}" != "x" ];then return 0;fi
     vagrant ssh-config 2>/dev/null 1>"${internal_ssh_config}"
-    if [[ ! -f "${internal_ssh_config}" ]];then
+    if [ ! -f "${internal_ssh_config}" ];then
         log "Cant generate ${internal_ssh_config}"
         exit 1
     else
@@ -439,15 +439,15 @@ gen_internal_ssh_config() {
 }
 
 gen_hostonly_ssh_config() {
-    if [[ -n ${HOSTONLY_SSH_CONFIG_DONE} ]];then return 0;fi
+    if [ "x${HOSTONLY_SSH_CONFIG_DONE}" != "x" ];then return 0;fi
     # replace the ip by the hostonly interface one in our ssh wrappers
     local hostip=$(vagrant_ssh "ip addr show dev eth1 2> /dev/null" 2>/dev/null)
     local devhost_num="${DEVHOST_NUM}"
     cp -f "${internal_ssh_config}" "${ssh_config}"
-    if [[ -n "${hostip}" ]];then
+    if [ "x${hostip}" != "x" ];then
         hostip=$(echo "${hostip}"|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
     fi
-    if [[ -z ${hostip} ]];then
+    if [ "x${hostip}" = "x" ];then
         log "Fallback to internal as we could not detect any ip on eth1"
         ssh_config=$internal_ssh_config
         HOSTONLY_SSH_CONFIG_DONE=""
@@ -460,11 +460,11 @@ gen_hostonly_ssh_config() {
 
 gen_ssh_config() {
     cd "${VMPATH}"
-    if [[ "$(status)" != "running" ]];then
+    if [ "x$(status)" != "xrunning" ];then
         log " [*] VM is not running, can't generate ssh configs"
         exit 1
     fi
-    if [[ ! -d .vagrant ]];then
+    if [ ! -d .vagrant ];then
         mkdir .vagrant
     fi
     active_echo
@@ -540,14 +540,14 @@ maybe_finish_creation() {
     local lret=$1
     shift
     local restart_marker="/tmp/vagrant_provision_needs_restart"
-    if [[ "${lret}" != "0" ]];then
+    if [ "x${lret}" != "x0" ];then
         for i in $(seq 3);do
             local marker="$(vagrant_ssh "test -e ${restart_marker}" &> /dev/null;echo ${?})"
-            if [[ "${marker}" == "0" ]];then
+            if [ "x${marker}" = "x0" ];then
                 log "First runs, we issue a scheduled reload after the first up(s)"
                 reload $@
                 lret="${?}"
-            elif [[ "${lret}" != "0" ]];then
+            elif [ "x${lret}" != "x0" ];then
                 log "Error in vagrant up/reload"
                 exit 1
             else
@@ -565,7 +565,7 @@ get_version_file() {
 get_version() {
     local ver="0"
     local vfile="$(get_version_file)"
-    if [[ -e "${vfile}" ]];then
+    if [ -e "${vfile}" ];then
         ver="$(cat "${vfile}")"
     fi
     echo "${ver}"
@@ -577,7 +577,7 @@ get_next_version() {
 
 get_release_name_() {
     release_suf=$1
-    if [[ -n "${release_suf}" ]];then
+    if [ "x${release_suf}" != "x" ];then
         release_suf="_${release_suf}"
     fi
     echo "$(get_box_name "${VMPATH}" ${release_suf})"
@@ -620,13 +620,13 @@ release() {
     NO_SYNC_HOSTS=1 NO_IMPORT=1 clonevm "${RELEASE_PATH}"
     export VMPATH="${RELEASE_PATH}"
     log "Releasing ${rname}" &&\
-        if [[ ! -f "${rarc}" ]];then
+        if [ ! -f "${rarc}" ];then
             export_ "${rname}" nozerofree
         fi && \
         log "Running scp \"${rarc}\" ${SFTP_URL}/\"${rarc}\"" &&\
         scp "${rarc}" ${SFTP_URL}/"${rarc}"
     local lret=${?}
-    if [[ ${lret} != 0 ]];then
+    if [ "x${lret}" != "x0" ];then
         log "Error while uploading images"
         exit $lret
     else
@@ -707,7 +707,7 @@ mount_vm() {
     # something is wrong with the mountpath, killing it
     test_not_connected="$(LANG=C ls VM 2>&1)"
     if [ ! -e "${VM}/home/vagrant/.ssh" ]\
-        || [[ "${test_not_connected}"  == *"is not connected"* ]];then
+        || [ "x$(echo "${test_not_connected}"|grep -q "is not connected";echo ${?})" = "x0" ];then
         umount_vm
     fi
     if [ ! -e "${VM}/home/vagrant/.ssh" ];then
@@ -716,10 +716,10 @@ mount_vm() {
         fi
         ssh_pre_reqs
         local sshhost=$(get_ssh_host "${ssh_config}")
-        if [[ -n ${sshhost} ]];then
+        if [ "x${sshhost}" != "x" ];then
             log "Mounting devhost(${sshhost}):/ --sshfs--> ${VM}"
             sshopts="nonempty,transform_symlinks,reconnect,BatchMode=yes"
-            if [[ "$(egrep "^user_allow_other" /etc/fuse.conf 2>/dev/null|wc -l|sed -e "s/ //g")" != 0 ]];then
+            if [ "x$(egrep "^user_allow_other" /etc/fuse.conf 2>/dev/null|wc -l|sed -e "s/ //g")" != "0" ];then
                 sshopts="${sshopts},allow_other"
             fi
             sshfs -F "${ssh_config}" root@${sshhost}:/guest -o ${sshopts} "${VM}"
@@ -739,17 +739,17 @@ get_pid_line() {
 smartkill_() {
     PIDS=$@
     for pid in ${PIDS};do
-        while [[ $(get_pid_line ${pid}|wc -l|sed -e "s/ //g") != "0" ]];do
-            if [[ -z "${NO_INPUT}" ]] || [[ "${input}" == "y" ]];then
+        while [ "x$(get_pid_line ${pid}|wc -l|sed -e "s/ //g")" != "x0" ];do
+            if [ "x${NO_INPUT}" = "x" ] || [ "x${input}" = "xy" ];then
                 log "Do you really want to kill:"
                 log "$(get_pid_line ${pid})"
                 log "[press y+ENTER, or CONTROL+C to abort, or ignore to continue]";read input
             fi
-            if [[ -n "${NO_INPUT}" ]] || [[ "${input}" == "y" ]];then
+            if [ "x${NO_INPUT}" != "x" ] || [ "x${input}" = "xy" ];then
                 log "killing ${pid}"
                 kill -9 $pid
             fi
-            if [[ "${input}" == "ignore" ]];then
+            if [ "x${input}" = "xignore" ];then
                 log "ignoring ${pid}"
                 break
             fi
@@ -792,17 +792,17 @@ do_fusermount () {
                 ;;
         esac
     done
-    if [[ ${lret} == *"not found"* ]] && [[ -n "$(is_mounted)" ]];then
-        if [[ -z ${noumount} ]];then
+    if [ "x$(echo "${lret}"|grep -q "not found";echo ${?})" = "x0" ] && [ "x$(is_mounted)" != "x" ];then
+        if [ "x${noumount}" = "x" ];then
             do_umount
         fi
     fi
-    if [[ -n "$(is_mounted)" ]] || [[ ${lret}  == *"Permission denied"* ]];then
+    if [ "x$(is_mounted)" != "x" ] || [ "x$(echo ${lret}|grep -q "Permission denied";echo ${?})" = "x0" ];then
         # let a little time to fusermount to do his art
         sleep 2
         sudo ${FUSERMOUNT} ${fuseropts} "${VM}" 2>&1
     fi
-    if [ "x${noumount}" = "x" ]];then
+    if [ "x${noumount}" = "x" ];then
         do_umount
     fi
 }
@@ -834,13 +834,13 @@ up() {
     cd "${VMPATH}"
     log "Up !"
     local notrunning=""
-    if [[ "$(status)" != "running" ]];then
+    if [ "x$(status)" != "xrunning" ];then
         notrunning="1"
     fi
     vagrant up $@
     lret=${?}
     # be sure of jumbo frames
-    if [[ -n ${notrunning} ]];then
+    if [ "x${notrunning}" != "x" ];then
         vagrant_ssh "sudo ifconfig eth1 mtu 9000" 2>/dev/null
     fi
     post_up ${lret} $@
@@ -858,7 +858,7 @@ reload() {
     cd "${VMPATH}"
     log "Reload!"
     umount_vm
-    if [[ "$(status)" != "running" ]];then
+    if [ "x$(status)" != "xrunning" ];then
         mark_ssh_config_not_done
         up
     else
@@ -878,7 +878,7 @@ generate_packaged_vagrantfile() {
 get_box_name() {
     local path="${1:-"."}"
     local suf="${2:-"-$(gen_uuid)"}"
-    if [[ ${suf} == "nosuf" ]];then
+    if [ "x${suf}" = "xnosuf" ];then
         suf=""
     fi
     local bname="devhost-$(get_git_branch ${path})${suf}"
@@ -896,9 +896,9 @@ get_devhost_archive_name() {
 export_() {
     NO_SYNC_HOSTS=1
     for i in ${@};do
-        if [[ ${i} == "nozerofree" ]];then
+        if [ "x${i}" = "xnozerofree" ];then
             local nozerofree=y
-        elif [[ ${i} == "nosed" ]];then
+        elif [ "x${i}" = "xnosed" ];then
             local nosed=y
         else
             local bname="${i}"
@@ -920,18 +920,18 @@ export_() {
     local packaged_vagrantfile="$(generate_packaged_vagrantfile)"
     nincludes=""
     for i in .vb_* vagrant_config.rb;do
-        if [[ -e "${i}" ]];then
+        if [ -e "${i}" ];then
             nincludes="${i} ${nincludes}"
         fi
     done
-    if [[ $(uname) == "Darwin" ]];then
+    if [ "x$(uname)" = "xDarwin" ];then
         tar_postopts=""
     fi
-    if [[ $(uname) != "Darwin" ]];then
+    if [ "x$(uname)" != "xDarwin" ];then
         tar_preopts="${tar_preopts}p"
     fi
-    local netrules="/etc/udev/rules.d/70-persistent-net.rules"
-    if [[ -z "${nozerofree}" ]];then
+    netrules="/etc/udev/rules.d/70-persistent-net.rules"
+    if [ "x${nozerofree}" = "x" ];then
         log "Zerofree starting in 20 seconds, you can control C before the next log"
         log "and relaunch with the same cmdline with nozerofree appended: eg ./manage.sh export nozerofree"
         sleep 15
@@ -941,16 +941,16 @@ export_() {
     else
         log "Skip zerofree on export"
     fi &&\
-    if [[ ! -e "${box}" ]];then
+    if [ ! -e "${box}" ];then
         vagrant box remove $bname
         down && up &&\
-            if [[ -z ${WRAPPER_PRESENT} ]];then \
+            if [ "x${WRAPPER_PRESENT}" = "x" ];then \
                 log "${PROVISION_WRAPPER} is not there in the VM"
                 exit -1
             fi &&\
-            if [[ -z ${nosed} ]];then \
-                vagrant_ssh "if [[ -d ${netrules} ]];then rm -rf ${netrules};touch ${netrules};fi";\
-                vagrant_ssh "if [[ -e ${netrules} ]];then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i ${netrules};fi";\
+            if [ "x${nosed}" = "x" ];then \
+                vagrant_ssh "if [ -d ${netrules} ];then rm -rf ${netrules};touch ${netrules};fi";\
+                vagrant_ssh "if [ -e ${netrules} ];then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i ${netrules};fi";\
             fi &&\
             vagrant_ssh "sudo ${PROVISION_WRAPPER} mark_export" 2>/dev/null
             down
@@ -961,7 +961,7 @@ export_() {
         local lret="${?}"
         down
         up --no-provision && vagrant_ssh "sudo ${PROVISION_WRAPPER} unmark_exported" 2>/dev/null && down
-        if [[ "${lret}" != "0" ]];then
+        if [ "x${lret}" != "x0" ];then
             log "error exporting ${box}"
             exit 1
         fi
@@ -969,7 +969,7 @@ export_() {
         log "${VMPATH}/${box} exists, delete it to redo"
     fi
     # XXX: REALLY IMPORTANT TO NOTE IS THAT THE BOC MUST BE THE FIRST TARED FILE !!!
-    if [[ -e "${box}" ]] && [[ ! -e "${abox}" ]];then
+    if [ -e "${box}" ] && [ ! -e "${abox}" ];then
         log "Be patient, archiving now the whole full box package" &&\
         tar ${tar_preopts} ${abox} ${box} ${includes} ${tar_postopts} &&\
         rm -f "${box}" &&\
@@ -978,7 +978,7 @@ export_() {
         log "${VMPATH}/${abox}, delete it to redo"
     fi &&\
     local lret=${?}
-    if [[ ${lret} != 0 ]];then
+    if [ "x${lret}" != "x0" ];then
         log "Error while exporting"
         exit $lret
     else
@@ -990,9 +990,9 @@ export_() {
 check_tmp_file() {
     local fname="${1}"
     local res="ok"
-    if [[ -e ${fname} ]];then
+    if [ -e ${fname} ];then
         local tmpsize=$(dd if=${fname} bs=4046 count=40000 2>/dev/null|wc -c)
-        if [[ ${tmpsize} != "161840000" ]];then
+        if [ "x${tmpsize}" != "x161840000" ];then
             log "Invalid download, deleting tmp file"
             rm -f "${fname}"
             res=""
@@ -1009,19 +1009,19 @@ download() {
     # UA do not work in fact, redirect loop and empty file
     local G_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.22 (KHTML, like Gecko) Ubuntu Chromium/25.0.1364.160 Chrome/25.0.1364.160 Safari/537.22"
     # freebsd
-    if [[ $(uname) == "FreeBSD" ]] && [[ -e $(which fetch 2>&1) ]];then
+    if [ "x$(uname)" = "xFreeBSD" ] && [ -e "$(which fetch 2>&1)" ];then
         $(which fetch) -pra -o ${fname} $url
     # wget
 
-    elif [[ -e $(which wget) ]];then
+    elif [ -e "$(which wget)" ];then
         #$(which wget) --no-check-certificate -U "${G_UA}" -c -O ${fname} $url
         $(which wget) --no-check-certificate -c -O ${fname} $url
     # curl
-    elif [[ -e $(which curl 2>&1) ]];then
+    elif [ -e "$(which curl 2>&1)" ];then
         #$(which curl) -A "${G_UA}" --insecure -C - -a -o ${fname} $url
         $(which curl) --insecure -C - -a -o ${fname} $url
     fi
-    if [[ "${?}" != "0" ]];then
+    if [ "x${?}" != "x0" ];then
         log "Error downloading ${url} -> ${fname}"
         exit 1
     fi
@@ -1037,22 +1037,22 @@ import() {
     local boxes=" $(vagrant box list 2> /dev/null|awk '{print " " ${1} " "}') "
     shift
     local args=${@}
-    if [[ "$(status)" != "not created" ]];then
+    if [ "x$(status)" != "xnot created" ];then
         log "VM already imported,"
         log "   - Run it with: ${THIS} up"
         log "   - Delete it with: ${THIS} destroy"
     else
-        if [[ "${image}" == http* ]];then
+        if [ "x${image}" = "xhttp*" ];then
             local url="${image}"
             image="$(basename ${image})"
             local do_download=""
-            if [[ ! -e ${image} ]];then
+            if [ ! -e ${image} ];then
                 do_download="1"
             fi
-            if [[ -z "$(check_tmp_file ${image})" ]];then
+            if [ "$(check_tmp_file ${image})" = "x" ];then
                 do_download="1"
             fi
-            if [[ -n ${do_download} ]];then
+            if [ "x${do_download}" != "x" ];then
                 download "${url}" "${image}"
             else
                 log "${image} already exists, "
@@ -1060,7 +1060,7 @@ import() {
                 log "   from ${url}"
             fi
         fi
-        if [[ "${image}" == *".tar.bz2" ]] && [[ -e "${image}" ]];then
+        if [ "x$(echo "${image}"|grep -q ".tar.bz2";echo ${?})" = "x0" ] && [ -e "${image}" ];then
             bname="$(basename "${image}" .tar.bz2)"
         else
             log "invalid image file ${1} (must be a regular bzip2 tarfile end with .tar.bz2)"
@@ -1069,24 +1069,24 @@ import() {
         local bname="${bname:-$(get_box_name)}"
         local abox="${image}"
         log "Getting box name from ${image}"
-        if [[ ! -e "${image}" ]];then
+        if [ ! -e "${image}" ];then
             log "Missing file: ${image}"
             exit -1
         else
             box="$(dd if=${image} bs=1024 count=10000 2>/dev/null|tar -tjf - 2>/dev/null)"
         fi
-        if [[ ${boxes} == *" ${bname} "* ]];then
+        if [ "x$(echo "${boxes}"|grep -q " ${bname} ";echo ${?})" = "x0" ];then
             log "BASE VM already imported, redo base vm import by issuing:"
             log "  vagrant box remove '${bname}' && ${THIS} ${LAUNCH_ARGS}"
         else
-            if [[ ! -e "${box}" ]];then
+            if [ ! -e "${box}" ];then
                 log "Unarchiving ${image}"
                 # need to sudo to restore sticky GID
                 sudo tar ${tar_preopts} "${image}" $tar_postopts
-                if [[ ${?} != 0 ]];then
+                if [ "x${?}" != "x0" ];then
                     log "Error unarchiving ${image}"
                 fi
-                if [[ ! -e "${box}" ]];then
+                if [ ! -e "${box}" ];then
                     log "Missing ${box}"
                     exit -1
                 fi
@@ -1095,7 +1095,7 @@ import() {
             fi
             log "Importing ${box} into vagrant bases boxes as '${bname}' box"
             vagrant box add -f "${bname}" "${box}" && rm -f "${box}"
-            if [[ "${?}" != "0" ]];then
+            if [ "x${?}" != "x0" ];then
                 log "Error while importing ${box}"
                 exit ${?}
             fi
@@ -1107,74 +1107,74 @@ import() {
         # load initial box image & do initial provisionning
         up && lret="0"
         down
-        if [[ "${lret}" != "0" ]];then
+        if [ "x${lret}" != "x0" ];then
             log "Error while importing ${box}"
             exit $lret
         else
             log "Box ${box} imported !"
         fi
     fi
-    NO_SYNC_HOSTS=$DEFAULT_NO_SYNC_HOSTS
+    NO_SYNC_HOSTS=${DEFAULT_NO_SYNC_HOSTS}
 }
 
 sync_hosts() {
     log "Synchronize hosts entries"
-    if [[ -n ${NO_SYNC_HOSTS} ]];then return;fi
+    if [ "x${NO_SYNC_HOSTS}" != "x" ];then return;fi
     local blockp="${1:-${DEFAULT_DNS_BLOCKFILE}}"
     local hosts="${2:-${DEFAULT_HOSTS_FILE}}"
     local lhosts=.vagrant/hosts
-    if [[ "$(status)" != "running" ]];then
+    if [ "x$(status)" != "xrunning" ];then
         up
     fi
     cd "${VMPATH}"
     cp "${hosts}" "${lhosts}"
     # search for all devhosts files
     ls -1 "${blockp}"* 2>/dev/null | egrep -v '.bak$' | while read block;do
-        if [[ -z ${block} ]];then
+        if [ "x${block}" = "x" ];then
             break
         fi
-        if [[ ! -d .vagrant ]];then mkdir .vagrant;fi
-        if [[ ! -e "${block}" ]];then die "invalid hosts block file: ${block}";fi
-        if [[ ! -e "${hosts}" ]];then die "invalid hosts file: ${hosts}";fi
-        local START=$(cat "${block}"|head -n1)
-        local END=$(cat "${block}"|tail -n1)
-        local start_lines=$(grep -- "${START}" "${hosts}"|wc -l|sed -e "s/ //g")
-        local end_lines=$(grep -- "${END}" "${hosts}"|wc -l|sed -e "s/ //g")
-        local block_start_lines=$(grep -- "${START}" "${block}"|wc -l|sed -e "s/ //g")
-        local block_end_lines=$(grep -- "${END}" "${block}"|wc -l|sed -e "s/ //g")
-        if [[ -z "${START}" ]];then
+        if [ ! -d .vagrant ];then mkdir .vagrant;fi
+        if [ ! -e "${block}" ];then die "invalid hosts block file: ${block}";fi
+        if [ ! -e "${hosts}" ];then die "invalid hosts file: ${hosts}";fi
+        START=$(cat "${block}"|head -n1)
+        END=$(cat "${block}"|tail -n1)
+        start_lines=$(grep -- "${START}" "${hosts}"|wc -l|sed -e "s/ //g")
+        end_lines=$(grep -- "${END}" "${hosts}"|wc -l|sed -e "s/ //g")
+        block_start_lines=$(grep -- "${START}" "${block}"|wc -l|sed -e "s/ //g")
+        block_end_lines=$(grep -- "${END}" "${block}"|wc -l|sed -e "s/ //g")
+        if [ "x${START}" = "x" ];then
             die "missing start tag"
         fi
-        if [[ -z "${END}" ]];then
+        if [ "x${END}" = "x" ];then
             die "missing end tag"
         fi
-        if [[ "${START}" != "#-- start devhost"* ]];then
+        if [ "$(echo "${START}"|grep -q "#-- start devhost";echo ${?})" != "x0" ];then
             die "invalid start tag(c): ${START}"
         fi
-        if [[ "${END}" != "#-- end devhost"* ]];then
+        if [ "x$(echo "${END}"|grep -q "#-- end devhost";echo ${?})" != "x0" ];then
             die "invalid end tag(c): ${END}"
         fi
-        if [[ "${START}" == "${END}" ]];then
+        if [ "x${START}" = "x${END}" ];then
             die "invalid start tag is same as end: ${END}"
         fi
-        if [[ "${start_lines}" != "0" ]] || [[ "${end_lines}" != "0" ]];then
-            if [[ "${start_lines}" != "1" ]];then
+        if [ "x${start_lines}" != "x0" ] || [ "x${end_lines}" != "x0" ];then
+            if [ "x${start_lines}" != "x1" ];then
                 die "Weird start/end markers is absent or multiple, balling out (s:${start_lines}/${end_lines})"
             fi
-            if [[ "${end_lines}" != "1" ]];then
+            if [ "x${end_lines}" != "x1" ];then
                 die "Weird start/end markers is absent or multiple, balling out (e:${end_lines}/${end_lines})"
             fi
         fi
-        if [[ "${block_start_lines}" != "0" ]] || [[ "${block_end_lines}" != "0" ]];then
-            if [[ "${block_start_lines}" != "1" ]];then
+        if [ "x${block_start_lines}" != "x0" ] || [ "x${block_end_lines}" != "x0" ];then
+            if [ "x${block_start_lines}" != "x1" ];then
                 die "Weird block_tart/block_end markers is absent or multiple, balling out (s:${block_start_lines}/${block_end_lines})"
             fi
-            if [[ "${block_end_lines}" != "1" ]];then
+            if [ "x${block_end_lines}" != "x1" ];then
                 die "Weird block_start/block_end markers is absent or multiple, balling out (e:${block_end_lines}/${block_end_lines})"
             fi
         fi
         log "Adding ${block} hosts to ${hosts}"
-        if [[ $(grep -- "${START}" "${hosts}"|wc -l|sed -e "s/ //g") == "0" ]];then
+        if [ "x$(grep -- "${START}" "${hosts}"|wc -l|sed -e "s/ //g")" = "x0" ];then
             # Add block in /etc/hosts
             echo >> "${lhosts}"
             cat "${block}" >> "${lhosts}"
@@ -1187,13 +1187,13 @@ sync_hosts() {
     done
     diff=$(which diff)
     diff -q "${hosts}" "${lhosts}" &> /dev/null
-    if [[ ${?} != 0 ]];then
-        if [[ -z ${NO_INPUT} ]];then
+    if [ "x${?}" != "x0" ];then
+        if [ "x${NO_INPUT}" = "x" ];then
             diff -u "${hosts}" "${lhosts}"
             log "Add content of ${lhosts} to ${hosts}?"
             log "[press y+ENTER, or CONTROL+C to abort]";read input
         fi
-        if [[ -n "${NO_INPUT}" ]] || [[ "${input}" == "y" ]];then
+        if [ "x${NO_INPUT}" != "x" ] || [ "x${input}" = "xy" ];then
             log "Replacing ${hosts}"
             sudo cp -f "${lhosts}" "${hosts}"
         else
@@ -1207,7 +1207,7 @@ sync_hosts() {
 version() {
     log "VMS"
     git log|head -n1|awk '{print $2}'|sed "s/^/    /g"
-    if [[ -e VM/src/salt/makina-states ]];then
+    if [ -e VM/src/salt/makina-states ];then
         log "Makina-States"
         cd VM/src/salt/makina-states
         git log|head -n1|awk '{print $2}'|sed "s/^/    /g"
@@ -1225,9 +1225,9 @@ version() {
 }
 
 reset() {
-    if [[ -e "${VMPATH}" ]];then
+    if [ -e "${VMPATH}" ];then
         cd "${VMPATH}"
-        if [[ -e .vagrant ]];then
+        if [ -e .vagrant ];then
             destroy
         fi
         rm -rvf vagrant_config.rb .vagrant
@@ -1247,29 +1247,29 @@ clonevm() {
     local OLDVMPATH="${VMPATH}"
     local tarballs="$(ls -1rt *.tar.bz2)"
     local tarball="$(ls -1rt devhost*.tar.bz2|head -n1)"
-    if [[ ! -e ${NEWVMPATH} ]];then
+    if [ ! -e ${NEWVMPATH} ];then
         mkdir "${NEWVMPATH}"
     fi
     local import_uri="${2}"
     local can_continue=""
     active_echo
     log "Syncing in ${NEWVMPATH}"
-    if [[ -e "${NEWVMPATH}" ]];then
-        if [[ -d "${NEWVMPATH}" ]];then
-            if [[ -z "${NO_INPUT}" ]] || [[ "${input}" == "y" ]];then
+    if [ -e "${NEWVMPATH}" ];then
+        if [ -d "${NEWVMPATH}" ];then
+            if [ "x${NO_INPUT}" = "x" ] || [ "x${input}" = "xy" ];then
                 log "Do you really want to nuke vm in ${NEWVMPATH} ?"
                 log "[press y+ENTER, or CONTROL+C to abort]";read input
             fi
-            if [[ -n "${NO_INPUT}" ]] || [[ "${input}" == "y" ]];then
+            if [ "x${NO_INPUT}" != "x" ] || [ "x${input}" = "xy" ];then
                 cd "${NEWVMPATH}"
-                if [[ -z ${NO_CLEAN} ]] && [[ -f manage.sh ]];then
+                if [ "x${NO_CLEAN}" = "x" ] && [ -f manage.sh ];then
                     ./manage.sh reset
                 fi
                 can_continue=1
             fi
         fi
     fi
-    if [[ -e "${NEWVMPATH}" ]] && [[ ! -n ${can_continue} ]];then
+    if [ -e "${NEWVMPATH}" ] && [ "x${can_continue}" = "x" ];then
         log "File already exists, please delete it with rm -rf '${NEWVMPATH}' or choose another path"
         exit 1
     fi
@@ -1283,7 +1283,7 @@ clonevm() {
     ID=$(whoami)
     sudo chown -f "${ID}" packer VM docker
     sudo chown -Rf "${ID}" .git vagrant vagrant_config.rb .vagrant
-    if [[ -f manage.sh ]] && [[ -z ${NO_CLEAN} ]];then
+    if [ -f manage.sh ] && [ "x${NO_CLEAN}" = "x" ];then
         log "Wiping in ${NEWVMPATH}"
         ./manage.sh reset
     fi &&\
@@ -1292,11 +1292,11 @@ clonevm() {
             local oldp="${OLDVMPATH}/${i}"
             local newp="${NEWVMPATH}/${i}"
             local lnskip=""
-            if [[ -e "${oldp}" ]] && [[ ! -f "${newp}" ]];\
+            if [ -e "${oldp}" ] && [ ! -f "${newp}" ];\
             then
                 # transform in full path tarballs
-                if [[ -h "${oldp}" ]];then
-                    if [[ ! -d "${oldp}" ]];then
+                if [ -h "${oldp}" ];then
+                    if [ ! -d "${oldp}" ];then
                         cd $(dirname ${oldp})
                         oldp=$(get_abspath "$(readlink ${oldp})")
                         cd - &>/dev/null
@@ -1304,16 +1304,16 @@ clonevm() {
                         lnskip="1"
                     fi
                 fi
-                if [[ -z ${lnskip} ]];then
+                if [ "x${lnskip}" = "x" ];then
                     ln -sfv "${oldp}" "${newp}"
                 fi
             fi
         done &&\
         local ntarball="$(ls -1rt devhost*.tar.bz2|head -n1)" &&\
-        if [[ ! -e "${ntarball}" ]];then ntarball="${import_uri:-$(get_release_url)}";fi &&\
+        if [ ! -e "${ntarball}" ];then ntarball="${import_uri:-$(get_release_url)}";fi &&\
         local pb=""
         cd "${NEWVMPATH}" &&\
-        if [[ -z ${NO_IMPORT} ]];then
+        if [ "x${NO_IMPORT}" = "x" ];then
             pb="import" &&\
             log "Init in ${VMPATH}" &&\
             ./manage.sh init "${ntarball}"
