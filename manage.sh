@@ -3,7 +3,7 @@ LAUNCH_ARGS="$@"
 actions=""
 actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm version"
 actions_exportimport="export import"
-actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm release internal_ssh gen_ssh_config reset"
+actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm release internal_ssh gen_ssh_config reset is_mounted"
 actions_alias="-h --help --long-help -l -v --version"
 actions="
     $actions_exportimport
@@ -674,11 +674,11 @@ get_lsof_pids() {
 
 is_mounted() {
     local mounted=""
-    if [[ "$(mount|awk '{print $3}'|egrep "$VM$" |grep -v grep| wc -l)" != "0" ]]\
-        || [[ "$(get_sshfs_ps| wc -l)" != "0" ]];then
+    if [ "x$(mount|awk '{print $3}'|egrep "${VM}$" |grep -v grep| wc -l)" != "x0" ]\
+        || [ "x$(get_sshfs_ps| wc -l)" != "x0" ];then
         mounted="1"
     fi
-    echo $mounted
+    echo ${mounted}
 }
 
 get_ssh_host() {
@@ -759,12 +759,12 @@ smartkill() {
 
 do_umount() {
     local args="-f"
-    if [[ $(uname) == "Linux" ]];then
-        args="$arg -l"
+    if [ "x$(uname)" = "xLinux" ];then
+        args="${arg} -l"
     fi
     for arg in $args;do
-        if [[ -n "$(is_mounted)" ]] && [[ -z $noumount ]];then
-            sudo umount $arg "$VM" 2>&1
+        if [ "x$(is_mounted)" != "x" ] && [ "x${noumount}" = "x" ];then
+            sudo umount ${arg} "${VM}" 2>&1
         fi
     done
 }
@@ -794,25 +794,25 @@ do_fusermount () {
         sleep 2
         sudo ${FUSERMOUNT} ${fuseropts} "$VM" 2>&1
     fi
-    if [[ -z $noumount ]];then
+    if [ "x$noumount" = "x" ]];then
         do_umount
     fi
 }
 
 umount_vm() {
     cd "${VMPATH}"
-    if [[ -n "$(is_mounted)" ]];then
-        log "Umounting of $VM"
+    if [ "x$(is_mounted)" != "x" ];then
+        log "Umounting of ${VM}"
         do_fusermount noumount
     fi
-    if [[ -n "$(is_mounted)" ]];then
-        log "Forcing umounting of $VM"
+    if [ "x$(is_mounted)" != "x" ];then
+        log "Forcing umounting of ${VM}"
         smartkill
         do_fusermount
     fi
-    if [[ "$?" != 0 ]];then
+    if [ "x${?}" != "0" ];then
         log "Can't umount vm"
-        exit $?
+        exit "${?}"
     fi
 }
 
