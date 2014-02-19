@@ -34,12 +34,18 @@ unactive_echo (){
     if [[ -n ${MANAGE_DEBUG} ]];then
         set +x
     fi
+    if [ "x${DARWIN_DEBUG}" != "x" ];then
+        set +x
+    fi  
 }
 
 active_echo (){
     if [[ -n ${MANAGE_DEBUG} ]];then
         set -x
     fi
+    if [ "x${DARWIN_DEBUG}" != "x" ];then
+        set -x
+    fi 
 }
 
 THIS="${0}"
@@ -481,9 +487,6 @@ cleanup_keys() {
 }
 
 install_keys() {
-    if [ "x${DARWIN_DEBUG}" != "x" ];then
-        set -x
-    fi
     active_echo
     gen_ssh_config
     if [ "x${WRAPPER_PRESENT}" != "x" ];then
@@ -492,9 +495,6 @@ install_keys() {
         log "Warning: could not install ssh keys, shared folder mountpoint seems not present"
     fi
     unactive_echo
-    if [ "x${DARWIN_DEBUG}" != "x" ];then
-        set +x
-    fi
 }
 
 ssh_pre_reqs() {
