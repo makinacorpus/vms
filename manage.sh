@@ -647,7 +647,7 @@ init() {
     cd "$VMPATH"
     local url="${1:-"$(get_release_url)"}"
     local status="$(status)"
-    if [[ $(status) == "not created" ]];then
+    if [ "x$(status)" = "xnot created" ];then
         import "$url"
     fi
     up
@@ -666,27 +666,29 @@ get_sshfs_pids() {
 get_lsof_pids() {
     LSOF=$(which lsof)
     local lsof_pids=""
-    if [[ -e "$LSOF" ]];then
+    if [ -e "$LSOF" ];then
         lsof_pids="$(${LSOF} "$VM" 2> /dev/null|awk '{print $2}')"
     fi
     echo $lsof_pids
 }
 
 is_mounted() {
+    set -x
     local mounted=""
     if [ "x$(mount|awk '{print $3}'|egrep "${VM}$" |grep -v grep| wc -l)" != "x0" ]\
         || [ "x$(get_sshfs_ps| wc -l)" != "x0" ];then
         mounted="1"
     fi
     echo ${mounted}
+    set +x
 }
 
 get_ssh_host() {
     sshconfig="$1"
-    if [[ ! -e "$sshconfig" ]];then
+    if [ ! -e "$sshconfig" ];then
         gen_ssh_config
     fi
-    if [[ ! -e "$sshconfig" ]];then
+    if [ ! -e "$sshconfig" ];then
         log "Invalid ${sshconfig}, does not exist"
         exit 1
     fi
@@ -698,17 +700,17 @@ mount_vm() {
     active_echo
     # something is wrong with the mountpath, killing it
     test_not_connected="$(LANG=C ls VM 2>&1)"
-    if [[ ! -e "${VM}/home/vagrant/.ssh" ]]\
+    if [ ! -e "${VM}/home/vagrant/.ssh" ]\
         || [[ "$test_not_connected"  == *"is not connected"* ]];then
         umount_vm
     fi
-    if [[ ! -e "${VM}/home/vagrant/.ssh" ]];then
-        if [[ ! -e "$VM" ]];then
+    if [ ! -e "${VM}/home/vagrant/.ssh" ];then
+        if [ ! -e "$VM" ];then
             mkdir "$VM"
         fi
         ssh_pre_reqs
         local sshhost=$(get_ssh_host "$ssh_config")
-        if [[   -n ${sshhost} ]];then
+        if [[ -n ${sshhost} ]];then
             log "Mounting devhost(${sshhost}):/ --sshfs--> $VM"
             sshopts="nonempty,transform_symlinks,reconnect,BatchMode=yes"
             if [[ "$(egrep "^user_allow_other" /etc/fuse.conf 2>/dev/null|wc -l)" != 0 ]];then
