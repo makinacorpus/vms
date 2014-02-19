@@ -815,7 +815,7 @@ umount_vm() {
         smartkill
         do_fusermount
     fi
-    if [ "x${?}" != "0" ];then
+    if [ "x${?}" != "x0" ];then
         log "Can't umount vm"
         exit "${?}"
     fi
