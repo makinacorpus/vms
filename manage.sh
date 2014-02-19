@@ -14,10 +14,11 @@ actions="
 # reput on one line
 actions=$(echo ${actions})
 
-YELLOW="\e[1;33m"
-RED="\\033[31m"
-CYAN="\\033[36m"
-NORMAL="\\033[0m"
+RED="\\e[0;31m"
+CYAN="\\e[0;36m"
+YELLOW="\\e[0;33m"
+NORMAL="\\e[0;0m"
+
 
 if [ "x${NO_COLORS}" != "x" ];then
     YELLOW=""
@@ -27,7 +28,7 @@ if [ "x${NO_COLORS}" != "x" ];then
 fi
 
 log(){
-    echo -e "${RED} [manage] ${@}${NORMAL}" 1>&2
+    printf "${RED} [manage] ${@}${NORMAL}\n" 1>&2
 }
 
 unactive_echo (){
@@ -79,7 +80,7 @@ FUSERMOUNT="fusermount"
 die_() {
     ret=${1}
     shift
-    echo -e "${CYAN}${@}${NORMAL}" 1>&2
+    printf "${CYAN}${@}${NORMAL}\n" 1>&2
     exit ${ret}
 }
 
@@ -122,13 +123,13 @@ mac_setup() {
 actions=" ${actions} "
 
 help_content(){
-    echo -e "${CYAN}${@}${NORMAL}" 1>&2
+    printf "${CYAN}${@}${NORMAL}\n" 1>&2
 }
 
 help_header(){
     action=${1}
     shift
-    echo -e "   ${RED}${THIS} ${action}${NORMAL} ${@}" 1>&2
+    printf "   ${RED}${THIS} ${action}${NORMAL} ${@}\n" 1>&2
 }
 
 usage() {
@@ -145,16 +146,16 @@ usage() {
         "${actions_advanced}";do
         case ${actions} in
             "${actions_main_usage}")
-                echo -e "${YELLOW}Main options${NORMAL}"
+                printf "${YELLOW}Main options${NORMAL}\n"
                 ;;
             "${actions_exportimport}")
-                echo -e "${YELLOW}Export/Import options${NORMAL}"
+                printf "${YELLOW}Export/Import options${NORMAL}\n"
                 ;;
             "${actions_advanced}")
                 if [ "x${LONGHELP}" = "x" ];then
                     actions=""
                 else
-                    echo -e "${YELLOW}Advanced options${NORMAL}"
+                    printf "${YELLOW}Advanced options${NORMAL}\n"
                 fi
                 ;;
         esac
