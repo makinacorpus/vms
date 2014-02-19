@@ -570,8 +570,8 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
       if interface_hostonly.start_with?("vboxnet")
         mtu = `sudo ifconfig #{interface_hostonly}|grep -i mtu|sed -e "s/.*MTU:*//g"|awk '{print $1}'`.strip()
         if (mtu != "9000")
-          eprintf("Configuring jumbo frame on #{interface_hostonly}\n")
           if UNAME != "Darwin"
+              eprintf("Configuring jumbo frame on #{interface_hostonly}\n")
           # not supported on darwin AT THE MOMENT
           #  `sudo networksetup -setMTU #{interface_hostonly} 9000`
           #else
