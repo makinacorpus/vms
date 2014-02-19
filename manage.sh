@@ -85,7 +85,7 @@ die_() {
 }
 
 die() {
-    die_ 1 ${@}
+    die_ 1 "${@}"
 }
 
 die_in_error_() {
@@ -507,7 +507,6 @@ ssh_pre_reqs() {
 }
 
 ssh() {
-    set -x
     mount_vm
     ssh_ $@
 }
@@ -1150,7 +1149,7 @@ sync_hosts() {
         if [ "x${END}" = "x" ];then
             die "missing end tag"
         fi
-        if [ "$(echo "${START}"|grep -q "#-- start devhost";echo ${?})" != "x0" ];then
+        if [ "x$(echo "${START}"|grep -q "#-- start devhost";echo ${?})" != "x0" ];then
             die "invalid start tag(c): ${START}"
         fi
         if [ "x$(echo "${END}"|grep -q "#-- end devhost";echo ${?})" != "x0" ];then
@@ -1175,7 +1174,6 @@ sync_hosts() {
                 die "Weird block_start/block_end markers is absent or multiple, balling out (e:${block_end_lines}/${block_end_lines})"
             fi
         fi
-        log "Adding ${block} hosts to ${hosts}"
         if [ "x$(grep -- "${START}" "${hosts}"|wc -l|sed -e "s/ //g")" = "x0" ];then
             # Add block in /etc/hosts
             echo >> "${lhosts}"
@@ -1187,9 +1185,11 @@ sync_hosts() {
             sed  -ne "/${END}\$/,\$ p" "${hosts}" |egrep -v "^${END}" >> "${lhosts}"
         fi
     done
+    die_in_error "Hosts mangling is invalid"
     diff=$(which diff)
     diff -q "${hosts}" "${lhosts}" &> /dev/null
     if [ "x${?}" != "x0" ];then
+        log "Adding ${block} hosts to ${hosts}"
         if [ "x${NO_INPUT}" = "x" ];then
             diff -u "${hosts}" "${lhosts}"
             log "Add content of ${lhosts} to ${hosts}?"
