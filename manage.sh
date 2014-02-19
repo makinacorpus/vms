@@ -673,14 +673,14 @@ get_lsof_pids() {
 }
 
 is_mounted() {
-    #set -x
+    set -x
     local mounted=""
     if [ "x$(mount|awk '{print $3}'|egrep "${VM}$" |grep -v grep| wc -l)" != "x0" ]\
         || [ "x$(get_sshfs_ps| wc -l)" != "x0" ];then
         mounted="1"
     fi
     echo ${mounted}
-    #set +x
+    set +x
 }
 
 get_ssh_host() {
@@ -1334,7 +1334,7 @@ if [ "x${MANAGE_AS_FUNCS}" = "x" ];then
         exit -1
     fi
     mac_setup
-    if [ "x${action}" != "x" ];then
+    if [ "x${action}" = "x" ];then
         action=usage
     fi
     thismatch=$(echo " $actions "|sed -e "s/.* $action .*/match/g")
