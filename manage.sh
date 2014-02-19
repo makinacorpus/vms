@@ -412,10 +412,10 @@ set_devhost_num() {
     fi
     if [[ -n ${DEVHOST_NUM} ]];then
         if [[ -e "${internal_ssh_config}" ]];then
-            sed -i "s/Host default/Host devhost${DEVHOST_NUM}/g" "${internal_ssh_config}"
+            sed -i -e "s/Host default/Host devhost${DEVHOST_NUM}/g" "${internal_ssh_config}"
         fi
         if [[ -e "${ssh_config}" ]];then
-            sed -i "s/Host default/Host devhost${DEVHOST_NUM}/g" "${ssh_config}"
+            sed -i -e "s/Host default/Host devhost${DEVHOST_NUM}/g" "${ssh_config}"
         fi
     fi
 }
@@ -452,8 +452,8 @@ gen_hostonly_ssh_config() {
         ssh_config=$internal_ssh_config
         HOSTONLY_SSH_CONFIG_DONE=""
     else
-        sed -i "s/HostName.*/HostName ${hostip}/g" "${ssh_config}"
-        sed -i "s/Port.*//g" "${ssh_config}"
+        sed -i -e "s/HostName.*/HostName ${hostip}/g" "${ssh_config}"
+        sed -i -e "s/Port.*//g" "${ssh_config}"
         HOSTONLY_SSH_CONFIG_DONE="1"
     fi
 }
