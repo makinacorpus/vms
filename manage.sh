@@ -482,7 +482,7 @@ cleanup_keys() {
 
 install_keys() {
     if [ "x${DARWIN_DEBUG}" != "x" ];then
-        set +x
+        set -x
     fi
     active_echo
     gen_ssh_config
