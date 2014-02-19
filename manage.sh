@@ -673,14 +673,14 @@ get_lsof_pids() {
 }
 
 is_mounted() {
-    set -x
+    #set -x
     local mounted=""
     if [ "x$(mount|awk '{print $3}'|egrep "${VM}$" |grep -v grep| wc -l)" != "x0" ]\
         || [ "x$(get_sshfs_ps| wc -l)" != "x0" ];then
         mounted="1"
     fi
     echo ${mounted}
-    set +x
+    #set +x
 }
 
 get_ssh_host() {
