@@ -770,7 +770,11 @@ do_umount() {
 }
 
 do_fusermount () {
-    local lret=$(${FUSERMOUNT} -u "$VM" 2>&1)
+    fuseropts="-u"
+    if [ "x$(uname)" = "xDarwin" ];then
+        fuseropts=""
+    fi
+    local lret=$(${FUSERMOUNT} ${fuseropts} "$VM" 2>&1)
     # let a little time to fusermount to do his art
     sleep 2
     local noumount=""
@@ -788,7 +792,7 @@ do_fusermount () {
     if [[ -n "$(is_mounted)" ]] || [[ $lret  == *"Permission denied"* ]];then
         # let a little time to fusermount to do his art
         sleep 2
-        sudo ${FUSERMOUNT} -u "$VM" 2>&1
+        sudo ${FUSERMOUNT} ${fuseropts} "$VM" 2>&1
     fi
     if [[ -z $noumount ]];then
         do_umount
