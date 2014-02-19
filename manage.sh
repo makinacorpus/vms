@@ -89,11 +89,11 @@ die() {
 }
 
 die_in_error_() {
-    local ret=${1}
+    aret=${1}
     shift
-    local msg="${@:-"${ERROR_MSG}"}"
-    if [ "x${ret}" != "x0" ];then
-        die_ "${ret}" "${msg}"
+    amsg="${@:-"${ERROR_MSG}"}"
+    if [ "x${aret}" != "x0" ];then
+        die_ "${aret}" "${amsg}"
     fi
 }
 
@@ -366,7 +366,7 @@ suspend() {
 
 internal_ssh() {
     cd "${VMPATH}"
-    local sshhost="$(get_ssh_host "${internal_ssh_config}")"
+    sshhost="$(get_ssh_host "${internal_ssh_config}")"
     if [ ! -e ${internal_ssh_config} ];then
         log " [*] missing ${ssh_config}"
         exit 1
@@ -384,7 +384,7 @@ internal_ssh() {
 
 ssh_() {
     cd "${VMPATH}"
-    local sshhost="$(get_ssh_host "${ssh_config}")"
+    sshhost="$(get_ssh_host "${ssh_config}")"
     if [ ! -e ${ssh_config} ];then
         log " [*] missing ${ssh_config}"
         exit 1
@@ -442,8 +442,8 @@ gen_internal_ssh_config() {
 gen_hostonly_ssh_config() {
     if [ "x${HOSTONLY_SSH_CONFIG_DONE}" != "x" ];then return 0;fi
     # replace the ip by the hostonly interface one in our ssh wrappers
-    local hostip=$(vagrant_ssh "ip addr show dev eth1 2> /dev/null" 2>/dev/null)
-    local devhost_num="${DEVHOST_NUM}"
+    hostip=$(vagrant_ssh "ip addr show dev eth1 2> /dev/null" 2>/dev/null)
+    devhost_num="${DEVHOST_NUM}"
     cp -f "${internal_ssh_config}" "${ssh_config}"
     if [ "x${hostip}" != "x" ];then
         hostip=$(echo "${hostip}"|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
@@ -507,6 +507,7 @@ ssh_pre_reqs() {
 }
 
 ssh() {
+    set -x
     mount_vm
     ssh_ $@
 }
@@ -538,12 +539,12 @@ down() {
 }
 
 maybe_finish_creation() {
-    local lret=$1
+    lret=$1
     shift
-    local restart_marker="/tmp/vagrant_provision_needs_restart"
+    restart_marker="/tmp/vagrant_provision_needs_restart"
     if [ "x${lret}" != "x0" ];then
         for i in $(seq 3);do
-            local marker="$(vagrant_ssh "test -e ${restart_marker}" &> /dev/null;echo ${?})"
+            marker="$(vagrant_ssh "test -e ${restart_marker}" &> /dev/null;echo ${?})"
             if [ "x${marker}" = "x0" ];then
                 log "First runs, we issue a scheduled reload after the first up(s)"
                 reload $@
@@ -559,13 +560,13 @@ maybe_finish_creation() {
 }
 
 get_version_file() {
-    local br=$(get_git_branch .)
+    br=$(get_git_branch .)
     echo "${VMPATH}/.versions/${br}.txt"
 }
 
 get_version() {
-    local ver="0"
-    local vfile="$(get_version_file)"
+    ver="0"
+    vfile="$(get_version_file)"
     if [ -e "${vfile}" ];then
         ver="$(cat "${vfile}")"
     fi
@@ -594,17 +595,17 @@ get_next_release_name() {
 
 get_git_branch() {
     cd ${1} &> /dev/null
-    local br=$(git branch | grep "*"|grep -v grep)
+    br=$(git branch | grep "*"|grep -v grep)
     echo ${br/* /}
     cd - &> /dev/null
 }
 
 release() {
-    local rfile="$(get_version_file)"
-    local rname="$(get_next_release_name)"
-    local rarc="$(get_devhost_archive_name ${rname})"
-    local rver="$(get_next_version)"
-    local nocommit=""
+    rfile="$(get_version_file)"
+    rname="$(get_next_release_name)"
+    rarc="$(get_devhost_archive_name ${rname})"
+    rver="$(get_next_version)"
+    nocommit=""
     for i in ${@};do
         case ${i} in
             --noinput|--no-input) NO_INPUT=1
@@ -626,7 +627,7 @@ release() {
         fi && \
         log "Running scp \"${rarc}\" ${SFTP_URL}/\"${rarc}\"" &&\
         scp "${rarc}" ${SFTP_URL}/"${rarc}"
-    local lret=${?}
+    lret=${?}
     if [ "x${lret}" != "x0" ];then
         log "Error while uploading images"
         exit $lret
@@ -646,14 +647,14 @@ release() {
 }
 
 get_release_url() {
-    local rname="${1:-$(get_release_name)}"
+    rname="${1:-$(get_release_name)}"
     echo "${BASE_URL}/$(get_devhost_archive_name ${rname})"
 }
 
 init() {
     cd "${VMPATH}"
-    local url="${1:-"$(get_release_url)"}"
-    local status="$(status)"
+    url="${1:-"$(get_release_url)"}"
+    status="$(status)"
     if [ "x$(status)" = "xnot created" ];then
         import "${url}"
     fi
@@ -672,7 +673,7 @@ get_sshfs_pids() {
 
 get_lsof_pids() {
     LSOF=$(which lsof)
-    local lsof_pids=""
+    lsof_pids=""
     if [ -e "${LSOF}" ];then
         lsof_pids="$(${LSOF} "${VM}" 2> /dev/null|awk '{print $2}')"
     fi
@@ -681,7 +682,7 @@ get_lsof_pids() {
 
 is_mounted() {
     #set -x
-    local mounted=""
+    mounted=""
     if [ "x$(mount|awk '{print $3}'|egrep "${VM}$" |grep -v grep| wc -l|sed -e "s/ //g")" != "x0" ]\
         || [ "x$(get_sshfs_ps| wc -l|sed -e "s/ //g")" != "x0" ];then
         mounted="1"
@@ -716,7 +717,7 @@ mount_vm() {
             mkdir "${VM}"
         fi
         ssh_pre_reqs
-        local sshhost=$(get_ssh_host "${ssh_config}")
+        sshhost=$(get_ssh_host "${ssh_config}")
         if [ "x${sshhost}" != "x" ];then
             log "Mounting devhost(${sshhost}):/ --sshfs--> ${VM}"
             sshopts="nonempty,transform_symlinks,reconnect,BatchMode=yes"
@@ -733,7 +734,7 @@ mount_vm() {
 }
 
 get_pid_line() {
-    local pid="${1}"
+    pid="${1}"
     ps -eo pid,user,comm,args --no-headers|egrep "^[ \t]*${pid}[ \t]"|grep -v grep
 }
 
@@ -767,7 +768,7 @@ smartkill() {
 
 
 do_umount() {
-    local args="-f"
+    args="-f"
     if [ "x$(uname)" = "xLinux" ];then
         args="${arg} -l"
     fi
@@ -783,10 +784,10 @@ do_fusermount () {
     if [ "x$(uname)" = "xDarwin" ];then
         fuseropts=""
     fi
-    local lret=$(${FUSERMOUNT} ${fuseropts} "${VM}" 2>&1)
+    lret=$(${FUSERMOUNT} ${fuseropts} "${VM}" 2>&1)
     # let a little time to fusermount to do his art
     sleep 2
-    local noumount=""
+    noumount=""
     for i in ${@};do
         case ${i} in
             noumount) noumount=1
@@ -834,7 +835,7 @@ umount_vm() {
 up() {
     cd "${VMPATH}"
     log "Up !"
-    local notrunning=""
+    notrunning=""
     if [ "x$(status)" != "xrunning" ];then
         notrunning="1"
     fi
@@ -848,7 +849,7 @@ up() {
 }
 
 post_up() {
-    local lret=$1
+    lret=$1
     shift
     maybe_finish_creation ${lret} $@
     mount_vm
@@ -871,18 +872,18 @@ reload() {
 }
 
 generate_packaged_vagrantfile() {
-    local packaged_vagrantfile="${EXPORT_VAGRANTFILE}-$(gen_uuid)"
+    packaged_vagrantfile="${EXPORT_VAGRANTFILE}-$(gen_uuid)"
     touch $packaged_vagrantfile
     echo $packaged_vagrantfile
 }
 
 get_box_name() {
-    local path="${1:-"."}"
-    local suf="${2:-"-$(gen_uuid)"}"
+    path="${1:-"."}"
+    suf="${2:-"-$(gen_uuid)"}"
     if [ "x${suf}" = "xnosuf" ];then
         suf=""
     fi
-    local bname="devhost-$(get_git_branch ${path})${suf}"
+    bname="devhost-$(get_git_branch ${path})${suf}"
     echo $bname
 }
 
@@ -898,27 +899,27 @@ export_() {
     NO_SYNC_HOSTS=1
     for i in ${@};do
         if [ "x${i}" = "xnozerofree" ];then
-            local nozerofree=y
+            nozerofree=y
         elif [ "x${i}" = "xnosed" ];then
-            local nosed=y
+            nosed=y
         else
-            local bname="${i}"
+            bname="${i}"
         fi
     done
     cd "${VMPATH}"
     export NOCONFIRM=1
-    local bname="${bname:-"$(get_box_name)"}"
-    local box="$(get_vagrant_box_name ${bname})"
-    local abox="$(get_devhost_archive_name ${bname})"
-    local nincludes=""
-    local includes=""
-    local tar_preopts="cjvf"
-    local tar_postopts="--numeric-owner"
+    bname="${bname:-"$(get_box_name)"}"
+    box="$(get_vagrant_box_name ${bname})"
+    abox="$(get_devhost_archive_name ${bname})"
+    nincludes=""
+    includes=""
+    tar_preopts="cjvf"
+    tar_postopts="--numeric-owner"
     #
     # be sure to package a blank vagrantfile along with the box to not conflict with our Vagrantfile
     # at import time
     #
-    local packaged_vagrantfile="$(generate_packaged_vagrantfile)"
+    packaged_vagrantfile="$(generate_packaged_vagrantfile)"
     nincludes=""
     for i in .vb_* vagrant_config.rb;do
         if [ -e "${i}" ];then
@@ -959,7 +960,7 @@ export_() {
             log "Be patient, exporting now" &&\
             vagrant package --vagrantfile "${packaged_vagrantfile}" --output "${box}" 2> /dev/null
             rm -f "${EXPORT_VAGRANTFILE}"*
-        local lret="${?}"
+        lret="${?}"
         down
         up --no-provision && vagrant_ssh "sudo ${PROVISION_WRAPPER} unmark_exported" 2>/dev/null && down
         if [ "x${lret}" != "x0" ];then
@@ -978,7 +979,7 @@ export_() {
     else
         log "${VMPATH}/${abox}, delete it to redo"
     fi &&\
-    local lret=${?}
+    lret=${?}
     if [ "x${lret}" != "x0" ];then
         log "Error while exporting"
         exit $lret
@@ -989,10 +990,10 @@ export_() {
 }
 
 check_tmp_file() {
-    local fname="${1}"
-    local res="ok"
+    fname="${1}"
+    res="ok"
     if [ -e ${fname} ];then
-        local tmpsize=$(dd if=${fname} bs=4046 count=40000 2>/dev/null|wc -c)
+        tmpsize=$(dd if=${fname} bs=4046 count=40000 2>/dev/null|wc -c)
         if [ "x${tmpsize}" != "x161840000" ];then
             log "Invalid download, deleting tmp file"
             rm -f "${fname}"
@@ -1004,11 +1005,11 @@ check_tmp_file() {
 
 download() {
     active_echo
-    local wget=""
-    local url="${1}"
-    local fname="${2:-${basename ${url}}}"
+    wget=""
+    url="${1}"
+    fname="${2:-${basename ${url}}}"
     # UA do not work in fact, redirect loop and empty file
-    local G_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.22 (KHTML, like Gecko) Ubuntu Chromium/25.0.1364.160 Chrome/25.0.1364.160 Safari/537.22"
+    G_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.22 (KHTML, like Gecko) Ubuntu Chromium/25.0.1364.160 Chrome/25.0.1364.160 Safari/537.22"
     # freebsd
     if [ "x$(uname)" = "xFreeBSD" ] && [ -e "$(which fetch 2>&1)" ];then
         $(which fetch) -pra -o ${fname} $url
@@ -1032,21 +1033,21 @@ download() {
 import() {
     NO_SYNC_HOSTS=1
     cd "${VMPATH}"
-    local image="${1:-$(get_devhost_archive_name $(get_release_name))}"
-    local tar_preopts="-xjvpf"
-    local tar_postopts="--numeric-owner"
-    local boxes=" $(vagrant box list 2> /dev/null|awk '{print " " ${1} " "}') "
+    image="${1:-$(get_devhost_archive_name $(get_release_name))}"
+    tar_preopts="-xjvpf"
+    tar_postopts="--numeric-owner"
+    boxes=" $(vagrant box list 2> /dev/null|awk '{print " " ${1} " "}') "
     shift
-    local args=${@}
+    args=${@}
     if [ "x$(status)" != "xnot created" ];then
         log "VM already imported,"
         log "   - Run it with: ${THIS} up"
         log "   - Delete it with: ${THIS} destroy"
     else
         if [ "x${image}" = "xhttp*" ];then
-            local url="${image}"
+            url="${image}"
             image="$(basename ${image})"
-            local do_download=""
+            do_download=""
             if [ ! -e ${image} ];then
                 do_download="1"
             fi
@@ -1067,8 +1068,8 @@ import() {
             log "invalid image file ${1} (must be a regular bzip2 tarfile end with .tar.bz2)"
             exit -1
         fi
-        local bname="${bname:-$(get_box_name)}"
-        local abox="${image}"
+        bname="${bname:-$(get_box_name)}"
+        abox="${image}"
         log "Getting box name from ${image}"
         if [ ! -e "${image}" ];then
             log "Missing file: ${image}"
@@ -1121,9 +1122,9 @@ import() {
 sync_hosts() {
     log "Synchronize hosts entries"
     if [ "x${NO_SYNC_HOSTS}" != "x" ];then return;fi
-    local blockp="${1:-${DEFAULT_DNS_BLOCKFILE}}"
-    local hosts="${2:-${DEFAULT_HOSTS_FILE}}"
-    local lhosts=.vagrant/hosts
+    blockp="${1:-${DEFAULT_DNS_BLOCKFILE}}"
+    hosts="${2:-${DEFAULT_HOSTS_FILE}}"
+    lhosts=.vagrant/hosts
     if [ "x$(status)" != "xrunning" ];then
         up
     fi
@@ -1244,15 +1245,15 @@ get_abspath() {
 }
 
 clonevm() {
-    local NEWVMPATH="${1}"
-    local OLDVMPATH="${VMPATH}"
-    local tarballs="$(ls -1rt *.tar.bz2)"
-    local tarball="$(ls -1rt devhost*.tar.bz2|head -n1)"
+    NEWVMPATH="${1}"
+    OLDVMPATH="${VMPATH}"
+    tarballs="$(ls -1rt *.tar.bz2)"
+    tarball="$(ls -1rt devhost*.tar.bz2|head -n1)"
     if [ ! -e ${NEWVMPATH} ];then
         mkdir "${NEWVMPATH}"
     fi
-    local import_uri="${2}"
-    local can_continue=""
+    import_uri="${2}"
+    can_continue=""
     active_echo
     log "Syncing in ${NEWVMPATH}"
     if [ -e "${NEWVMPATH}" ];then
@@ -1290,9 +1291,9 @@ clonevm() {
     fi &&\
         log "Cloning in ${NEWVMPATH}" &&\
         for i in ${tarballs};do
-            local oldp="${OLDVMPATH}/${i}"
-            local newp="${NEWVMPATH}/${i}"
-            local lnskip=""
+            oldp="${OLDVMPATH}/${i}"
+            newp="${NEWVMPATH}/${i}"
+            lnskip=""
             if [ -e "${oldp}" ] && [ ! -f "${newp}" ];\
             then
                 # transform in full path tarballs
@@ -1310,9 +1311,9 @@ clonevm() {
                 fi
             fi
         done &&\
-        local ntarball="$(ls -1rt devhost*.tar.bz2|head -n1)" &&\
+        ntarball="$(ls -1rt devhost*.tar.bz2|head -n1)" &&\
         if [ ! -e "${ntarball}" ];then ntarball="${import_uri:-$(get_release_url)}";fi &&\
-        local pb=""
+        pb=""
         cd "${NEWVMPATH}" &&\
         if [ "x${NO_IMPORT}" = "x" ];then
             pb="import" &&\
@@ -1328,7 +1329,7 @@ clonevm() {
 }
 
 test() {
-    local TESTPATH="${VMPATH}-test"
+    TESTPATH="${VMPATH}-test"
     NO_SYNC_HOSTS=1 NO_INPUT=1 clonevm "${TESTPATH}"
 }
 
