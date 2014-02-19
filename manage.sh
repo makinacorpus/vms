@@ -802,6 +802,9 @@ do_fusermount () {
 }
 
 umount_vm() {
+    if [ "x${DARWIN_DEBUG}" != "x" ];then
+        set -x
+    fi
     cd "${VMPATH}"
     if [ "x$(is_mounted)" != "x" ];then
         log "Umounting of ${VM}"
@@ -815,6 +818,9 @@ umount_vm() {
     if [ "x${?}" != "0" ];then
         log "Can't umount vm"
         exit "${?}"
+    fi
+    if [ "x${DARWIN_DEBUG}" != "x" ];then
+        set +x
     fi
 }
 
