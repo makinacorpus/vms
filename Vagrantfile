@@ -478,6 +478,7 @@ end
 pkg_cmd = [
     # FOR NFS ENABLE JUMBO FRAMES, OTHER PART IN ON THE VAGRANTFILE
     # FOR HOST ONLY INTERFACE VBOXNET
+    "set -x",
     mtu_set,
     "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
     %{cat > /root/vagrant/provision_net.sh  << EOF
@@ -550,6 +551,7 @@ EOF},
       "chmod 700 /root/vagrant/provision_*.sh",
       "/root/vagrant/provision_net.sh;",
       "/root/vagrant/provision_nfs.sh;",
+      "set +x",
       "/vagrant/vagrant/provision_script.sh",
   ]
   config.vm.provision :shell, :inline => pkg_cmd.join("\n")
