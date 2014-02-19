@@ -840,8 +840,8 @@ up() {
     fi
     vagrant up $@
     lret=${?}
-    # be sure of jumbo frames
-    if [ "x${notrunning}" != "x" ];then
+    # be sure of jumbo frames on anything else that macosx
+    if [ "x${notrunning}" != "x" ] && [ "x$(uname)" != "xDarwin" ];then
         vagrant_ssh "sudo ifconfig eth1 mtu 9000" 2>/dev/null
     fi
     post_up ${lret} $@
@@ -944,7 +944,7 @@ export_() {
     fi &&\
     if [ ! -e "${box}" ];then
         vagrant box remove $bname
-        down && up &&\
+        down && up && gen_ssh_config &&\
             if [ "x${WRAPPER_PRESENT}" = "x" ];then \
                 log "${PROVISION_WRAPPER} is not there in the VM"
                 exit -1
