@@ -675,8 +675,8 @@ get_lsof_pids() {
 is_mounted() {
     #set -x
     local mounted=""
-    if [ "x$(mount|awk '{print $3}'|egrep "${VM}$" |grep -v grep| wc -l)" != "x0" ]\
-        || [ "x$(get_sshfs_ps| wc -l)" != "x0" ];then
+    if [ "x$(mount|awk '{print $3}'|egrep "${VM}$" |grep -v grep| wc -l|sed -e "s/ //g")" != "x0" ]\
+        || [ "x$(get_sshfs_ps| wc -l|sed -e "s/ //g")" != "x0" ];then
         mounted="1"
     fi
     echo ${mounted}
@@ -713,7 +713,7 @@ mount_vm() {
         if [[ -n ${sshhost} ]];then
             log "Mounting devhost(${sshhost}):/ --sshfs--> $VM"
             sshopts="nonempty,transform_symlinks,reconnect,BatchMode=yes"
-            if [[ "$(egrep "^user_allow_other" /etc/fuse.conf 2>/dev/null|wc -l)" != 0 ]];then
+            if [[ "$(egrep "^user_allow_other" /etc/fuse.conf 2>/dev/null|wc -l|sed -e "s/ //g")" != 0 ]];then
                 sshopts="${sshopts},allow_other"
             fi
             sshfs -F "$ssh_config" root@${sshhost}:/guest -o ${sshopts} "$VM"
@@ -733,7 +733,7 @@ get_pid_line() {
 smartkill_() {
     PIDS=$@
     for pid in ${PIDS};do
-        while [[ $(get_pid_line ${pid}|wc -l) != "0" ]];do
+        while [[ $(get_pid_line ${pid}|wc -l|sed -e "s/ //g") != "0" ]];do
             if [[ -z "$NO_INPUT" ]] || [[ "$input" == "y" ]];then
                 log "Do you really want to kill:"
                 log "$(get_pid_line ${pid})"
@@ -1126,10 +1126,10 @@ sync_hosts() {
         if [[ ! -e "$hosts" ]];then die "invalid hosts file: $hosts";fi
         local START=$(cat "$block"|head -n1)
         local END=$(cat "$block"|tail -n1)
-        local start_lines=$(grep -- "$START" "$hosts"|wc -l)
-        local end_lines=$(grep -- "$END" "$hosts"|wc -l)
-        local block_start_lines=$(grep -- "$START" "$block"|wc -l)
-        local block_end_lines=$(grep -- "$END" "$block"|wc -l)
+        local start_lines=$(grep -- "$START" "$hosts"|wc -l|sed -e "s/ //g")
+        local end_lines=$(grep -- "$END" "$hosts"|wc -l|sed -e "s/ //g")
+        local block_start_lines=$(grep -- "$START" "$block"|wc -l|sed -e "s/ //g")
+        local block_end_lines=$(grep -- "$END" "$block"|wc -l|sed -e "s/ //g")
         if [[ -z "$START" ]];then
             die "missing start tag"
         fi
@@ -1162,7 +1162,7 @@ sync_hosts() {
             fi
         fi
         log "Adding $block hosts to $hosts"
-        if [[ $(grep -- "$START" "$hosts"|wc -l) == "0" ]];then
+        if [[ $(grep -- "$START" "$hosts"|wc -l|sed -e "s/ //g") == "0" ]];then
             # Add block in /etc/hosts
             echo >> "$lhosts"
             cat "$block" >> "$lhosts"
