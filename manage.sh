@@ -512,7 +512,7 @@ ssh() {
 }
 
 pre_down() {
-    if [ "x$(status)" = "rxunning" ];then
+    if [ "x$(status)" = "xrunning" ];then
         umount_vm
         vagrant_ssh "sudo sync" 2>/dev/null
     else
