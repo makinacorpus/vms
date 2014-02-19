@@ -565,7 +565,7 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
         mtu = `sudo ifconfig #{interface_hostonly}|grep -i mtu|sed -e "s/.*MTU:*//g"|awk '{print $1}'`.strip()
         if (mtu != "9000")
           eprintf("Configuring jumbo frame on #{interface_hostonly}\n")
-          if `uname` == 'Darwin'
+          if `uname` == 'Darwin\n'
             `sudo networksetup -setMTU #{interface_hostonly} 9000`
           else
             `sudo ifconfig #{interface_hostonly} mtu 9000`
