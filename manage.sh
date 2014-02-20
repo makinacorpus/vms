@@ -105,19 +105,11 @@ die_in_error() {
 
 
 mac_setup() {
-    # add macfusion in the loop in available
+    # add info for sshfs tricks
     if [ "x${UNAME}" = "xDarwin" ];then
-        SSHFS="/Applications/Macfusion.app/Contents/PlugIns/sshfs.mfplugin/Contents/Resources/sshfs-static"
         if [ ! -e "$(which sshfs 2>/dev/null)" ];then
-            if [ -e "${SSHFS}" ];then
-                if [ ! -e "${VMPATH}/sshfs" ];then
-                    ln -sf "${SSHFS}" sshfs
-                fi
-            else
-                die "Please install macfusion"
-            fi
+            die "Please install sshfs via brew, sudo brew install sshfs"
         fi
-        PATH="${VMPATH}:${PATH}"
         FUSERMOUNT="umount"
     fi
 }
@@ -721,10 +713,13 @@ mount_vm() {
         sshhost=$(get_ssh_host "${ssh_config}")
         if [ "x${sshhost}" != "x" ];then
             log "Mounting devhost(${sshhost}):/ --sshfs--> ${VM}"
-            sshopts="nonempty,transform_symlinks,reconnect,BatchMode=yes"
+            sshopts="transform_symlinks,reconnect,BatchMode=yes"
             if [ "x$(egrep "^user_allow_other" /etc/fuse.conf 2>/dev/null|wc -l|sed -e "s/ //g")" != "0" ];then
                 sshopts="${sshopts},allow_other"
             fi
+            if [ "x${UNAME}" != "xDarwin" ];then
+                sshopts="${sshopts},nonempty"
+            fi                       
             sshfs -F "${ssh_config}" root@${sshhost}:/guest -o ${sshopts} "${VM}"
         else
             log "Cant' mount devhost, empty ssh host"

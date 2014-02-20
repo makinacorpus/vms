@@ -58,6 +58,22 @@ end
 # end
 # -------------o<---------------
 
+# detect current host OS
+def os
+  @os ||= (
+    host_os = RbConfig::CONFIG['host_os']
+    case host_os
+    when /darwin|mac os/
+      :macosx
+    when /linux/
+      :linux
+    when /solaris|bsd/
+      :unix
+    else
+      raise Error::WebDriverError, "Non supported os: #{host_os.inspect}"
+    end
+  )
+end
 
 # Check entries in the configuration zone for variables available.
 # --- Start Load optional config file ---------------
@@ -382,24 +398,6 @@ Vagrant.configure("2") do |config|
   newgroup = 'editor'
   user = Etc.getlogin
 
-  # detect current host OS
-
-  def os
-    @os ||= (
-      host_os = RbConfig::CONFIG['host_os']
-      case host_os
-      when /darwin|mac os/
-        :macosx
-      when /linux/
-        :linux
-      when /solaris|bsd/
-        :unix
-      else
-        raise Error::WebDriverError, "Non supported os: #{host_os.inspect}"
-      end
-    )
-  end
-
   #eprintf(" [*] Checking if local group %s exists\n", newgroup )
   # also search for a possible custom name
   found = false
@@ -448,7 +446,7 @@ Vagrant.configure("2") do |config|
     `if ip route show|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo ip route replace #{BOX_PRIVATE_IP} via #{BOX_PRIVATE_GW}; sudo ip route replace #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} via #{BOX_PRIVATE_IP}; fi;`
   else
     #Mac
-    `if netstat -rn|grep "#{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo route -n add -host #{BOX_PRIVATE_IP} #{BOX_PRIVATE_GW};sudo route -n add -net #{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK_NUM} #{BOX_PRIVATE_IP};fi;`
+    `if netstat -rn|grep "#{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo route -n add -net #{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK_NUM} #{BOX_PRIVATE_IP};fi;`
   end
   if devhost_debug
     eprintf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
@@ -469,7 +467,7 @@ vsettings_f.write(vagrant_config)
 vsettings_f.close()
 
 mtu_set="ifconfig eth1 mtu 9000"
-if UNAME == "Darwin"
+if os == :macosx
     mtu_set="/bin/true"
 end
 # Now generate the provision script, put it inside /root VM's directory and launch it
@@ -564,7 +562,12 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
     vb.customize ["modifyvm", :id, "--memory", MEMORY]
     vb.customize ["modifyvm", :id, "--cpus", CPUS]
     vb.customize ["modifyvm", :id, "--cpuexecutioncap", MAX_CPU_USAGE_PERCENT]
-    vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+    # nictypes: 100mb:     Am79C970A|Am79C973
+    #           1gb intel: 82540EM|82543GC|82545EM
+    #           virtio:     virtio
+    # if os == :macosx
+    #     vb.customize ["modifyvm", :id, "--nictype2", "82543GC"]
+    # end
     #uuid = 'b71e292b-87e5-4ec8-8ecb-337b9482676f'
     uuid = get_uuid
     if uuid != nil
@@ -572,7 +575,7 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
       if interface_hostonly.start_with?("vboxnet")
         mtu = `sudo ifconfig #{interface_hostonly}|grep -i mtu|sed -e "s/.*MTU:*//g"|awk '{print $1}'`.strip()
         if (mtu != "9000")
-          if UNAME != "Darwin"
+          if os != :macosx
               eprintf("Configuring jumbo frame on #{interface_hostonly}\n")
           # not supported on darwin AT THE MOMENT
           #  `sudo networksetup -setMTU #{interface_hostonly} 9000`
