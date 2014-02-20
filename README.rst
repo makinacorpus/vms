@@ -118,8 +118,12 @@ Linux / *BSD
 
 MacOSX
 ~~~~~~
-- Install `macfusion <http://macfusionapp.org>`_: `<http://macfusionapp.org/releases/Macfusion_2.0.4.zip>`_
-- Relog into a new session or reboot
+- Remove old unsupported sshfs:
+    - uninstall sshfs & osxfuse from brew if you did installed it
+    - uninstall sshfs from MacFusion if any
+    - uninstall sshfs from MacFuse if any
+
+- Install **osxfuse** & **sshfs** from `osxfuse <http://osxfuse.github.io/>`_
 
 Optimizations (optional)
 ++++++++++++++++++++++++++++++++++++++++
