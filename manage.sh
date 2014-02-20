@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -x
 LAUNCH_ARGS="${@}"
 actions=""
 actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm version"
@@ -667,7 +668,7 @@ get_sshfs_ps() {
 }
 
 get_sshfs_pids() {
-    get_sshfs_ps|awk '{print ${2}}'
+    get_sshfs_ps|awk '{print $2}'
 }
 
 get_lsof_pids() {
@@ -1035,7 +1036,7 @@ import() {
     image="${1:-$(get_devhost_archive_name $(get_release_name))}"
     tar_preopts="-xjvpf"
     tar_postopts="--numeric-owner"
-    boxes=" $(vagrant box list 2> /dev/null|awk '{print " " ${1} " "}') "
+    boxes=" $(vagrant box list 2> /dev/null|awk '{print " " $1 " "}') "
     shift
     args=${@}
     if [ "x$(status)" != "xnot created" ];then
