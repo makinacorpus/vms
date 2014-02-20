@@ -562,6 +562,7 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
     vb.customize ["modifyvm", :id, "--memory", MEMORY]
     vb.customize ["modifyvm", :id, "--cpus", CPUS]
     vb.customize ["modifyvm", :id, "--cpuexecutioncap", MAX_CPU_USAGE_PERCENT]
+    vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
     # nictypes: 100mb:     Am79C970A|Am79C973
     #           1gb intel: 82540EM|82543GC|82545EM
     #           virtio:     virtio
