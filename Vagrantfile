@@ -14,6 +14,7 @@ CWD=File.dirname(__FILE__)
 VSETTINGS_N="vagrant_config"
 VSETTINGS_P=File.dirname(__FILE__)+"/"+VSETTINGS_N+".rb"
 DEVHOST_DEBUG=ENV.fetch("DEVHOST_DEBUG", "").strip()
+UNAME=`uname`.strip
 devhost_debug=DEVHOST_DEBUG
 if devhost_debug.to_s.strip.length == 0
   devhost_debug=false
@@ -57,6 +58,22 @@ end
 # end
 # -------------o<---------------
 
+# detect current host OS
+def os
+  @os ||= (
+    host_os = RbConfig::CONFIG['host_os']
+    case host_os
+    when /darwin|mac os/
+      :macosx
+    when /linux/
+      :linux
+    when /solaris|bsd/
+      :unix
+    else
+      raise Error::WebDriverError, "Non supported os: #{host_os.inspect}"
+    end
+  )
+end
 
 # Check entries in the configuration zone for variables available.
 # --- Start Load optional config file ---------------
@@ -381,24 +398,6 @@ Vagrant.configure("2") do |config|
   newgroup = 'editor'
   user = Etc.getlogin
 
-  # detect current host OS
-
-  def os
-    @os ||= (
-      host_os = RbConfig::CONFIG['host_os']
-      case host_os
-      when /darwin|mac os/
-        :macosx
-      when /linux/
-        :linux
-      when /solaris|bsd/
-        :unix
-      else
-        raise Error::WebDriverError, "Non supported os: #{host_os.inspect}"
-      end
-    )
-  end
-
   #eprintf(" [*] Checking if local group %s exists\n", newgroup )
   # also search for a possible custom name
   found = false
@@ -467,13 +466,18 @@ vsettings_f=File.open(VSETTINGS_P, "w")
 vsettings_f.write(vagrant_config)
 vsettings_f.close()
 
+mtu_set="ifconfig eth1 mtu 9000"
+if os == :macosx
+    mtu_set="/bin/true"
+end
 # Now generate the provision script, put it inside /root VM's directory and launch it
 # provision script has been moved to a bash script as it growned too much see ./provision_script.sh
 # the only thing we cant move is to test for NFS to be there as the shared file system relies on it
 pkg_cmd = [
     # FOR NFS ENABLE JUMBO FRAMES, OTHER PART IN ON THE VAGRANTFILE
     # FOR HOST ONLY INTERFACE VBOXNET
-    "ifconfig eth1 mtu 9000",
+    # "set -x",
+    mtu_set,
     "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
     %{cat > /root/vagrant/provision_net.sh  << EOF
 #!/usr/bin/env bash
@@ -484,7 +488,7 @@ configured_hostip=\\$( cat /etc/network/interfaces|grep \\$interface -A3|grep ad
 if [[ "\\$hostip" != "\\$configured_hostip" ]];then
     ifdown \\$interface &> /dev/null
     ifup \\$interface
-    ifconfig \\$interface mtu 9000
+    #{mtu_set}
 fi
 # be sure to have root rights on ROOT owned shared folders
 # by default if others non-root folders are mounted afterwards
@@ -539,11 +543,13 @@ DOCKER_NETWORK_GATEWAY="#{DOCKER_NETWORK_GATEWAY}"
 DOCKER_NETWORK="#{DOCKER_NETWORK}"
 DOCKER_NETWORK_MASK="#{DOCKER_NETWORK_MASK}"
 DOCKER_NETWORK_MASK_NUM="#{DOCKER_NETWORK_MASK_NUM}"
+ZHOST_OS="#{UNAME}"
 VB_NAME="#{VIRTUALBOX_VM_NAME}"
 EOF},
       "chmod 700 /root/vagrant/provision_*.sh",
       "/root/vagrant/provision_net.sh;",
       "/root/vagrant/provision_nfs.sh;",
+      # "set +x",
       "/vagrant/vagrant/provision_script.sh",
   ]
   config.vm.provision :shell, :inline => pkg_cmd.join("\n")
@@ -557,6 +563,12 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
     vb.customize ["modifyvm", :id, "--cpus", CPUS]
     vb.customize ["modifyvm", :id, "--cpuexecutioncap", MAX_CPU_USAGE_PERCENT]
     vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+    # nictypes: 100mb:     Am79C970A|Am79C973
+    #           1gb intel: 82540EM|82543GC|82545EM
+    #           virtio:     virtio
+    # if os == :macosx
+    #     vb.customize ["modifyvm", :id, "--nictype2", "82543GC"]
+    # end
     #uuid = 'b71e292b-87e5-4ec8-8ecb-337b9482676f'
     uuid = get_uuid
     if uuid != nil
@@ -564,8 +576,13 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
       if interface_hostonly.start_with?("vboxnet")
         mtu = `sudo ifconfig #{interface_hostonly}|grep -i mtu|sed -e "s/.*MTU:*//g"|awk '{print $1}'`.strip()
         if (mtu != "9000")
-          eprintf("Configuring jumbo frame on #{interface_hostonly}\n")
-          `sudo ifconfig #{interface_hostonly} mtu 9000`
+          if os != :macosx
+              eprintf("Configuring jumbo frame on #{interface_hostonly}\n")
+          # not supported on darwin AT THE MOMENT
+          #  `sudo networksetup -setMTU #{interface_hostonly} 9000`
+          #else
+            `sudo ifconfig #{interface_hostonly} mtu 9000`
+          end
         end
       end
     end
