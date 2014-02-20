@@ -109,7 +109,7 @@ host virtualbox version::
     vagrant plugin install vagrant-vbguest
 
 
-sshfs documentation
+sshfs 
 ++++++++++++++++++++
 Linux / *BSD
 ~~~~~~~~~~~~~~
