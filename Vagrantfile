@@ -45,8 +45,8 @@ end
 # module MyConfig
 #    DEVHOST_NUM="3"
 #    VIRTUALBOX_VM_NAME="Super devhost Vm"
-#    BOX_NAME="saucy64"
-#    BOX_URI="http://foo/saucy64.img
+#    BOX_NAME="jessie64"
+#    BOX_URI="http://foo/jessie64.img
 #    MEMORY="512"
 #    CPUS="1"
 #    MAX_CPU_USAGE_PERCENT="25"
@@ -92,20 +92,24 @@ rescue LoadError
 end
 # --- End Load optional config file -----------------
 
-if defined?(UBUNTU_RELEASE)
-    vagrant_config_lines << "UBUNTU_RELEASE=\"#{UBUNTU_RELEASE}\""
+if defined?(DEBIAN_RELEASE)
+    vagrant_config_lines << "DEBIAN_RELEASE=\"#{DEBIAN_RELEASE}\""
+    vagrant_config_lines << "DEBIAN_RELEASE_NUMBER=\"#{DEBIAN_RELEASE_NUMBER}\""
 else
-    UBUNTU_RELEASE="saucy"
+    DEBIAN_RELEASE="wheezy"
+    DEBIAN_RELEASE_NUMBER="7"
 end
-if defined?(UBUNTU_LTS_RELEASE)
-    vagrant_config_lines << "UBUNTU_LTS_RELEASE=\"#{UBUNTU_LTS_RELEASE}\""
+if defined?(DEBIAN_STABLE_RELEASE)
+    vagrant_config_lines << "DEBIAN_STABLE_RELEASE=\"#{DEBIAN_STABLE_RELEASE}\""
 else
-    UBUNTU_LTS_RELEASE="precise"
+    DEBIAN_STABLE_RELEASE="wheezy"
+    DEBIAN_STABLE_RELEASE_NUMBER="7"
 end
-if defined?(UBUNTU_NEXT_RELEASE)
-    vagrant_config_lines << "UBUNTU_NEXT_RELEASE=\"#{UBUNTU_NEXT_RELEASE}\""
+if defined?(DEBIAN_NEXT_RELEASE)
+    vagrant_config_lines << "DEBIAN_NEXT_RELEASE=\"#{DEBIAN_NEXT_RELEASE}\""
 else
-    UBUNTU_NEXT_RELEASE="trusty"
+    DEBIAN_NEXT_RELEASE="jessie"
+    DEBIAN_NEXT_RELEASE_NUMBER="8"
 end
 
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
@@ -202,23 +206,23 @@ end
 if defined?(LOCAL_MIRROR)
     vagrant_config_lines << "LOCAL_MIRROR=\"#{LOCAL_MIRROR}\""
 else
-    LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
+    LOCAL_MIRROR="http://ftp.de.debian.org/"
 end
 if defined?(OFFICIAL_MIRROR)
     vagrant_config_lines << "OFFICIAL_MIRROR=\"#{OFFICIAL_MIRROR}\""
 else
-    OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu"
+    OFFICIAL_MIRROR="http://ftp.debian.org/"
 end
 # let this one to the previous mirror for it to be automaticly replaced
 if defined?(PREVIOUS_LOCAL_MIRROR)
     vagrant_config_lines << "PREVIOUS_LOCAL_MIRROR=\"#{PREVIOUS_LOCAL_MIRROR}\""
 else
-    PREVIOUS_LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
+    PREVIOUS_LOCAL_MIRROR="http://ftp.de.debian.org/"
 end
 if defined?(PREVIOUS_OFFICIAL_MIRROR)
     vagrant_config_lines << "PREVIOUS_OFFICIAL_MIRROR=\"#{PREVIOUS_OFFICIAL_MIRROR}\""
 else
-    PREVIOUS_OFFICIAL_MIRROR="http://us.archive.ubuntu.com/ubuntu"
+    PREVIOUS_OFFICIAL_MIRROR="http://ftp.debian.org/"
 end
 
 # ----------------- END CONFIGURATION ZONE ----------------------------------
@@ -233,7 +237,7 @@ BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
 # we also setup a specific docker network subnet per virtualbox host
 DOCKER_NETWORK_IF="docker0"
 DOCKER_NETWORK_HOST_IF="eth0"
-DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.xx.0 by default
+DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.XX.0 by default
 DOCKER_NETWORK=DOCKER_NETWORK_SUBNET+".0"
 DOCKER_NETWORK_GATEWAY=DOCKER_NETWORK_SUBNET+".254"
 DOCKER_NETWORK_MASK="255.255.255.0"
@@ -241,7 +245,7 @@ DOCKER_NETWORK_MASK_NUM="24"
 
 # md5 based on currentpath
 # Name on your VirtualBox panel
-VIRTUALBOX_BASE_VM_NAME="DevHost "+DEVHOST_NUM+" Ubuntu "+UBUNTU_RELEASE+"64"
+VIRTUALBOX_BASE_VM_NAME="DevHost "+DEVHOST_NUM+" Debian "+DEBIAN_RELEASE+"64"
 VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
 MD5=Digest::MD5.hexdigest(CWD)
 #VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME} (#{MD5})"
@@ -260,22 +264,21 @@ end
 
 VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhostxx.local by default
 
-
-# ------------- BASE IMAGE UBUNTU  -----------------------
+# ------------- BASE IMAGE DEBIAN  -----------------------
 # You can pre-download this image with
-# vagrant box add precise64 http://cloud-images.ubuntu.com/precise/precise/current/precise-server-cloudimg-amd64-vagrant-disk1.box
+# vagrant box add debian-7-wheezy64 https://downloads.sourceforge.net/project/makinacorpus/vms/debian-7-wheezy64.box?r=&ts=1386543863&use_mirror=freefr
 
 if defined?(BOX_NAME)
     vagrant_config_lines << "BOX_NAME=\"#{BOX_NAME}\""
 else
-    BOX_NAME=UBUNTU_RELEASE+"64"
+    BOX_NAME="debian-#{DEBIAN_RELEASE_NUMBER}-#{DEBIAN_RELEASE}64"
 end
 # Can be overidden by env. (used by manage.sh import/export)
 REAL_BOX_NAME = ENV.fetch("DEVHOST_FORCED_BOX_NAME", BOX_NAME).strip()
 if defined?(BOX_URI)
     vagrant_config_lines << "BOX_URI=\"#{BOX_URI}\""
 else
-    BOX_URI="http://cloud-images.ubuntu.com/vagrant/"+UBUNTU_RELEASE+"/current/"+UBUNTU_RELEASE+"-server-cloudimg-amd64-vagrant-disk1.box"
+    BOX_URI="https://downloads.sourceforge.net/project/makinacorpus/vms/debian-#{DEBIAN_RELEASE_NUMBER}-#{DEBIAN_RELEASE}64.box?r=&ts=1386543863&use_mirror=freefr"
 end
 
 # -- Other things ----------------------------------------------------------
@@ -446,7 +449,7 @@ Vagrant.configure("2") do |config|
     `if ip route show|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo ip route replace #{BOX_PRIVATE_IP} via #{BOX_PRIVATE_GW}; sudo ip route replace #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} via #{BOX_PRIVATE_IP}; fi;`
   else
     #Mac
-    `if netstat -rn|grep "#{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo route -n add -host #{BOX_PRIVATE_IP} #{BOX_PRIVATE_GW};sudo route -n add -net #{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK_NUM} #{BOX_PRIVATE_IP};fi;`
+    `if netstat -rn|grep "#{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo route -n add -net #{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK_NUM} #{BOX_PRIVATE_IP};fi;`
   end
   if devhost_debug
     eprintf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
@@ -533,8 +536,8 @@ PREVIOUS_OFFICIAL_MIRROR="#{PREVIOUS_OFFICIAL_MIRROR}"
 PREVIOUS_LOCAL_MIRROR="#{PREVIOUS_LOCAL_MIRROR}"
 OFFICIAL_MIRROR="#{OFFICIAL_MIRROR}"
 LOCAL_MIRROR="#{LOCAL_MIRROR}"
-UBUNTU_RELEASE="#{UBUNTU_RELEASE}"
-UBUNTU_NEXT_RELEASE="#{UBUNTU_NEXT_RELEASE}"
+DEBIAN_RELEASE="#{DEBIAN_RELEASE}"
+DEBIAN_NEXT_RELEASE="#{DEBIAN_NEXT_RELEASE}"
 DOCKER_NETWORK_HOST_IF="#{DOCKER_NETWORK_HOST_IF}"
 DOCKER_NETWORK_IF="#{DOCKER_NETWORK_IF}"
 DOCKER_NETWORK_BASE="#{DOCKER_NETWORK_IF}"
