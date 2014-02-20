@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-set -x
 LAUNCH_ARGS="${@}"
+UNAME="$(uname)"
 actions=""
 actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm version"
 actions_exportimport="export import"
@@ -17,6 +17,7 @@ actions=$(echo ${actions})
 
 RED="\\e[0;31m"
 CYAN="\\e[0;36m"
+YELLOW="\\e[0;33m"
 YELLOW="\\e[0;33m"
 NORMAL="\\e[0;0m"
 
@@ -105,7 +106,7 @@ die_in_error() {
 
 mac_setup() {
     # add macfusion in the loop in available
-    if [ "x$(uname)" = "xDarwin" ];then
+    if [ "x${UNAME}" = "xDarwin" ];then
         SSHFS="/Applications/Macfusion.app/Contents/PlugIns/sshfs.mfplugin/Contents/Resources/sshfs-static"
         if [ ! -e "$(which sshfs 2>/dev/null)" ];then
             if [ -e "${SSHFS}" ];then
@@ -769,7 +770,7 @@ smartkill() {
 
 do_umount() {
     args="-f"
-    if [ "x$(uname)" = "xLinux" ];then
+    if [ "x${UNAME}" = "xLinux" ];then
         args="${arg} -l"
     fi
     for arg in ${args};do
@@ -781,7 +782,7 @@ do_umount() {
 
 do_fusermount () {
     fuseropts="-u"
-    if [ "x$(uname)" = "xDarwin" ];then
+    if [ "x${UNAME}" = "xDarwin" ];then
         fuseropts=""
     fi
     lret=$(${FUSERMOUNT} ${fuseropts} "${VM}" 2>&1)
@@ -842,7 +843,7 @@ up() {
     vagrant up $@
     lret=${?}
     # be sure of jumbo frames on anything else that macosx
-    if [ "x${notrunning}" != "x" ] && [ "x$(uname)" != "xDarwin" ];then
+    if [ "x${notrunning}" != "x" ] && [ "x${UNAME}" != "xDarwin" ];then
         vagrant_ssh "sudo ifconfig eth1 mtu 9000" 2>/dev/null
     fi
     post_up ${lret} $@
@@ -926,10 +927,10 @@ export_() {
             nincludes="${i} ${nincludes}"
         fi
     done
-    if [ "x$(uname)" = "xDarwin" ];then
+    if [ "x${UNAME}" = "xDarwin" ];then
         tar_postopts=""
     fi
-    if [ "x$(uname)" != "xDarwin" ];then
+    if [ "x${UNAME}" != "xDarwin" ];then
         tar_preopts="${tar_preopts}p"
     fi
     netrules="/etc/udev/rules.d/70-persistent-net.rules"
@@ -1011,7 +1012,7 @@ download() {
     # UA do not work in fact, redirect loop and empty file
     G_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.22 (KHTML, like Gecko) Ubuntu Chromium/25.0.1364.160 Chrome/25.0.1364.160 Safari/537.22"
     # freebsd
-    if [ "x$(uname)" = "xFreeBSD" ] && [ -e "$(which fetch 2>&1)" ];then
+    if [ "x${UNAME}" = "xFreeBSD" ] && [ -e "$(which fetch 2>&1)" ];then
         $(which fetch) -pra -o ${fname} $url
     # wget
 
