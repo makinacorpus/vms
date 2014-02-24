@@ -521,6 +521,7 @@ remount_vm() {
 
 down() {
     cd "${VMPATH}"
+    umount_vm
     log "Down !"
     if [ "x$(status)" = "xrunning" ];then
         pre_down
