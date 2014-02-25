@@ -1128,7 +1128,7 @@ sync_hosts() {
     cd "${VMPATH}"
     cp "${hosts}" "${lhosts}"
     # search for all devhosts files
-    ls -1 "${blockp}"* 2>/dev/null | egrep -v '.bak$' | while read block;do
+    ls -1 "${blockp}"* 2>/dev/null |grep -v "\.bak$"| egrep -v '.bak$' | while read block;do
         if [ "x${block}" = "x" ];then
             break
         fi
@@ -1178,9 +1178,10 @@ sync_hosts() {
             cat "${block}" >> "${lhosts}"
         else
             # replace block in /etc/hosts
-            sed  -ne "1,/${START}\$/ p" "${hosts}"|egrep -v "^${START}" > "${lhosts}"
-            cat "${block}"                      >> "${lhosts}"
-            sed  -ne "/${END}\$/,\$ p" "${hosts}" |egrep -v "^${END}" >> "${lhosts}"
+            sed -ne "1,/${START}$/ p" "${hosts}"|egrep -v "^${START}" > "${lhosts}"
+            cat "${block}"                                            >> "${lhosts}"
+            sed -ne "/${END}$/,$ p" "${hosts}" |egrep -v "^${END}"    >> "${lhosts}"
+            /bin/true
         fi
     done
     die_in_error "Hosts mangling is invalid"
