@@ -559,7 +559,6 @@ get_version_file() {
 }
 
 get_version() {
-    ver="0"
     vfile="$(get_version_file)"
     if [ -e "${vfile}" ];then
         ver="$(cat "${vfile}")"
@@ -1041,14 +1040,14 @@ import() {
         log "   - Run it with: ${THIS} up"
         log "   - Delete it with: ${THIS} destroy"
     else
-        if [ "x${image}" = "xhttp*" ];then
+        if [ "x$(echo ${image}|grep -q http;echo ${?})" = "x0" ];then
             url="${image}"
             image="$(basename ${image})"
             do_download=""
             if [ ! -e ${image} ];then
                 do_download="1"
             fi
-            if [ "$(check_tmp_file ${image})" = "x" ];then
+            if [ "x$(check_tmp_file ${image})" = "x" ];then
                 do_download="1"
             fi
             if [ "x${do_download}" != "x" ];then
