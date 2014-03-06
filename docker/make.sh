@@ -467,7 +467,7 @@ make_image_ubuntu_raring() {
 make_image_ubuntu_precise() {
     tag="makinacorpus/ubuntu_precise"
     ubuntu_dockerfile $tag
-    make_image_from_remote_tarball $UBUNTU_PRECICE_IMG $tag
+    make_image_from_remote_tarball $UBUNTU_PRECISE_IMG $tag
 }
 
 make_images() {
