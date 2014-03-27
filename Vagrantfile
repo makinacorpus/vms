@@ -95,17 +95,17 @@ end
 if defined?(UBUNTU_RELEASE)
     vagrant_config_lines << "UBUNTU_RELEASE=\"#{UBUNTU_RELEASE}\""
 else
-    UBUNTU_RELEASE="precise"
+    UBUNTU_RELEASE="saucy"
 end
 if defined?(UBUNTU_LTS_RELEASE)
     vagrant_config_lines << "UBUNTU_LTS_RELEASE=\"#{UBUNTU_LTS_RELEASE}\""
 else
-    UBUNTU_LTS_RELEASE="precise"
+    UBUNTU_LTS_RELEASE="trusty"
 end
 if defined?(UBUNTU_NEXT_RELEASE)
     vagrant_config_lines << "UBUNTU_NEXT_RELEASE=\"#{UBUNTU_NEXT_RELEASE}\""
 else
-    UBUNTU_NEXT_RELEASE="saucy"
+    UBUNTU_NEXT_RELEASE="trusty"
 end
 
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)

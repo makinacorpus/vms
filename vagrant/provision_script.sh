@@ -624,7 +624,7 @@ install_keys() {
     lazy_apt_get_install rsync
     # run lxc devhost settings
     # and this will also trigger installing root ssh keys
-    salt-call --local -lall state.sls makina-states.cloud.lxc.devhost.install.devhost-ssh-keys
+    salt-call --local -lall state.sls makina-states.cloud.lxc.compute_node.devhost.install.devhost-ssh-keys
 }
 
 cleanup_salt() {
