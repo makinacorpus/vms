@@ -2,7 +2,7 @@
 LAUNCH_ARGS="${@}"
 UNAME="$(uname)"
 actions=""
-actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm version"
+actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm version shutdown poweroff"
 actions_exportimport="export import"
 actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm release internal_ssh gen_ssh_config reset is_mounted"
 actions_alias="-h --help --long-help -l -v --version"
@@ -519,6 +519,14 @@ remount_vm() {
     umount_vm && mount_vm
 }
 
+poweroff() {
+    down "${@}"
+}
+
+shutdown() {
+    down "${@}"
+}
+
 down() {
     cd "${VMPATH}"
     umount_vm
@@ -719,7 +727,7 @@ mount_vm() {
             fi
             if [ "x${UNAME}" != "xDarwin" ];then
                 sshopts="${sshopts},nonempty"
-            fi                       
+            fi
             sshfs -F "${ssh_config}" root@${sshhost}:/guest -o ${sshopts} "${VM}"
         else
             log "Cant' mount devhost, empty ssh host"
@@ -1147,28 +1155,28 @@ sync_hosts() {
             die "missing end tag"
         fi
         if [ "x$(echo "${START}"|grep -q "#-- start devhost";echo ${?})" != "x0" ];then
-            die "invalid start tag(c): ${START}"
+            die "${block}: invalid start tag(c): ${START}"
         fi
         if [ "x$(echo "${END}"|grep -q "#-- end devhost";echo ${?})" != "x0" ];then
-            die "invalid end tag(c): ${END}"
+            die "${block}: invalid end tag(c): ${END}"
         fi
         if [ "x${START}" = "x${END}" ];then
-            die "invalid start tag is same as end: ${END}"
+            die "${block}: invalid start tag is same as end: ${END}"
         fi
         if [ "x${start_lines}" != "x0" ] || [ "x${end_lines}" != "x0" ];then
             if [ "x${start_lines}" != "x1" ];then
-                die "Weird start/end markers is absent or multiple, balling out (s:${start_lines}/${end_lines})"
+                die "${block}: Weird start/end markers is absent or multiple, balling out (s:${start_lines}/${end_lines})"
             fi
             if [ "x${end_lines}" != "x1" ];then
-                die "Weird start/end markers is absent or multiple, balling out (e:${end_lines}/${end_lines})"
+                die "${block}: Weird start/end markers is absent or multiple, balling out (e:${end_lines}/${end_lines})"
             fi
         fi
         if [ "x${block_start_lines}" != "x0" ] || [ "x${block_end_lines}" != "x0" ];then
             if [ "x${block_start_lines}" != "x1" ];then
-                die "Weird block_tart/block_end markers is absent or multiple, balling out (s:${block_start_lines}/${block_end_lines})"
+                die "${block}: Weird block_tart/block_end markers is absent or multiple, balling out (s:${block_start_lines}/${block_end_lines})"
             fi
             if [ "x${block_end_lines}" != "x1" ];then
-                die "Weird block_start/block_end markers is absent or multiple, balling out (e:${block_end_lines}/${block_end_lines})"
+                die "${block}: Weird block_start/block_end markers is absent or multiple, balling out (e:${block_end_lines}/${block_end_lines})"
             fi
         fi
         if [ "x$(grep -- "${START}" "${hosts}"|wc -l|sed -e "s/ //g")" = "x0" ];then
@@ -1177,9 +1185,10 @@ sync_hosts() {
             cat "${block}" >> "${lhosts}"
         else
             # replace block in /etc/hosts
-            sed -ne "1,/${START}$/ p" "${hosts}"|egrep -v "^${START}" > "${lhosts}"
-            cat "${block}"                                            >> "${lhosts}"
-            sed -ne "/${END}$/,$ p" "${hosts}" |egrep -v "^${END}"    >> "${lhosts}"
+            sed -ne "1,/${START}$/ p" "${lhosts}"|egrep -v "^${START}" > "${lhosts}".tmp
+            cat "${block}"                                             >> "${lhosts}".tmp
+            sed -ne "/${END}$/,$ p" "${lhosts}" |egrep -v "^${END}"    >> "${lhosts}".tmp
+            mv -f  "${lhosts}".tmp  "${lhosts}"
             /bin/true
         fi
     done

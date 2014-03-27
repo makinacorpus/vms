@@ -342,11 +342,26 @@ configure_network() {
     output " [*] Temporary DNs overrides in /etc/resolv.conf : ${DNS_SERVER}, 8.8.8.8 & 4.4.4.4"
     ensure_localhost_in_hosts
     # DNS TMP OVERRIDE
+    NSADD=""
+    if [[ -n "$IS_UBUNTU" ]];then
+        NSADD="nameserver 127.0.0.1"
+    fi
     cat > /etc/resolv.conf << DNSEOF
+$NSADD
 nameserver ${DNS_SERVER}
 nameserver 8.8.8.8
 nameserver 4.4.4.4
 DNSEOF
+    if [ -e /etc/resolvconf/resolv.conf.d/head ];then
+        cat > /etc/resolvconf/resolv.conf.d/head << DNSEOF
+$NSADD
+nameserver ${DNS_SERVER}
+nameserver 8.8.8.8
+nameserver 4.4.4.4
+DNSEOF
+        service resolvconf restart
+        /bin/true
+    fi
 }
 
 configure_docker_network() {
@@ -480,7 +495,7 @@ install_backports() {
 
 run_boot_salt() {
     bootsalt="$MS/_scripts/boot-salt.sh"
-    boot_args="-C -M -n vagrantvm -m devhost${DEVHOST_NUM}"
+    boot_args="-C -M -MM --mastersalt localhost -n vagrantvm -m devhost${DEVHOST_NUM}.local"
     local ret="0"
     if [[ ! -e "$bootsalt_marker" ]];then
         boot_word="Bootstrap"
@@ -601,47 +616,15 @@ migrate_old_stuff() {
 
 cleanup_keys() {
     lazy_apt_get_install rsync
-    for user_home in $(awk -F: '{if ($6!="") print $1 ":" $6}' /etc/passwd);do
-        user="$(echo $user_home|awk -F: '{print $1}')"
-        home="$(echo $user_home|awk -F: '{print $2}')"
-        sshf="$home/.ssh"
-        if [[ -e "$sshf" ]];then
-            for i in $(ls $sshf);do
-                fulli="$sshf/$i"
-                cleanup=y
-                # only keep authorized* files
-                case $i in
-                    author*) cleanup="";
-                        ;;
-                esac
-                if [[ -n $cleanup ]];then
-                    rm -fvr "$fulli"
-                fi
-            done
-        fi
-    done
+    salt-call --local -lall state.sls makina-states.nodetypes.cleanup-ssh-keys
+
 }
 
 install_keys() {
     lazy_apt_get_install rsync
-    users="vagrant root"
-    for user in $users;do
-        home=$(awk -F: -v v="$user" '{if ($1==v && $6!="") print $6}' /etc/passwd)
-        if [[ -e "$home" ]];then
-            rsync\
-                -av\
-                --exclude=authorized_keys* \
-                /mnt/parent_ssh/ "$home/.ssh/"
-            for i in /home/vagrant/.ssh/author*;do
-                dest=$home/.ssh/$(basename $i)
-                if [[ "$i" != "$dest" ]];then
-                    cp -rvf "$i" "$dest"
-                fi
-            done
-            chmod -Rf 700 "$home/.ssh"
-            chown -Rf $user "$home/.ssh"
-        fi
-    done
+    # run lxc devhost settings
+    # and this will also trigger installing root ssh keys
+    salt-call --local -lall state.sls makina-states.cloud.lxc.devhost.install.devhost-ssh-keys
 }
 
 cleanup_salt() {
@@ -999,8 +982,6 @@ if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
     output " [*] You can safely relaunch this script from within the vm"
     set_vars
     reset_hostname
-    #
-    install_keys
     handle_export
     handle_invalid
     handle_old_changeset
@@ -1011,6 +992,7 @@ if [[ -z $VAGRANT_PROVISION_AS_FUNCS ]];then
     configure_network
     base_packages_sanitization
     install_or_refresh_makina_states
+    install_keys
     open_routes
     cleanup_space
     check_restart
