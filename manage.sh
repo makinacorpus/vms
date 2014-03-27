@@ -2,7 +2,7 @@
 LAUNCH_ARGS="${@}"
 UNAME="$(uname)"
 actions=""
-actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm version shutdown poweroff"
+actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm version shutdown poweroff off"
 actions_exportimport="export import"
 actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm release internal_ssh gen_ssh_config reset is_mounted"
 actions_alias="-h --help --long-help -l -v --version"
@@ -522,6 +522,11 @@ remount_vm() {
 poweroff() {
     down "${@}"
 }
+
+off() {
+    down "${@}"
+}
+
 
 shutdown() {
     down "${@}"
