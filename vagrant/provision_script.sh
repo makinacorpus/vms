@@ -111,8 +111,8 @@ detect_os() {
 set_vars() {
     LTS_KVER='saucy'
     ADDITIONNAL_BOOTSALT_ARGS="${ADDITIONNAL_BOOTSALT_ARGS:-}"
-    VM_OLD_SALT_CHANGESET="b1ab50cc402382fc1f9777a29e9a8ec9cada262c"
-    VM_OLD_MAKINASTATES_CHANGESET="06a05be867876962aef73f9c45a9646ad3b4f9ac"
+    VM_OLD_SALT_CHANGESET="d1a11fbef1f4b8fc9128cf0e942ec90d3eac5959"
+    VM_OLD_MAKINASTATES_CHANGESET="ae6c27644cb61c74ac41426237ef217213d03589"
     NOT_EXPORTED="proc sys dev lost+found guest"
     VM_EXPORT_MOUNTPOINT="/guest"
     ROOT="/"
@@ -159,7 +159,7 @@ set_vars() {
     detect_os
 
     # order is important
-    LXC_PKGS="lxc apparmor apparmor-profiles"
+    LXC_PKGS="lxc apparmor apparmor-profiles sshfs"
     KERNEL_PKGS="linux-source linux-image-generic linux-headers-generic linux-image-extra-virtual"
     VB_PKGS="virtualbox virtualbox-dkms virtualbox-source virtualbox-qt"
     VB_PKGS="$VB_PKGS virtualbox-guest-additions-iso virtualbox-guest-dkms virtualbox-guest-source"
@@ -616,15 +616,22 @@ migrate_old_stuff() {
 
 cleanup_keys() {
     lazy_apt_get_install rsync
-    salt-call --local -lall state.sls makina-states.nodetypes.cleanup-ssh-keys
-
+    if [ ! -f /sbin/ms-cleanup-sshkeys.sh ];then
+        salt-call --local -linfo state.sls makina-states.nodetypes.cleanup-ssh-keys
+    else
+        /sbin/ms-cleanup-sshkeys.sh
+    fi
 }
 
 install_keys() {
     lazy_apt_get_install rsync
     # run lxc devhost settings
     # and this will also trigger installing root ssh keys
-    salt-call --local -lall state.sls makina-states.cloud.lxc.devhost.install.devhost-ssh-keys
+    if [ ! -f /sbin/devhost-installkeys.sh ];then
+        salt-call --local -linfo state.sls makina-states.cloud.lxc.compute_node.devhost.install.devhost-ssh-keys
+    else
+        /sbin/devhost-installkeys.sh
+    fi
 }
 
 cleanup_salt() {

@@ -727,13 +727,16 @@ mount_vm() {
         if [ "x${sshhost}" != "x" ];then
             log "Mounting devhost(${sshhost}):/ --sshfs--> ${VM}"
             sshopts="transform_symlinks,reconnect,BatchMode=yes"
-            if [ "x$(egrep "^user_allow_other" /etc/fuse.conf 2>/dev/null|wc -l|sed -e "s/ //g")" != "0" ];then
+            if [ "x$(egrep "^user_allow_other" /etc/fuse.conf 2>/dev/null|wc -l|sed -e "s/ //g")" != "x0" ];then
                 sshopts="${sshopts},allow_other"
             fi
             if [ "x${UNAME}" != "xDarwin" ];then
                 sshopts="${sshopts},nonempty"
             fi
             sshfs -F "${ssh_config}" root@${sshhost}:/guest -o ${sshopts} "${VM}"
+            if internal_ssh sudo test -e /sbin/lxc-devhostmount.sh;then
+                internal_ssh sudo /sbin/lxc-devhostmount.sh mount
+            fi
         else
             log "Cant' mount devhost, empty ssh host"
             exit -1
