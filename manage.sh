@@ -737,6 +737,9 @@ mount_vm() {
             if internal_ssh sudo test -e /sbin/lxc-devhostmount.sh;then
                 internal_ssh sudo /sbin/lxc-devhostmount.sh mount
             fi
+            if [ ! -e "${VM}/srv/salt/makina-states" ];then
+                vagrant_ssh "sudo ${PROVISION_WRAPPER} create_vm_mountpoint"
+            fi
         else
             log "Cant' mount devhost, empty ssh host"
             exit -1
