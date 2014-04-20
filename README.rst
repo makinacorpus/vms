@@ -18,7 +18,7 @@ Vagrant boxes
 ++++++++++++++
 For vagrant images, we provide on specific branch those boxes:
 
-- **master**: Ubuntu trusty / 64 bits Ubuntu
+- **vagrant-ubuntu-lts-trusty64**: Ubuntu trusty / 64 bits
 - **vagrant-ubuntu-1310-saucy64** Ubuntu sacy / 64 bits
 - **vagrant-ubuntu-1304-raring64**: Ubuntu raring / 64 bits
 - **vagrant-ubuntu-lts-precise64**: Ubuntu raring / 64 bits
