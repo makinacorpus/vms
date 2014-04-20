@@ -95,7 +95,7 @@ end
 if defined?(UBUNTU_RELEASE)
     vagrant_config_lines << "UBUNTU_RELEASE=\"#{UBUNTU_RELEASE}\""
 else
-    UBUNTU_RELEASE="saucy"
+    UBUNTU_RELEASE="trusty"
 end
 if defined?(UBUNTU_LTS_RELEASE)
     vagrant_config_lines << "UBUNTU_LTS_RELEASE=\"#{UBUNTU_LTS_RELEASE}\""
