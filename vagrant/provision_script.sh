@@ -186,8 +186,8 @@ ready_to_run() {
     output " [*] VM is now ready for './manage.sh ssh' or other usages..."
     output " ------------------------------- [ OK] -----------------------------------------"
     output " Once connected as root in the vm with \"./manage.sh ssh\" and \"sudo su -\""
-    output "   * You can upgrade all your projects with \"salt-call [-l all] state.highstate\""
-    output "   * You can run one specific state with \"salt-call [-l all] state.sls name-of-state\""
+    output "   * You can upgrade all your projects with \"(master)salt-call [-l all] state.highstate\""
+    output "   * You can run one specific state with \"(master)salt-call [-l all] state.sls name-of-state\""
     output " If you want to share this wm, use ./manage.sh export | import"
     output " Stop vm with './manage.sh down', connect it with './manage.sh ssh'"
 }
@@ -237,7 +237,7 @@ delete_old_stuff() {
 }
 
 get_grain() {
-    salt-call --local grains.get $1 --out=raw 2>/dev/null
+    mastersalt-call --local grains.get $1 --out=raw 2>/dev/null
 }
 
 is_apt_installed() {
@@ -267,9 +267,9 @@ salt_set_grain() {
     output " [*] Testing salt grain '$grain'='$val'"
     if [[ "$(get_grain $grain)" != *"$val"* ]];then
         output " [*] Setting salt grain $grain=$val to mark this host as a dev host for salt-stack"
-        salt-call --local grains.setval $grain $val
+        mastersalt-call --local grains.setval $grain $val
         # sync grains right now, do not wait for reboot
-        salt-call saltutil.sync_grains
+        mastersalt-call saltutil.sync_grains
     else
         output " [*] Grain '$grain' already set"
     fi
@@ -554,9 +554,9 @@ install_or_refresh_makina_states() {
 }
 
 old_editor_group_stuff() {
-    if [[ -e "$(which salt-call 2> /dev/null)" ]];then
-        EDITOR_GID="$(salt-call --local pillar.get salt.filesystem.gid 65753|grep -v 'local:'|sed -re 's/\s//g')"
-        EDITOR_GROUP="$(salt-call --local pillar.get salt.filesystem.group editor|grep -v 'local:'|sed -re 's/\s//g')"
+    if [[ -e "$(which mastersalt-call 2> /dev/null)" ]];then
+        EDITOR_GID="$(mastersalt-call --local pillar.get salt.filesystem.gid 65753|grep -v 'local:'|sed -re 's/\s//g')"
+        EDITOR_GROUP="$(mastersalt-call --local pillar.get salt.filesystem.group editor|grep -v 'local:'|sed -re 's/\s//g')"
     fi
     oldg=$(getent group "$EDITOR_GID"|awk -F: '{print $1}')
     if [[ "$oldg" != "$EDITOR_GROUP" ]];then
@@ -616,7 +616,7 @@ migrate_old_stuff() {
 
 cleanup_keys() {
     lazy_apt_get_install rsync
-    salt-call --local -lall state.sls makina-states.nodetypes.cleanup-ssh-keys
+    mastersalt-call --local -lall state.sls makina-states.nodetypes.cleanup-ssh-keys
 
 }
 
@@ -624,7 +624,7 @@ install_keys() {
     lazy_apt_get_install rsync
     # run lxc devhost settings
     # and this will also trigger installing root ssh keys
-    salt-call --local -lall state.sls makina-states.cloud.lxc.compute_node.devhost.install.devhost-ssh-keys
+    mastersalt-call --local -lall state.sls makina-states.cloud.lxc.compute_node.devhost.devhost-ssh-keys
 }
 
 cleanup_salt() {
