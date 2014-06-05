@@ -98,10 +98,10 @@ You could make you a supersudoer without password to avoid sudo questions when l
 
 For a Debian / Ubuntu deb-like host:
 
-    url="https://dl.bintray.com/mitchellh/vagrant/vagrant_1.4.3_x86_64.deb";wget "$url"
-    sudo dpkg -i vagrant_1.3.5_x86_64.deb
+    url="https://dl.bintray.com/mitchellh/vagrant/vagrant_1.6.3_x86_64.deb";wget "$url"
+    sudo dpkg -i vagrant_1.6.3_x86_64.deb
 
-For macosx, use `<https://dl.bintray.com/mitchellh/vagrant/Vagrant-1.4.3.dmg>`_
+For macosx, use `<https://dl.bintray.com/mitchellh/vagrant/vagrant_1.6.3.dmg>`_
 
 **IMPORTANT** THE VBGUEST PLUGIN, to sync the guest addition packages from your
 host virtualbox version::
