@@ -155,6 +155,9 @@ Take care with this part, it can prevent your system from booting.
         * Reload the settings::
 
             sysctl -p
+Configure sshfs
+-----------------
+Ensure that user_allow_other is on /etc/fuse.conf and uncommented out
 
 Installation & control
 ------------------------------
