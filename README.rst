@@ -392,3 +392,4 @@ Hack
 - `<./doc/hack.rst>`_
 
 .. vim:set ts=4 sts=4:
+devhost-vagrant-ubuntu-1504-vivid64-lbApL0uKQNmecJrX.tar.bz2 doc LICENSE.txt manage.sh packer README.rst share test.sh vagrant vagrant_config.yml Vagrantfile VM
