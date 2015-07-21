@@ -99,7 +99,6 @@ cfg['HAS_NFS'] = false
 cfg['DEVHOST_AUTO_UPDATE'] = true
 cfg['AUTO_UPDATE_VBOXGUEST_ADD'] = true
 cfg['DNS_SERVERS'] = '8.8.8.8'
-cfg['BOX_PRIVATE_SUBNET_BASE'] = "10.1."
 # OS
 cfg['OS'] = 'Ubuntu'
 cfg['OS_RELEASE'] = 'vivid'
@@ -150,6 +149,16 @@ if not cfg['DEVHOST_NUM']
 end
 localcfg['DEVHOST_NUM'] = cfg['DEVHOST_NUM']
 
+# NETWORK
+cfg.setdefault('BOX_PRIVATE_SUBNET_BASE', "10.1.")
+cfg.setdefault('BOX_PRIVATE_SUBNET', "#{cfg['BOX_PRIVATE_SUBNET_BASE']}#{cfg['DEVHOST_NUM']}")
+
+# BOX SELECTION
+cfg.setdefault('BOX', "#{cfg['OS_RELEASE']}64")
+cfg.setdefault('BOX_URI',
+               "http://cloud-images.ubuntu.com/vagrant/"\
+               "#{cfg['OS_RELEASE']}/current/#{cfg['OS_RELEASE']}-server-cloudimg-amd64-vagrant-disk1.box")
+
 # save back config to yaml (mainly for persiting devhost_num)
 File.open("#{VSETTINGS_Y}", 'w') {|f| f.write localcfg.to_yaml }
 
@@ -157,13 +166,8 @@ File.open("#{VSETTINGS_Y}", 'w') {|f| f.write localcfg.to_yaml }
 mountpoints = {"./share" => "/vagrant/share", "./packer" => "/vagrant/packer", "./vagrant" => "/vagrant/vagrant"}
 
 #------------ Computed variables ------------------------
-cfg.setdefault('BOX', "#{cfg['OS_RELEASE']}64")
-cfg.setdefault('BOX_URI',
-               "http://cloud-images.ubuntu.com/vagrant/"\
-               "#{cfg['OS_RELEASE']}/current/#{cfg['OS_RELEASE']}-server-cloudimg-amd64-vagrant-disk1.box")
 cfg['VIRTUALBOX_BASE_VM_NAME'] = "DevHost #{cfg['DEVHOST_NUM']} #{cfg['OS']} #{cfg['OS_RELEASE']}64"
 cfg['VM_HOST'] = "devhost#{cfg['DEVHOST_NUM']}"
-cfg['BOX_PRIVATE_SUBNET'] = "#{cfg['BOX_PRIVATE_SUBNET_BASE']}#{cfg['DEVHOST_NUM']}"
 cfg['MTU_SET'] = if os == :macosx then "/bin/true" else "ifconfig eth1 mtu 9000" end
 
 Vagrant.configure("2") do |config|
@@ -197,9 +201,9 @@ Vagrant.configure("2") do |config|
      hostname = "#{cfg['VM_HOST']}-#{machine_num}"
      machine = hostname
      config.vm.define  machine do |sub|
-       box_private_ip=cfg['BOX_PRIVATE_SUBNET']+".#{machine_num + 1}"
-       fqdn="#{machine}.local"
-       virtualbox_vm_name="#{cfg['VIRTUALBOX_BASE_VM_NAME']} #{machine_num} (#{SCWD})"
+       box_private_ip = cfg['BOX_PRIVATE_SUBNET']+".#{machine_num + 1}"
+       fqdn = "#{machine}.local"
+       virtualbox_vm_name = "#{cfg['VIRTUALBOX_BASE_VM_NAME']} #{machine_num} (#{SCWD})"
        sub.vm.box = cfg['BOX']
        sub.vm.box_url = cfg['BOX_URI']
        if machine_num > 1
@@ -208,7 +212,7 @@ Vagrant.configure("2") do |config|
            sub.vm.host_name = fqdn
        end
        sub.vm.provider "virtualbox" do |vb|
-           vb.name="#{virtualbox_vm_name}"
+           vb.name = "#{virtualbox_vm_name}"
        end
        sub.vm.network "private_network", ip: box_private_ip, adapter: 2
        # vagrant 1.3 HACK: provision is now run only at first boot, we want to run it every time
