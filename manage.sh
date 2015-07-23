@@ -1296,8 +1296,7 @@ import() {
             fi
             if [ ! -e "${box}" ];then
                 log "Unarchiving ${image}"
-                # need to sudo to restore sticky GID
-                sudo tar ${tar_preopts} "${image}" $tar_postopts
+                tar ${tar_preopts} "${image}" $tar_postopts
                 if [ "x${?}" != "x0" ];then
                     log "Error unarchiving ${image}"
                     return 1
