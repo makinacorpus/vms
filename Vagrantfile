@@ -114,11 +114,16 @@ localcfg = Hash.new
 VSETTINGS_Y = "#{CWD}/vagrant_config.yml"
 if File.exist?(VSETTINGS_Y)
   localcfg = YAML.load_file(VSETTINGS_Y)
+  if ! localcfg then localcfg = Hash.new end
 end
 cfg = cfg.merge(localcfg)
 
 # Can be overidden by env. (used by manage.sh import/export)
 cfg.each_pair { |i, val| cfg[i] = ENV.fetch("DEVHOST_#{i}", val) }
+['BOX', 'BOX_URI', 'BOX_PRIVATE_SUBNET_BASE', 'BOX_PRIVATE_SUBNET'].each do |i|
+    val = ENV.fetch("DEVHOST_#{i}", nil)
+    if val != nil then cfg[i] = val end
+end
 
 # IP managment
 # The box used a default NAT private IP, defined automatically by vagrant and virtualbox
