@@ -1326,7 +1326,7 @@ import() {
         sed -i -e "/SSH_INSERT_KEY/d" ./vagrant_config.yml &&\
         sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.yml
     uplret=1
-    for i in $(all_hosts);do
+    for i in $(default_to_all_hosts);do
         up $i && uplret=${?}
         down $i
         if [ "x${uplret}" != "x0" ];then
