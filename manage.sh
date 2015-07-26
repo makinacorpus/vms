@@ -394,26 +394,6 @@ default_to_all_hosts() {
     fi
 }
 
-vagrant_ssh() {
-    local sshhost="$(default_to_first_host ${sshhost})"
-    local slug="${sshhost//-/}"
-    eval local stest="\$SSH_CONFIG_DONE_${slug}"
-    if [ "x${stest}" = "x" ];then
-        if [ "x${@}" != "x" ];then
-            vagrant ssh ${sshhost} -c "${@}"
-        else
-            vagrant ssh ${sshhost}
-        fi
-    else
-        if [ "x${@}" != "x" ];then
-            sshuser=${sshuser:-vagrant} internal_ssh "${@}"
-        else
-            sshuser=${sshuser:-vagrant} internal_ssh
-        fi
-    fi
-    unset sshhost
-}
-
 destroy() {
     cd "${VMPATH}"
     local u=""
@@ -435,76 +415,14 @@ suspend() {
     done
 }
 
-
-internal_ssh() {
-    cd "${VMPATH}"
-    local sshhost=""
-    if [ "x${1}" != "x" ];then
-        if all_hosts|sed -e "s/\(^\|$\)/ /g" | grep -q " ${1} ";then
-            sshhost="${1}"
-            shift
-        fi
-    fi
-    sshhost="$(default_to_first_host ${sshhost})"
-    if [ ! -e ${internal_ssh_config}-${sshhost} ];then
-        log " [*] missing ${internal_ssh_config}-${sshhost}"
-        return 1
-    fi
-
-    if [ "x${sshhost}" != "x" ];then
-        active_echo
-        $(which ssh) -o ConnectTimeout=2 -F "${internal_ssh_config}-${sshhost}" "${sshhost}" ${@}
-        unactive_echo
-    else
-        log "Cant internal ssh, empty host"
-        return 1
-    fi
-}
-
-ssh__() {
-    cd "${VMPATH}"
-    local sshhost=""
-    if [ "x${1}" != "x" ];then
-        if sshhost=${1} raw_internal_ssh true 2>/dev/null;then
-            sshhost="${1}"
-            shift
-        elif all_hosts|sed -e "s/\(^\|$\)/ /g" | grep -q " ${1} ";then
-            sshhost="${1}"
-            shift
-        fi
-    fi
-    sshhost="$(default_to_first_host ${sshhost})"
-    if [ ! -e "${internal_ssh_config}-${sshhost}" ];then
-        log " [*] missing ${internal_ssh_config}-${sshhost}"
-        return 1
-    fi
-    if [ "x${sshhost}" != "x" ];then
-        active_echo
-        local sconfig="" sconfigt=""
-        gen_ssh_configs $sshhost
-        local func=""
-        for func in raw_ssh raw_internal_ssh;do
-            if ${func} true;then break;fi
-            func=""
-        done
-        if [ "x${func}" = "x" ];then
-            log "Cant ssh, unreachable: $i (tried: ${ssh_config}-${sshhost} ${internal_ssh_config}-${sshhost})"
-            return 1
-        fi
-        ${func} "${@}"
-        unactive_echo
-    else
-        log "Cant ssh, empty host $i"
-        return 1
-    fi
-}
-
 set_wrapper_present(){
     local sshhost="$(default_to_first_host ${1:-${sshhost}})"
     local slug="${sshhost//-/}"
     eval local stest="\$WRAPPER_PRESENT_${slug}"
     if [ "x${stest}" = "x" ];then
-        if [ "x$(vagrant_ssh "sudo test -e \"${PROVISION_WRAPPER}\" &>/dev/null;echo ${?}" 2>/dev/null)" = "x0" ];then
+        if [ "x$(sshuser=vagrant sshhost=$sshhost \
+                  raw_internal_ssh_ \
+                    sudo test -e "${PROVISION_WRAPPER}";echo ${?})" = "x0" ];then
             eval WRAPPER_PRESENT_${slug}="1"
         fi
     fi
@@ -535,10 +453,6 @@ raw_ssh_() {
     ssh -o ConnectTimeout=2 -F "${ssh_config}-${sshhost}" ${sshuser}@${sshhost} "${@}"
 }
 
-raw_ssh() {
-    gen_hostonly_ssh_config $sshhost
-    raw_ssh_ "${@}"
-}
 
 raw_internal_ssh_() {
     local sshhost="$(default_to_first_host ${sshhost})"
@@ -546,39 +460,32 @@ raw_internal_ssh_() {
     ssh -o ConnectTimeout=2 -F "${internal_ssh_config}-${sshhost}" ${sshuser}@${sshhost} "${@}"
 }
 
-raw_internal_ssh() {
-    gen_internal_ssh_config $sshhost
-    raw_internal_ssh_ "${@}"
-}
-
 gen_internal_ssh_config() {
-    local sshhost=""
-    for sshhost in ${@:-$(grep "Host " ${ssh_config} | awk '{print $2}')};do
-        local slug="${sshhost//-/}"
-        # if config is present and usable, use it
-        eval local stest="\$SSH_CONFIG_DONE_${slug}"
-        if [ "x${stest}" = "x" ] && [ -e "${internal_ssh_config}-${sshhost}" ];then
-            raw_internal_ssh_ true 2>/dev/null && eval SSH_CONFIG_DONE_${slug}="1"
+    local sshhost="$(default_to_first_host $1)"
+    local slug="${sshhost//-/}"
+    # if config is present and usable, use it
+    eval local stest="\$SSH_CONFIG_DONE_${slug}"
+    if [ "x${stest}" = "x" ] && [ -e "${internal_ssh_config}-${sshhost}" ];then
+        raw_internal_ssh_ true 2>/dev/null && eval SSH_CONFIG_DONE_${slug}="1"
+    fi
+    eval stest="\$SSH_CONFIG_DONE_${slug}"
+    if [ "x${stest}" = "x" ];then
+        local vsshconfig=$(vagrant ssh-config $sshhost 2>/dev/null)
+        if [ "x${vsshconfig}" != "x" ];then
+            echo -e "${vsshconfig}">"${internal_ssh_config}-${sshhost}"
         fi
-        eval stest="\$SSH_CONFIG_DONE_${slug}"
-        if [ "x${stest}" = "x" ];then
-            local vsshconfig=$(vagrant ssh-config $sshhost 2>/dev/null)
-            if [ "x${vsshconfig}" != "x" ];then
-                echo -e "${vsshconfig}">"${internal_ssh_config}-${sshhost}"
-            fi
-            if [ ! -f "${internal_ssh_config}-${sshhost}" ];then
-                log "$sshhost: Cant generate ${internal_ssh_config}-${sshhost}"
-                return 1
-            else
-                eval SSH_CONFIG_DONE_${slug}="1"
-            fi
+        if [ ! -f "${internal_ssh_config}-${sshhost}" ];then
+            log "$sshhost: Cant generate ${internal_ssh_config}-${sshhost}"
+            return 1
+        else
+            eval SSH_CONFIG_DONE_${slug}="1"
         fi
-    done
+    fi
 }
 
 get_host_ip() {
     local sshhost="$(default_to_first_host ${1:-${sshhost}})"
-    hostip=$(raw_internal_ssh ip addr show dev eth1)
+    hostip=$(sshuser=root sshhost=$sshhost raw_internal_ssh_ ip addr show dev eth1)
     if [ "x${hostip}" != "x" ];then
         hostip=$(echo "${hostip}"|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
     fi
@@ -586,33 +493,43 @@ get_host_ip() {
 }
 
 gen_hostonly_ssh_config() {
-    local sshhost=""
-    for sshhost in ${@:-$(grep "Host " ${ssh_config} | awk '{print $2}')};do
-        local slug="${sshhost//-/}"
-        eval local stest="\$HOSTONLY_SSH_CONFIG_DONE_${slug}"
-        if [ "x${stest}" = "x" ] \
-            && [ -e "${ssh_config}-${sshhost}" ] \
-            && ! grep -q 127.0.0.1 "${ssh_config}-${sshhost}"; then
-            raw_ssh_ true 2>/dev/null && eval HOSTONLY_SSH_CONFIG_DONE_${slug}="1"
+    local sshhost="$(default_to_first_host ${1:-${sshhost}})"
+    local slug="${sshhost//-/}"
+    eval local stest="\$HOSTONLY_SSH_CONFIG_DONE_${slug}"
+    if [ "x${stest}" = "x" ] \
+        && [ -e "${ssh_config}-${sshhost}" ] \
+        && ! grep -q 127.0.0.1 "${ssh_config}-${sshhost}"; then
+        raw_ssh_ true 2>/dev/null && eval HOSTONLY_SSH_CONFIG_DONE_${slug}="1"
+    fi
+    eval local stest="\$HOSTONLY_SSH_CONFIG_DONE_${slug}"
+    if [ "x${stest}" = "x" ];then
+        gen_internal_ssh_config ${sshhost}
+        eval local scptest="\$HOSTONLY_SSH_CP_CONFIG_DONE_${slug}"
+        if [ "x${scptest}" = "x" ];then
+            cp -f "${internal_ssh_config}-${sshhost}" "${ssh_config}-${sshhost}"
+            eval HOSTONLY_SSH_CP_CONFIG_DONE_${slug}=-1
         fi
-        eval local stest="\$HOSTONLY_SSH_CONFIG_DONE_${slug}"
-        if [ "x${stest}" = "x" ];then
-            gen_internal_ssh_config ${sshhost}
-            eval local scptest="\$HOSTONLY_SSH_CP_CONFIG_DONE_${slug}"
-            if [ "x${scptest}" = "x" ];then
-                cp -f "${internal_ssh_config}-${sshhost}" "${ssh_config}-${sshhost}"
-                eval HOSTONLY_SSH_CP_CONFIG_DONE_${slug}=-1
-            fi
-            hostip=$(get_host_ip $sshhost)
-            if [ "x${hostip}" != "x" ];then
-                sed -i -e "/Host ${sshhost}/, /Host / s/HostName.*/HostName ${hostip}/g" "${ssh_config}-${sshhost}"
-                sed -i -e "/Port.*/d" "${ssh_config}-${sshhost}"
-                eval HOSTONLY_SSH_CONFIG_DONE_${slug}=1
-            else
-                log "${sshhost}: Fallback to internal as we could not detect any ip on eth1"
-            fi
+        hostip=$(get_host_ip $sshhost)
+        if [ "x${hostip}" != "x" ];then
+            sed -i -e "/Host ${sshhost}/, /Host / s/HostName.*/HostName ${hostip}/g" "${ssh_config}-${sshhost}"
+            sed -i -e "/Port.*/d" "${ssh_config}-${sshhost}"
+            eval HOSTONLY_SSH_CONFIG_DONE_${slug}=1
+        else
+            log "${sshhost}: Fallback to internal as we could not detect any ip on eth1"
         fi
-    done
+    fi
+}
+
+raw_ssh() {
+    local sshhost="$(default_to_first_host ${sshhost})"
+    gen_hostonly_ssh_config $sshhost
+    raw_ssh_ "${@}"
+}
+
+raw_internal_ssh() {
+    local sshhost="$(default_to_first_host ${sshhost})"
+    gen_internal_ssh_config $sshhost
+    raw_internal_ssh_ "${@}"
 }
 
 gen_ssh_configs() {
@@ -636,7 +553,7 @@ install_keys() {
     for i in $(default_to_all_hosts $@);do
         gen_ssh_configs $i
         if set_wrapper_present $i;then
-            sshhost=${i} vagrant_ssh "sudo ${PROVISION_WRAPPER} sync_ssh" 2>/dev/null
+            sshuser=vagrant sshhost=${i} raw_internal_ssh_ sudo ${PROVISION_WRAPPER} sync_ssh 2>/dev/null
         else
             log "Warning: $i: could not install ssh keys, shared folder mountpoint seems not present"
         fi
@@ -654,13 +571,37 @@ ssh_pre_reqs() {
 }
 
 ssh_() {
-    local sshhost=$(default_to_first_host ${1})
-    if ! raw_ssh true;then
-        log " [*] VM $sshhost is not running"
-        log   "   You should start via ./manage.sh up $sshhost, or ./manage.sh init $sshhost first"
-        return 1
+    cd "${VMPATH}"
+    local sshhost="${sshhost:-}" allhosts="$(all_hosts)"
+    if [ "x${1}" != "x" ] && [ "x${sshhost}" = "x" ];then
+        if echo "$allhosts" | sed -e "s/\(^\|$\)/ /g" | grep -q " ${1} ";then
+            sshhost="${1}"
+            shift
+        fi
+    fi
+    if [ "x${sshhost}" = "x" ];then
+        sshhost="$(default_to_first_host ${allhosts})"
+    fi
+    if [ "x${sshhost}" != "x" ];then
+        active_echo
+        local sconfig="" sconfigt=""
+        gen_ssh_configs $sshhost
+        local func=""
+        for func in raw_ssh raw_internal_ssh;do
+            if ${func} true;then break;fi
+            func=""
+        done
+        if [ "x${func}" = "x" ];then
+            log "Cant ssh, unreachable: $i (tried: ${ssh_config}-${sshhost} ${internal_ssh_config}-${sshhost})"
+            log " [*] is VM $sshhost is not running"
+            log   "   You should start via ./manage.sh up $sshhost, or ./manage.sh init $sshhost first"
+            return 1
+        fi
+        ${func} "${@}"
+        unactive_echo
     else
-        ssh__ ${sshhost}
+        log "Cant ssh, empty host $i"
+        return 1
     fi
 }
 
@@ -669,7 +610,7 @@ pre_down() {
     for i in $(default_to_all_hosts $@);do
         if [ "x$(status)" = "xrunning" ];then
             umount_vm $i
-            sshhost=$i vagrant_ssh "sudo sync" 2>/dev/null
+            sshuser=vagrant sshhost=$i raw_internal_ssh_ sudo sync 2>/dev/null
         else
             log " [*] pre_down: VM already stopped $i"
         fi
@@ -721,7 +662,8 @@ maybe_finish_creation() {
     for i in $(default_to_all_hosts $@);do
         if [ "x${lret}" != "x0" ];then
             for i in $(seq 3);do
-                marker="$(sshhost=$i vagrant_ssh "sudo test -e ${restart_marker}" &> /dev/null;echo ${?})"
+                marker="$(sshuser=vagrant sshhost=$i raw_internal_ssh_ \
+                    bash -c "sudo test -e ${restart_marker}" &> /dev/null;echo ${?})"
                 if [ "x${marker}" = "x0" ];then
                     log "$i: First runs, we issue a scheduled reload after the first up(s)"
                     reload ${i}
@@ -1036,7 +978,7 @@ up() {
         lret=${?}
         # be sure of jumbo frames on anything else that macosx
         if [ "x${notrunning}" != "x" ] && [ "x${UNAME}" != "xDarwin" ];then
-            sshhost=$i vagrant_ssh "sudo ifconfig eth1 mtu 9000" 2>/dev/null
+            sshuser=vagrant sshhost=$i raw_internal_ssh_ sudo ifconfig eth1 mtu 9000 2>/dev/null
         fi
         post_up ${lret} ${i}
     done
@@ -1168,10 +1110,13 @@ export_() {
             return -1
         fi
         if [ "x${nosed}" = "x" ];then
-            vagrant_ssh "if sudo test -d ${netrules};then sudo rm -rf ${netrules};sudo mkdir ${netrules};fi";
-            vagrant_ssh "if sudo test -e ${netrules};then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i ${netrules};fi";
+            sshuser=vagrant sshhost=$sshhost raw_internal_ssh_ \
+                bash -c "if sudo test -d ${netrules};then sudo rm -rf ${netrules};sudo mkdir ${netrules};fi";
+            sshuser=vagrant sshhost=$sshhost raw_internal_ssh_ \
+                bash -c "if sudo test -e ${netrules};then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i ${netrules};fi";
         fi
-        vagrant_ssh "sudo ${PROVISION_WRAPPER} mark_export" 2>/dev/null &&\
+        sshuser=vagrant sshhost=$sshhost raw_internal_ssh_ \
+          sudo ${PROVISION_WRAPPER} mark_export 2>/dev/null &&\
             down $sshhost &&\
             export DEVHOST_BOX="${bname}" &&\
             log "Be patient, exporting now $sshhost" &&\
@@ -1186,8 +1131,9 @@ export_() {
                 log "${VMPATH}/${abox}, delete it to redo"
             fi
             down $sshhost && up $sshhost --no-provision &&\
-                vagrant_ssh "sudo ${PROVISION_WRAPPER} unmark_exported" 2>/dev/null && down
-    else
+              sshuser=vagrant sshhost=$sshhost raw_internal_ssh_ \
+                sudo ${PROVISION_WRAPPER} unmark_exported 2>/dev/null && down
+        else
         log "$sshhost: ${VMPATH}/${box} exists, delete it to redo"
     fi
 }
@@ -1470,7 +1416,7 @@ do_zerofree() {
     local sshhost="$(default_to_first_host ${1:-$sshhost})"
     log "Zerofree starting for $sshhost ! DO NOT INTERRUPT ANYMORE"\
         && up ${sshhost}\
-        && ssh__ $sshhost sudo /sbin/zerofree.sh\
+        && sshuser=vagrant raw_internal_ssh_ sudo /sbin/zerofree.sh\
         && log " [*] VM Zerofreed: $sshhost"
 }
 
