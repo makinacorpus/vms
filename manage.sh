@@ -663,7 +663,7 @@ maybe_finish_creation() {
         if [ "x${lret}" != "x0" ];then
             for i in $(seq 3);do
                 marker="$(sshuser=vagrant sshhost=$i raw_internal_ssh_ \
-                    bash -c "sudo test -e ${restart_marker}" &> /dev/null;echo ${?})"
+                    sudo test -e ${restart_marker} &> /dev/null;echo ${?})"
                 if [ "x${marker}" = "x0" ];then
                     log "$i: First runs, we issue a scheduled reload after the first up(s)"
                     reload ${i}
@@ -1111,9 +1111,9 @@ export_() {
         fi
         if [ "x${nosed}" = "x" ];then
             sshuser=vagrant sshhost=$sshhost raw_internal_ssh_ \
-                bash -c "if sudo test -d ${netrules};then sudo rm -rf ${netrules};sudo mkdir ${netrules};fi";
+                "bash -c \"if sudo test -d ${netrules};then sudo rm -rf ${netrules};sudo mkdir ${netrules};fi\""
             sshuser=vagrant sshhost=$sshhost raw_internal_ssh_ \
-                bash -c "if sudo test -e ${netrules};then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i ${netrules};fi";
+                "bash -c \"if sudo test -e ${netrules};then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i ${netrules};fi\""
         fi
         sshuser=vagrant sshhost=$sshhost raw_internal_ssh_ \
           sudo ${PROVISION_WRAPPER} mark_export 2>/dev/null &&\
