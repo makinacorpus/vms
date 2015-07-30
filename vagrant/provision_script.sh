@@ -566,7 +566,8 @@ reset_git_configs() {
 }
 
 sync_ssh() {
-    rsync -a /home/vagrant/.ssh/ /root/.ssh/
+    if [ ! -e /root/.ssh/ ];then mkdir /root/.ssh/;fi
+    rsync -a /home/vagrant/.ssh/authorized* /root/.ssh/
     chown -Rf root:root /root/.ssh/
 }
 
