@@ -7,7 +7,7 @@ VAGRANTFILE_API_VERSION = "2"
 CWD = File.dirname(__FILE__)
 SCWD = CWD.gsub(/\//, '_').slice(1..-1)
 if File.exists? "#{CWD}/vagrant_config.rb"
-    raise "Migrate your vagrant_config.rb to vagrant_config.yaml (same variables but in yaml format)"
+    raise "Migrate your vagrant_config.rb to vagrant_config.yml (same variables but in yaml format)"
 end
 
 def eprintf(*args)

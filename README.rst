@@ -203,10 +203,10 @@ Daily usage
 
 Manage several Virtualboxes
 +++++++++++++++++++++++++++
-You can tweak some settings via a special config file: ``vagrant_config.rb``
+You can tweak some settings via a special config file: ``vagrant_config.yml``
 
   - Read the Vagrantfile top section, containing VM cpu and memory settings and even more.
-  - From there, as explained, you should create a .vagrant_config.rb file, to alter what you need.
+  - From there, as explained, you should create a .vagrant_config.yml file, to alter what you need.
 For exemple, you can clone the **vms** git repository on another place where you can manage another vagrant based virtualbox vm.
 
 Notorious settings are the apt mirror to use at startup, the number of cpus, the
@@ -216,13 +216,12 @@ DEVHOST_NUM
 ~~~~~~~~~~~~
 **You will indeed realise that there is a magic DEVHOST_NUM setting (take the last avalaible one as a default).**
 
-You can then this settings, along with the other settings in **vagrant_config.rb** .
+You can then this settings, along with the other settings in **vagrant_config.yml** .
 By default this file is not yet created and will be created on first usage. But we can enforce it right before the first ``vagrant up``::
 
-    cat  > vagrant_config.rb << EOF
-    module MyConfig
-      DEVHOST_NUM="22"
-    end
+    cat > vagrant_config.yml << EOF
+    --
+    DEVHOST_NUM: 22
     EOF
 
 This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1.42.43** for the private network.
@@ -238,10 +237,8 @@ But after that, you can reconfigure the boxes to do what their respectives roles
 bring them to do...
 ::
 
-    cat  > vagrant_config.rb << EOF
-    module MyConfig
-      MACHINES="3"
-    end
+    cat > vagrant_config.yml << EOF
+    MACHINES: 3
     EOF
 
 ::
