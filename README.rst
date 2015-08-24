@@ -220,7 +220,7 @@ You can then this settings, along with the other settings in **vagrant_config.ym
 By default this file is not yet created and will be created on first usage. But we can enforce it right before the first ``vagrant up``::
 
     cat > vagrant_config.yml << EOF
-    --
+    ---
     DEVHOST_NUM: 22
     EOF
 
@@ -238,6 +238,7 @@ bring them to do...
 ::
 
     cat > vagrant_config.yml << EOF
+    ---
     MACHINES: 3
     EOF
 

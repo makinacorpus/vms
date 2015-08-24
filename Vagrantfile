@@ -32,7 +32,7 @@ end
 # The most importants are:
 #    DEVHOST_NUM (network subnet related, default: lower available)
 # -------------o<---------------
-# --
+# ---
 # CPUS: 1
 # MEMORY: 512
 # DEVHOST_NUM: 3
