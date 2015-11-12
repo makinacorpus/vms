@@ -1,6 +1,5 @@
 # -*- mode: ruby -*-
 # vim: set ft=ruby ts=2 et sts=2 tw=0 ai:
-#
 # !!!!!!!!!!!!!!!!:
 # !!! IMPORTANT !!!
 # !!!!!!!!!!!!!!!!!
@@ -29,7 +28,6 @@ def eprintf(*args)
   $stdout = STDOUT
 end
 
-
 # --------------------- CONFIGURATION ZONE ----------------------------------
 #
 # If you want to alter any configuration setting, put theses settings in a ./vagrant_config.rb file
@@ -45,12 +43,14 @@ end
 # module MyConfig
 #    DEVHOST_NUM="3"
 #    VIRTUALBOX_VM_NAME="Super devhost Vm"
-#    BOX_NAME="saucy64"
-#    BOX_URI="http://foo/saucy64.img
+#    BOX_NAME="vivid64"
+#    BOX_URI="http://foo/vivid64.img
 #    MEMORY="512"
 #    CPUS="1"
 #    MAX_CPU_USAGE_PERCENT="25"
-#    DNS_SERVER="8.8.8.8"
+#    DNS_SERVERS="8.8.8.8"
+#    #APT_MIRROR="http://mirror.ovh.net/ftp.ubuntu.com/"
+#    #APT_MIRROR="http://ubuntu-archive.mirrors.proxad.net/ubuntu/"
 #    # set it to true to replace default Virtualbox shares
 #    # by nfs shares, if you have problems with guests additions
 #    # for example
@@ -92,21 +92,7 @@ rescue LoadError
 end
 # --- End Load optional config file -----------------
 
-if defined?(UBUNTU_RELEASE)
-    vagrant_config_lines << "UBUNTU_RELEASE=\"#{UBUNTU_RELEASE}\""
-else
-    UBUNTU_RELEASE="trusty"
-end
-if defined?(UBUNTU_LTS_RELEASE)
-    vagrant_config_lines << "UBUNTU_LTS_RELEASE=\"#{UBUNTU_LTS_RELEASE}\""
-else
-    UBUNTU_LTS_RELEASE="trusty"
-end
-if defined?(UBUNTU_NEXT_RELEASE)
-    vagrant_config_lines << "UBUNTU_NEXT_RELEASE=\"#{UBUNTU_NEXT_RELEASE}\""
-else
-    UBUNTU_NEXT_RELEASE="trusty"
-end
+UBUNTU_RELEASE="vivid"
 
 # MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
 if defined?(MEMORY)
@@ -181,13 +167,12 @@ if not defined?(DEVHOST_NUM)
 end
 vagrant_config_lines << "DEVHOST_NUM=\"#{DEVHOST_NUM}\""
 BOX_PRIVATE_SUBNET_BASE="10.1." unless defined?(BOX_PRIVATE_SUBNET_BASE)
-DOCKER_NETWORK_BASE="172.31." unless defined?(DOCKER_NETWORK_BASE)
 
 # Custom dns server
-if defined?(DNS_SERVER)
-    vagrant_config_lines << "DNS_SERVER=\"#{DNS_SERVER}\""
+if defined?(DNS_SERVERS)
+    vagrant_config_lines << "DNS_SERVER=\"#{DNS_SERVERS}\""
 else
-    DNS_SERVER="8.8.8.8"
+    DNS_SERVERS="8.8.8.8"
 end
 
 # This is the case on ubuntu <= 13.10
@@ -199,26 +184,10 @@ else
 end
 
 # ------------- Mirror to download packages -----------------------
-if defined?(LOCAL_MIRROR)
-    vagrant_config_lines << "LOCAL_MIRROR=\"#{LOCAL_MIRROR}\""
+if defined?(APT_MIRROR)
+    vagrant_config_lines << "APT_MIRROR=\"#{APT_MIRROR}\""
 else
-    LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
-end
-if defined?(OFFICIAL_MIRROR)
-    vagrant_config_lines << "OFFICIAL_MIRROR=\"#{OFFICIAL_MIRROR}\""
-else
-    OFFICIAL_MIRROR="http://archive.ubuntu.com/ubuntu"
-end
-# let this one to the previous mirror for it to be automaticly replaced
-if defined?(PREVIOUS_LOCAL_MIRROR)
-    vagrant_config_lines << "PREVIOUS_LOCAL_MIRROR=\"#{PREVIOUS_LOCAL_MIRROR}\""
-else
-    PREVIOUS_LOCAL_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
-end
-if defined?(PREVIOUS_OFFICIAL_MIRROR)
-    vagrant_config_lines << "PREVIOUS_OFFICIAL_MIRROR=\"#{PREVIOUS_OFFICIAL_MIRROR}\""
-else
-    PREVIOUS_OFFICIAL_MIRROR="http://us.archive.ubuntu.com/ubuntu"
+    APT_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
 end
 
 # ----------------- END CONFIGURATION ZONE ----------------------------------
@@ -229,16 +198,6 @@ end
 BOX_PRIVATE_SUBNET=BOX_PRIVATE_SUBNET_BASE+DEVHOST_NUM
 BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43" # so 10.1.XX.YY by default
 BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
-# To enable dockers to be interlinked between multiple virtuabox,
-# we also setup a specific docker network subnet per virtualbox host
-DOCKER_NETWORK_IF="docker0"
-DOCKER_NETWORK_HOST_IF="eth0"
-DOCKER_NETWORK_SUBNET=DOCKER_NETWORK_BASE+DEVHOST_NUM # so 172.31.xx.0 by default
-DOCKER_NETWORK=DOCKER_NETWORK_SUBNET+".0"
-DOCKER_NETWORK_GATEWAY=DOCKER_NETWORK_SUBNET+".254"
-DOCKER_NETWORK_MASK="255.255.255.0"
-DOCKER_NETWORK_MASK_NUM="24"
-
 # md5 based on currentpath
 # Name on your VirtualBox panel
 VIRTUALBOX_BASE_VM_NAME="DevHost "+DEVHOST_NUM+" Ubuntu "+UBUNTU_RELEASE+"64"
@@ -257,9 +216,7 @@ if devhost_debug
   eprintf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
 end
 
-
 VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhostxx.local by default
-
 
 # ------------- BASE IMAGE UBUNTU  -----------------------
 # You can pre-download this image with
@@ -279,7 +236,6 @@ else
 end
 
 # -- Other things ----------------------------------------------------------
-
 # Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
 VAGRANTFILE_API_VERSION = "2"
 
@@ -329,7 +285,7 @@ Vagrant.configure("2") do |config|
   # In this /srv we'll find the salt-stack things and projects
   # we use SSHFS to avoid speed penalities on VirtualBox (between *10 and *100)
   # and the "sendfile" bugs with nginx and apache
-  #config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
+  # config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
   # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
   #
   # Warning: we share folder on a per folder basic to avoid filesystems loops
@@ -361,14 +317,6 @@ Vagrant.configure("2") do |config|
                   "udp", "rsize=32768", "wsize=32768",
               ],
           })
-      else
-          # from the guest mount of etc, so we can alter current hosts definitions
-          # in /etc/hosts from the guest (insecure by definition)
-          # the limitation with permission and virtualbox shared folders (vboxsf)
-          # is that we can edit existing files but cant create new ones
-          if mountpoint == "/etc"
-              shared_folder_args.update({:owner => "root", :group => "root"})
-          end
       end
       config.vm.synced_folder(mountpoint, target, shared_folder_args)
   end
@@ -437,17 +385,7 @@ Vagrant.configure("2") do |config|
       `sudo dseditgroup -o edit -t user -a #{user} #{newgroup}`
     end
   end
-
-  if devhost_debug
-      eprintf(" [*] checking local routes to %s/%s via %s. If sudo password is requested then it means we need to alter local host routing...\n",DOCKER_NETWORK,DOCKER_NETWORK_MASK_NUM,BOX_PRIVATE_IP)
-  end
-  if os == :linux or os == :unix
-    # Linux
-    `if ip route show|grep "#{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo ip route replace #{BOX_PRIVATE_IP} via #{BOX_PRIVATE_GW}; sudo ip route replace #{DOCKER_NETWORK}/#{DOCKER_NETWORK_MASK_NUM} via #{BOX_PRIVATE_IP}; fi;`
-  else
-    #Mac
-    `if netstat -rn|grep "#{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK}"|grep -q "#{BOX_PRIVATE_IP}";then echo "routes ok"; else sudo route -n add -net #{DOCKER_NETWORK_SUBNET}/#{DOCKER_NETWORK_MASK_NUM} #{BOX_PRIVATE_IP};fi;`
-  end
+  
   if devhost_debug
     eprintf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
   end
@@ -466,7 +404,7 @@ vsettings_f=File.open(VSETTINGS_P, "w")
 vsettings_f.write(vagrant_config)
 vsettings_f.close()
 
-mtu_set="ifconfig eth1 mtu 9000"
+mtu_set = "ifconfig eth1 mtu 9000"
 if os == :macosx
     mtu_set="/bin/true"
 end
@@ -526,27 +464,15 @@ EOF},
 DEVHOST_DEBUG="#{DEVHOST_DEBUG}"
 DEVHOST_HAS_NFS="#{DEVHOST_HAS_NFS}"
 DEVHOST_AUTO_UPDATE="#{DEVHOST_AUTO_UPDATE}"
-DNS_SERVER="#{DNS_SERVER}"
+DNS_SERVERS="#{DNS_SERVERS}"
 DEVHOST_NUM="#{DEVHOST_NUM}"
 DEVHOST_HOSTNAME="#{VM_HOSTNAME}"
-PREVIOUS_OFFICIAL_MIRROR="#{PREVIOUS_OFFICIAL_MIRROR}"
-PREVIOUS_LOCAL_MIRROR="#{PREVIOUS_LOCAL_MIRROR}"
-OFFICIAL_MIRROR="#{OFFICIAL_MIRROR}"
-LOCAL_MIRROR="#{LOCAL_MIRROR}"
-UBUNTU_RELEASE="#{UBUNTU_RELEASE}"
-UBUNTU_NEXT_RELEASE="#{UBUNTU_NEXT_RELEASE}"
-DOCKER_NETWORK_HOST_IF="#{DOCKER_NETWORK_HOST_IF}"
-DOCKER_NETWORK_IF="#{DOCKER_NETWORK_IF}"
-DOCKER_NETWORK_BASE="#{DOCKER_NETWORK_IF}"
-DOCKER_NETWORK_SUBNET="#{DOCKER_NETWORK_SUBNET}"
-DOCKER_NETWORK_GATEWAY="#{DOCKER_NETWORK_GATEWAY}"
-DOCKER_NETWORK="#{DOCKER_NETWORK}"
-DOCKER_NETWORK_MASK="#{DOCKER_NETWORK_MASK}"
-DOCKER_NETWORK_MASK_NUM="#{DOCKER_NETWORK_MASK_NUM}"
+APT_MIRROR="#{APT_MIRROR}"
 ZHOST_OS="#{UNAME}"
 VB_NAME="#{VIRTUALBOX_VM_NAME}"
 EOF},
       "chmod 700 /root/vagrant/provision_*.sh",
+      "rm -f /tmp/vagrant_provision_needs_restart",
       "/root/vagrant/provision_net.sh;",
       "/root/vagrant/provision_nfs.sh;",
       # "set +x",

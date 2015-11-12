@@ -2,7 +2,7 @@
 LAUNCH_ARGS="${@}"
 UNAME="$(uname)"
 actions=""
-actions_main_usage="usage init ssh up reload destroy down suspend status sync_hosts clonevm remount_vm umount_vm version shutdown poweroff off"
+actions_main_usage="usage init ssh up reload destroy down suspend status clonevm remount_vm umount_vm version shutdown poweroff off"
 actions_exportimport="export import"
 actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm release internal_ssh gen_ssh_config reset is_mounted"
 actions_alias="-h --help --long-help -l -v --version"
@@ -166,11 +166,6 @@ usage() {
                     help_header ${i} "[URL | FILEPATH]"
                     help_content "      Initialise a new VM from either the specified archive produced by"
                     help_content "      the export command or by default to the last stable release (no arguments to init)"
-                    ;;
-                sync_hosts)
-                    help_header ${i} "[DEVHOST hosts block file] [/etc/hosts path]"
-                    help_content "      Synchronize the devhost ${DEFAULT_DNS_BLOCKFILE} to the host /etc/hosts"
-                    help_content "      It is called automatically upon reload & up, but you can also call it manually"
                     ;;
                 status)
                     help_header ${i}
@@ -1124,97 +1119,6 @@ import() {
         else
             log "Box ${box} imported !"
         fi
-    fi
-    NO_SYNC_HOSTS=${DEFAULT_NO_SYNC_HOSTS}
-}
-
-sync_hosts() {
-    log "Synchronize hosts entries"
-    if [ "x${NO_SYNC_HOSTS}" != "x" ];then return;fi
-    blockp="${1:-${DEFAULT_DNS_BLOCKFILE}}"
-    hosts="${2:-${DEFAULT_HOSTS_FILE}}"
-    lhosts=.vagrant/hosts
-    if [ "x$(status)" != "xrunning" ];then
-        up
-    fi
-    cd "${VMPATH}"
-    cp "${hosts}" "${lhosts}"
-    # search for all devhosts files
-    ls -1 "${blockp}"* 2>/dev/null |grep -v "\.bak$"| egrep -v '.bak$' | while read block;do
-        if [ "x${block}" = "x" ];then
-            break
-        fi
-        if [ ! -d .vagrant ];then mkdir .vagrant;fi
-        if [ ! -e "${block}" ];then die "invalid hosts block file: ${block}";fi
-        if [ ! -e "${hosts}" ];then die "invalid hosts file: ${hosts}";fi
-        START=$(cat "${block}"|head -n1)
-        END=$(cat "${block}"|tail -n1)
-        start_lines=$(grep -- "${START}" "${hosts}"|wc -l|sed -e "s/ //g")
-        end_lines=$(grep -- "${END}" "${hosts}"|wc -l|sed -e "s/ //g")
-        block_start_lines=$(grep -- "${START}" "${block}"|wc -l|sed -e "s/ //g")
-        block_end_lines=$(grep -- "${END}" "${block}"|wc -l|sed -e "s/ //g")
-        if [ "x${START}" = "x" ];then
-            die "missing start tag"
-        fi
-        if [ "x${END}" = "x" ];then
-            die "missing end tag"
-        fi
-        if [ "x$(echo "${START}"|grep -q "#-- start devhost";echo ${?})" != "x0" ];then
-            die "${block}: invalid start tag(c): ${START}"
-        fi
-        if [ "x$(echo "${END}"|grep -q "#-- end devhost";echo ${?})" != "x0" ];then
-            die "${block}: invalid end tag(c): ${END}"
-        fi
-        if [ "x${START}" = "x${END}" ];then
-            die "${block}: invalid start tag is same as end: ${END}"
-        fi
-        if [ "x${start_lines}" != "x0" ] || [ "x${end_lines}" != "x0" ];then
-            if [ "x${start_lines}" != "x1" ];then
-                die "${block}: Weird start/end markers is absent or multiple, balling out (s:${start_lines}/${end_lines})"
-            fi
-            if [ "x${end_lines}" != "x1" ];then
-                die "${block}: Weird start/end markers is absent or multiple, balling out (e:${end_lines}/${end_lines})"
-            fi
-        fi
-        if [ "x${block_start_lines}" != "x0" ] || [ "x${block_end_lines}" != "x0" ];then
-            if [ "x${block_start_lines}" != "x1" ];then
-                die "${block}: Weird block_tart/block_end markers is absent or multiple, balling out (s:${block_start_lines}/${block_end_lines})"
-            fi
-            if [ "x${block_end_lines}" != "x1" ];then
-                die "${block}: Weird block_start/block_end markers is absent or multiple, balling out (e:${block_end_lines}/${block_end_lines})"
-            fi
-        fi
-        if [ "x$(grep -- "${START}" "${hosts}"|wc -l|sed -e "s/ //g")" = "x0" ];then
-            # Add block in /etc/hosts
-            echo >> "${lhosts}"
-            cat "${block}" >> "${lhosts}"
-        else
-            # replace block in /etc/hosts
-            sed -ne "1,/${START}$/ p" "${lhosts}"|egrep -v "^${START}" > "${lhosts}".tmp
-            cat "${block}"                                             >> "${lhosts}".tmp
-            sed -ne "/${END}$/,$ p" "${lhosts}" |egrep -v "^${END}"    >> "${lhosts}".tmp
-            mv -f  "${lhosts}".tmp  "${lhosts}"
-            /bin/true
-        fi
-    done
-    die_in_error "Hosts mangling is invalid"
-    diff=$(which diff)
-    diff -q "${hosts}" "${lhosts}" &> /dev/null
-    if [ "x${?}" != "x0" ];then
-        log "Adding ${block} hosts to ${hosts}"
-        if [ "x${NO_INPUT}" = "x" ];then
-            diff -u "${hosts}" "${lhosts}"
-            log "Add content of ${lhosts} to ${hosts}?"
-            log "[press y+ENTER, or CONTROL+C to abort]";read input
-        fi
-        if [ "x${NO_INPUT}" != "x" ] || [ "x${input}" = "xy" ];then
-            log "Replacing ${hosts}"
-            sudo cp -f "${lhosts}" "${hosts}"
-        else
-            log "Leaving ${hosts} as-is"
-        fi
-    else
-        log "/etc/hosts is already up-to-date"
     fi
 }
 
