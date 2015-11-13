@@ -299,19 +299,19 @@ run_boot_salt() {
         MS_BOOT_ARGS="-S ${MS_BOOT_ARGS}"
     fi
     output " [*] $boot_word makina-states..."
-    if [ ! -e "$bootsalt" ];then
+    if [ ! -e "${bootsalt}" ];then
         output " [*] Running makina-states bootstrap directly from github"
         wget "http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh" -O "/tmp/boot-salt.sh"
         bootsalt="/tmp/boot-salt.sh"
     fi
-    chmod u+x "$bootsalt"
-    if [ ! -e "$bootsalt_marker" ];then
+    chmod u+x "${bootsalt}"
+    if [ ! -e "${bootsalt_marker}" ];then
         activate_debug
-        "$bootsalt" ${MS_BOOT_ARGS} && touch "$bootsalt_marker"
+        "${bootsalt}" ${MS_BOOT_ARGS} && touch "${bootsalt_marker}"
         ret=${?}
         deactivate_debug
     fi
-    die_in_error_ $ret "Bootsalt failed"
+    die_in_error_ ${ret} "Bootsalt failed"
     . /etc/profile
 }
 
