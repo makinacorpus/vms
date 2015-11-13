@@ -296,7 +296,7 @@ run_boot_salt() {
         boot_word="Bootstrap"
     else
         boot_word="Refresh"
-        MS_BOOT_ARGS="-S $boot_args"
+        MS_BOOT_ARGS="-S ${MS_BOOT_ARGS}"
     fi
     output " [*] $boot_word makina-states..."
     if [ ! -e "$bootsalt" ];then
