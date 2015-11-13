@@ -53,7 +53,7 @@ end
 #    #APT_MIRROR="http://ubuntu-archive.mirrors.proxad.net/ubuntu/"
 #    #MS_BRANCH="stable"
 #    #MS_NODETYPE="vagrantvm"
-#    #MS_BOOT_ARGS="-C -MM --mastersalt localhost -b ${MS_BRANCH} -n ${MS_NODETYPE} -m devhost${DEVHOST_NUM}.local"
+#    #MS_BOOT_ARGS="-C -MM --mastersalt localhost -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m devhost\\${DEVHOST_NUM}.local"
 #    # set it to true to replace default Virtualbox shares
 #    # by nfs shares, if you have problems with guests additions
 #    # for example
@@ -235,7 +235,7 @@ end
 if defined?(MS_BOOT_ARGS)
     vagrant_config_lines << "MS_BOOT_ARGS=\"#{MS_BOOT_ARGS}\""
 else
-    MS_BOOT_ARGS="-C -MM --mastersalt localhost -b ${MS_BRANCH} -n ${MS_NODETYPE} -m devhost${DEVHOST_NUM}.local"
+    MS_BOOT_ARGS="-C -MM --mastersalt localhost -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m devhost\\${DEVHOST_NUM}.local"
 end
 
 # ------------- BASE IMAGE UBUNTU  -----------------------
