@@ -307,7 +307,7 @@ run_boot_salt() {
     chmod u+x "$bootsalt"
     if [ ! -e "$bootsalt_marker" ];then
         activate_debug
-        "$bootsalt" $boot_args && touch "$bootsalt_marker"
+        "$bootsalt" ${MS_BOOT_ARGS} && touch "$bootsalt_marker"
         ret=${?}
         deactivate_debug
     fi
