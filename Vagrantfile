@@ -51,6 +51,9 @@ end
 #    DNS_SERVERS="8.8.8.8"
 #    #APT_MIRROR="http://mirror.ovh.net/ftp.ubuntu.com/"
 #    #APT_MIRROR="http://ubuntu-archive.mirrors.proxad.net/ubuntu/"
+#    #MS_BRANCH="stable"
+#    #MS_NODETYPE="vagrantvm"
+#    #MS_BOOT_ARGS="-C -MM --mastersalt localhost -b ${MS_BRANCH} -n ${MS_NODETYPE} -m devhost${DEVHOST_NUM}.local"
 #    # set it to true to replace default Virtualbox shares
 #    # by nfs shares, if you have problems with guests additions
 #    # for example
@@ -217,6 +220,23 @@ if devhost_debug
 end
 
 VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhostxx.local by default
+
+# ------------- MAKINA STATES CONFIGURATION -----------------------
+if defined?(MS_BRANCH)
+    vagrant_config_lines << "MS_BRANCH=\"#{MS_BRANCH}\""
+else
+    MS_BRANCH="stable"
+end
+if defined?(MS_NODETYPE)
+    vagrant_config_lines << "MS_NODETYPE=\"#{MS_NODETYPE}\""
+else
+    MS_NODETYPE="vagrantvm"
+end
+if defined?(MS_BOOT_ARGS)
+    vagrant_config_lines << "MS_BOOT_ARGS=\"#{MS_BOOT_ARGS}\""
+else
+    MS_BOOT_ARGS="-C -MM --mastersalt localhost -b ${MS_BRANCH} -n ${MS_NODETYPE} -m devhost${DEVHOST_NUM}.local"
+end
 
 # ------------- BASE IMAGE UBUNTU  -----------------------
 # You can pre-download this image with
@@ -385,7 +405,7 @@ Vagrant.configure("2") do |config|
       `sudo dseditgroup -o edit -t user -a #{user} #{newgroup}`
     end
   end
-  
+
   if devhost_debug
     eprintf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
   end
@@ -470,6 +490,9 @@ DEVHOST_HOSTNAME="#{VM_HOSTNAME}"
 APT_MIRROR="#{APT_MIRROR}"
 ZHOST_OS="#{UNAME}"
 VB_NAME="#{VIRTUALBOX_VM_NAME}"
+MS_BRANCH="#{MS_BRANCH}"
+MS_NODETYPE="#{MS_NODETYPE}"
+MS_BOOT_ARGS="#{MS_BOOT_ARGS}"
 EOF},
       "chmod 700 /root/vagrant/provision_*.sh",
       "rm -f /tmp/vagrant_provision_needs_restart",

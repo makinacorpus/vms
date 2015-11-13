@@ -87,9 +87,10 @@ detect_os() {
 }
 
 set_vars() {
-    ADDITIONNAL_BOOTSALT_ARGS="${ADDITIONNAL_BOOTSALT_ARGS:-}"
     NOT_EXPORTED="proc sys dev lost+found guest"
     VM_EXPORT_MOUNTPOINT="/guest"
+    MS_BRANCH="${MS_BRANCH:-master}"
+    MS_NODETYPE="${MS_NODETYPE:-vagrantvm}"
     ROOT="/"
     CONF_ROOT="${CONF_ROOT:-"${ROOT}etc"}"
     PREFIX="${PREFIX:-"${ROOT}srv"}"
@@ -99,6 +100,7 @@ set_vars() {
         output " [*] Loading custom settings in ${SETTINGS}"
         . "$SETTINGS"
     fi
+    MS_BOOT_ARGS="${MS_BOOT_ARGS:-"-C -M -MM --mastersalt localhost -b ${MS_BRANCH} -n ${MS_NODETYPE} -m devhost${DEVHOST_NUM}.local"}"
     # Markers must not be on a shared folder for a new VM to be reprovisionned correctly
     MARKERS="${MARKERS:-"${ROOT}root/vagrant/markers"}"
     DNS_SERVERS="${DNS_SERVERS:-"8.8.8.8 4.4.4.4"}"
@@ -289,15 +291,13 @@ install_backports() {
 
 run_boot_salt() {
     bootsalt="$MS/_scripts/boot-salt.sh"
-    boot_args="-C -M -MM --mastersalt localhost -n vagrantvm -m devhost${DEVHOST_NUM}.local"
     local ret="0"
     if [ ! -e "$bootsalt_marker" ];then
         boot_word="Bootstrap"
     else
         boot_word="Refresh"
-        boot_args="-S $boot_args"
+        MS_BOOT_ARGS="-S $boot_args"
     fi
-    boot_args="${boot_args} ${ADDITIONNAL_BOOTSALT_ARGS}"
     output " [*] $boot_word makina-states..."
     if [ ! -e "$bootsalt" ];then
         output " [*] Running makina-states bootstrap directly from github"
@@ -470,26 +470,26 @@ create_vm_mountpoint() {
             if [ " $NOT_EXPORTED " != *" $mountpoint "* ];then
                 if [ -d "$mountpoint" ];then
                     if [ ! -d "$dest" ];then
-                        mkdir -pv "$dest"
+                        mkdir -pv "${dest}"
                     fi
-                elif [ -e "$mountpoint" ];then
-                    touch "$dest"
+                elif [ -e "${mountpoint}" ];then
+                    touch "${dest}"
                 fi
                 if [ "x$(is_mounted "$dest")" = "x" ];then
-                    log "Bind-Mounting /$mountpoint -> $dest"
-                    mount -o bind,rw,exec "$mountpoint" "$dest"
+                    log "Bind-Mounting /${mountpoint} -> ${dest}"
+                    mount -o bind,rw,exec "${mountpoint}" "${dest}"
                     # is a symlink on debian, to /proc/mounts
                     if [ "x$(readlink "/etc/mtab")" != "x/proc/mounts" ];then
                         cat /proc/mounts>/etc/mtab
                     fi
                 else
                     if [ "x${DEBUG}" != "x" ];then
-                        log "Skipping $mountpoint, not exported (not a dir/file)"
+                        log "Skipping ${mountpoint}, not exported (not a dir/file)"
                     fi
                 fi
             else
                 if [ "x${DEBUG}" != "x" ];then
-                    log "Skipping $mountpoint, not exported"
+                    log "Skipping ${mountpoint}, not exported"
                 fi
             fi
         fi
@@ -499,13 +499,13 @@ create_vm_mountpoint() {
 
 umount_guest_mountpoint(){
     local hdone="0"
-    mount|grep $VM_EXPORT_MOUNTPOINT|awk '{print $3}'|while read i;do
+    mount|grep ${VM_EXPORT_MOUNTPOINT}|awk '{print $3}'|while read i;do
         umount -f "$i"
-        log "Umounted point: $i"
+        log "Umounted point: ${i}"
         hdone="1"
     done
     # is a symlink on debian, to /proc/mounts
-    if [ "x$hdone" != "x" ] && [ "x$(readlink "$mountpoint/etc/mtab")" != "x/proc/mounts" ];then
+    if [ "x${hdone}" != "x" ] && [ "x$(readlink "${mountpoint}/etc/mtab")" != "x/proc/mounts" ];then
         cat /proc/mounts>/etc/mtab
     fi
 }
@@ -543,9 +543,9 @@ handle_export() {
 
 reset_git_configs() {
     find / -type d -name .git -not \( -path guest -prune \)|while read dotgit; do
-        cd "$dotgit" &> /dev/null &&\
-        output " [*] Resetting $dotgit" &&\
-        for i in user.email user.name;do git config --local --unset $i;done &&\
+        cd "${dotgit}" &> /dev/null &&\
+        output " [*] Resetting ${dotgit}" &&\
+        for i in user.email user.name;do git config --local --unset ${i};done &&\
         cd - &> /dev/null
     done
 }
@@ -554,8 +554,8 @@ get_devhost_num() {
     echo ${DEVHOST_NUM}
 }
 
-if [ "x$VAGRANT_PROVISION_AS_FUNCS" = "x" ];then
-    output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: $0"
+if [ "x${VAGRANT_PROVISION_AS_FUNCS}" = "x" ];then
+    output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: ${0}"
     output " [*] You can safely relaunch this script from within the vm"
     set_vars
     reset_hostname
