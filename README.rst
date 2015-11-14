@@ -350,21 +350,16 @@ If your project has custom users, just either (via saltstates):
 
 Troubleshooting
 ===============
-
-NFS
----
+network
+---------
 
 If the provision script of the vm halt on file share mounts you will have to check several things:
 
     * do you have some sort of firewalling preventing connections from your host to the vm? Maybe also apparmor or selinux?
-    * do you have a correct /etc/hosts with a first 127.0.[0|1].1 record associated with localhost name and your short and long hostname?
     * did you clone this repository in an encrypted folder (e.g.: home folder on Ubuntu)?
-    * On Mac OS X you can try `sudo nfsd checkexports`
     * try to run the commands but do prior to that::
 
         export VAGRANT_LOG=INFO
-
-    * try to run `sudo exportfs -a` for more debug information on host side.
 
 Mac OS
 -------
