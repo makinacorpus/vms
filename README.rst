@@ -168,7 +168,7 @@ Initialising from scratch (low level base OS mage) rather than from a prebacked 
 
   ./manage.sh up
 
-Starting the VM **ONLY**after creation. (if you have not launched first **init**, it will rebuild the entire image)::
+Starting the VM **ONLY** after the first creation. (if you have not launched first **init**, it will rebuild the entire image)::
 
   ./manage.sh up
 
