@@ -58,7 +58,7 @@ Typically on Debian/Ubuntu::
 	apt-get update
 	apt-get install virtualbox-5.0
 
-On MacOSX, Install `<http://download.virtualbox.org/virtualbox/5.0.10/VirtualBox-5.0.10-104061-OSX.dmg>`_
+On MacOSX, Install `this DMG from virtualbox.org <http://download.virtualbox.org/virtualbox/5.0.10/VirtualBox-5.0.10-104061-OSX.dmg>`_
 
 Vagrant
 +++++++
