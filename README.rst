@@ -155,7 +155,7 @@ You will have to use ``./manage.sh``, a wrapper to ``vagrant`` in the spirit but
 
     ./manage.sh reload
 
-Now that vagrant as created a virtualbox image for you, you should always manipulate this virtualbox VM with ``./manage.sh`` command and use directly ``vagrant`` at last resort.
+Now that vagrant has created a virtualbox vm for you, you should always manipulate this virtualbox VM with ``./manage.sh`` command and use directly ``vagrant`` at last resort.
 
 Please note that when the vm is running, we will try to mount the VM root as
 root user with sshfs in the ``./VM`` folder.
