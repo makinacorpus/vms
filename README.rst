@@ -241,6 +241,7 @@ Manual way
 
 New clone
 ~~~~~~~~~~~~~~
+::
 
   mkdir -p ~/makina/
   cd ~/makina/
