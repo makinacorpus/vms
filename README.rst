@@ -68,7 +68,7 @@ You could make you a supersudoer without password to avoid sudo questions when l
     # Allow members of group sudo to execute any command
     %sudo   ALL=(ALL:ALL) NOPASSWD:ALL
 
-For a Debian / Ubuntu deb-like host:
+For a Debian / Ubuntu deb-like host::
 
     url="https://releases.hashicorp.com/vagrant/1.7.4/vagrant_1.7.4_x86_64.deb"
     wget "$url" -O $(basename $url) || curl "$url" -o $(basename url)
