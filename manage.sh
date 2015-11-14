@@ -857,7 +857,6 @@ post_up() {
     shift
     maybe_finish_creation ${lret} $@
     mount_vm
-    sync_hosts
 }
 
 reload() {

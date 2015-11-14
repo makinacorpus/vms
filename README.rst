@@ -2,11 +2,8 @@
 
 Summary
 =======
-
-This git project contains vagrant virtualbox's Vagrantfile to help you work in development with Ubuntu Server + salt-stack + docker. It also contains some Docker images.
-
-Development VM
-==============
+Makina-States based vagrant development box
+Included support for a docker cluster.
 
 This schema should help you visualize interactions between the VM and the development host
 
@@ -14,48 +11,23 @@ This schema should help you visualize interactions between the VM and the develo
 
 Organization
 -------------
-Vagrant boxes
-++++++++++++++
-For vagrant images, we provide on specific branch those boxes:
+We use one branch for one os and one os version, and those are the currently
+under support boxes:
 
-- **vagrant-ubuntu-lts-trusty64**: Ubuntu trusty / 64 bits
-- **vagrant-ubuntu-1310-saucy64** Ubuntu sacy / 64 bits
-- **vagrant-ubuntu-1304-raring64**: Ubuntu raring / 64 bits
-- **vagrant-ubuntu-lts-precise64**: Ubuntu raring / 64 bits
-- **vagrant-debian-7-wheezy64**: Vagrant box for Debian wheezy 7.2 / 64 bits
-
-Docker images
-++++++++++++++++
-For docker, we use a docker subfolder with the appropriate stuff to build the base docker images insides.
-
-Ubuntu
-~~~~~~
-**WARNING** You need to comment out all the /etc/apparmor.d/usr.bin.ntpd profile and do **sudo invoke-rc.d apparmor reload**
-
-- **makinacorpus/ubuntu**: `minimal ubuntu system <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/ubuntu>`_
-- **makinacorpus/ubuntu_salt**: `ubuntu + salt master + salt minion <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/salt>`_
-- **makinacorpus/ubuntu_mastersalt**: `ubuntu + salt master + salt minion + mastersalt minion <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu/mastersalt>`_
-- **makinacorpus/ubuntu_deboostrap**: `ubuntu deboostrapped <https://github.com/makinacorpus/vms/tree/master/docker/ubuntu-debootstrap>`_
-
-Debian
-~~~~~~~
-- **makinacorpus/debian**: `minimal debian system <https://github.com/makinacorpus/vms/tree/master/docker/debian>`_
-
-Packer images
-+++++++++++++
-
-Debian
-~~~~~~
-
-- **debian-7.2.0-amd64**: base vagrant box for the official makinacorpus/vms debian based vagrant box
+- **vagrant-ubuntu-1504-vivid64** Ubuntu vivid / 64 bits
 
 Install Development VM
-=======================
-Following theses instructions you can install this git repository on a directory of your local host, then start a Virtualbox vm from this directory. this virtualbox VM handled by vagrant will then run the docker VMs. All files used in the VirtualBox VM and in the docker mounts will be editable from your host as this VM will ensure your current user will be member of the right group, shared with the VM, and that all important files used by the vm are shared from your development host via nfs
+--------------------------
+Following theses instructions you can install this git repository on a directory of your local host,
+then start a Virtualbox vm from this directory.
+this virtualbox VM is handled by vagrant and will then run the docker VMs or any
+part of your project.
+You will be able to edit any files on the vm from your host, via the **VM** subdirectory which uses
+under the hood a **sshfs** mountpoint, using **root** to connect to the vm.
 
 Prerequisites
--------------
-You need to have ``virtualbox``, ``vagrant`` (with ``vagrant-vbguest`` plugin) and ``sshfs``.
++++++++++++++++
+You need to have installed ``virtualbox``, ``vagrant`` (with ``vagrant-vbguest`` plugin) and ``sshfs``.
 
 On macosx, sshfs is also known as MacFusion.
 
@@ -64,7 +36,7 @@ We have improved performances by some techniques:
 
     * Increasing the **MTU to 9000** (jumbo frames) on host and guest Ethernet nics
     * Leaving most of files on the guest side, leaving up to you to access the files
-      on the guest. We recommend and also integrate this access to be via sshfs.
+      on the guest. We recommend and also integrate this access to be via **sshfs**.
       On previous versions tests were made with NFS, having project files stored on
       the host and shared in the guest. This was too slow for read-heavy services
       like salt and plone, for example, so we finally choose to share files from the
@@ -73,20 +45,20 @@ We have improved performances by some techniques:
 
 Virtualbox
 ++++++++++
-Install Oracle Virtualbox at at least the **4.3** version and more generally the
+Install Oracle Virtualbox at at least the **5.0** version and more generally the
 most up to date virtualbox release. Check `<https://www.virtualbox.org/>`_ for
 details.
 
-Typically on Debian and Ubuntu::
+**4.3** can also work but is damn slow !
 
-	wget -q http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc -O- | sudo apt-key add -
-	if [[ -f /etc/lsb-release ]];then . /etc/lsb-release;distrib="$DISTRIB_CODENAME";
-	elif [[ -f /etc/os-release ]];then . /etc/os-release;distrib="$(echo $VERSION|sed -re "s/.*\((.*)\)/\1/g")";fi
-	echo "deb http://download.virtualbox.org/virtualbox/debian $distrib contrib">/etc/apt/sources.list.d/vbox.list
+Typically on Debian/Ubuntu::
+
+	wget -q "http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc" -O- | sudo apt-key add -
+	echo "deb http://download.virtualbox.org/virtualbox/debian $(lsb_release -sc) contrib">/etc/apt/sources.list.d/vbox.list
 	apt-get update
-	apt-get install virtualbox-4.3
+	apt-get install virtualbox-5.0
 
-On MacOSX, Install `<http://download.virtualbox.org/virtualbox/4.3.6/VirtualBox-4.3.6-91406-OSX.dmg>`_
+On MacOSX, Install `<http://download.virtualbox.org/virtualbox/5.0.10/VirtualBox-5.0.10-104061-OSX.dmg>`_
 
 Vagrant
 +++++++
@@ -98,10 +70,11 @@ You could make you a supersudoer without password to avoid sudo questions when l
 
 For a Debian / Ubuntu deb-like host:
 
-    url="https://dl.bintray.com/mitchellh/vagrant/vagrant_1.6.3_x86_64.deb";wget "$url"
-    sudo dpkg -i vagrant_1.6.3_x86_64.deb
+    url="https://releases.hashicorp.com/vagrant/1.7.4/vagrant_1.7.4_x86_64.deb"
+    wget "$url" -O $(basename $url) || curl "$url" -o $(basename url)
+    sudo dpkg -i $(basename $url)
 
-For macosx, use `<https://dl.bintray.com/mitchellh/vagrant/vagrant_1.6.3.dmg>`_
+For macosx, use `<https://releases.hashicorp.com/vagrant/1.7.4/vagrant_1.7.4.dmg>`_
 
 **IMPORTANT** THE VBGUEST PLUGIN, to sync the guest addition packages from your
 host virtualbox version::
@@ -110,12 +83,13 @@ host virtualbox version::
     vagrant plugin install vagrant-vbguest
 
 
-sshfs 
-++++++++++++++++++++
+sshfs
+++++++
 Linux / *BSD
 ~~~~~~~~~~~~~~
 - Install your sshfs distribution package (surely **sshfs**).
 - Relog into a new session or reboot
+- Ensure that **user_allow_other** is on ``/etc/fuse.conf`` and uncommented out
 
 MacOSX
 ~~~~~~
@@ -125,10 +99,10 @@ MacOSX
     - uninstall sshfs from MacFuse if any
 
 - Install **osxfuse** & **sshfs** from `osxfuse <http://osxfuse.github.io/>`_
+- Ensure that **user_allow_other** is on ``/etc/fuse.conf`` and uncommented out
 
 Optimizations (optional)
-++++++++++++++++++++++++++++++++++++++++
-
++++++++++++++++++++++++++
 Host kernel optimisations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Take care with this part, it can prevent your system from booting.
@@ -155,12 +129,9 @@ Take care with this part, it can prevent your system from booting.
         * Reload the settings::
 
             sysctl -p
-Configure sshfs
------------------
-Ensure that user_allow_other is on /etc/fuse.conf and uncommented out
 
 Installation & control
-------------------------------
+-----------------------
 Now you can start the vm installation with vagrant. Note that this repository will be the base directory for your projects source code managment.
 You will have to use ``./manage.sh``, a wrapper to ``vagrant`` in the spirit but do much more.
 
@@ -175,16 +146,6 @@ You will have to use ``./manage.sh``, a wrapper to ``vagrant`` in the spirit but
 
     git clone https://github.com/makinacorpus/vms.git vms
     cd vms
-
-- Alternatively if you want the precise64 LTS ubuntu server use::
-
-    git clone https://github.com/makinacorpus/vms.git -b vagrant-ubuntu-lts-precise64 vms-precise
-    cd vms-precise
-
-- Or for Debian (see that the last word is up to you, it's the destination directory)::
-
-    git clone https://github.com/makinacorpus/vms.git -b vagrant-debian-7-wheezy64 vm-debian
-    cd vm-debian
 
 - start the VM a first time, this will launch the base vm download from DNS, then VM creation and
   provisioning::
@@ -204,12 +165,11 @@ To launch a Vagrant command always ``cd`` to the VM base directory::
 
   cd ~/makina/vms
 
-Initialising from scratch (low level base iOS mage) rather than from a preconfigured
-makina corpus image::
+Initialising from scratch (low level base OS mage) rather than from a prebacked and downloaded box::
 
   ./manage.sh up
 
-Starting the VM after creation is indeed the same command, but use the preconfigured VM under the hood if already initialized::
+Starting the VM **ONLY**after creation. (if you have not launched first **init**, it will rebuild the entire image)::
 
   ./manage.sh up
 
@@ -237,9 +197,30 @@ You can tweak some settings via a special config file: ``vagrant_config.rb``
   - From there, as explained, you should create a .vagrant_config.rb file, to alter what you need.
 For exemple, you can clone the **vms** git repository on another place where you can manage another vagrant based virtualbox vm.
 
+Notorious settings are the apt mirror to use at startup, the number of cpus, the
+mem to use, etc.
+
+DEVHOST_NUM
+~~~~~~~~~~~~
+**You will indeed realise that there is a magic DEVHOST_NUM setting (take the last avalaible one as a default).**
+
+You can then this settings, along with the other settings in **vagrant_config.rb** .
+By default this file is not yet created and will be created on first usage. But we can enforce it right before the first ``vagrant up``::
+
+    cat  > vagrant_config.rb << EOF
+    module MyConfig
+      DEVHOST_NUM="22"
+    end
+    EOF
+
+This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1.42.43** for the private network
+and the docker network on this host will be **172.31.22.0** and not **172.31.42.0**.
+The box hostname will be **devhost22.local** instead of devhost42.local.
+
+
 Clone a vm from an existing one
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Take not that it will provision the base vm of the template and not the running VM.
+Take note that it will provision the base vm of the template and not the running VM.
 If you want a full clone, use export & import.
 
 Automatic way
@@ -271,42 +252,6 @@ New clone
   or c
 
 m ID and Subnet.
-
-Edit VM core settings
-++++++++++++++++++++++
-You must read at least once the Vagrantfile, it will be easier for you to know how to alter the vm settings.
-Such settings can go from MAX_CPU_USAGE_PERCENT,CPUS & MEMORY settings. to more useful: change this second v
-
-DEVHOST_NUM
-~~~~~~~~~~~~
-**You will indeed realise that there is a magic DEVHOST_NUM setting (take the last avalaible one as a default).**
-
-You can then this settings, along with the other settings in **vagrant_config.rb** .
-By default this file is not yet created and will be created on first usage. But we can enforce it right before the first ``vagrant up``::
-
-    cat  > vagrant_config.rb << EOF
-    module MyConfig
-      DEVHOST_NUM="22"
-    end
-    EOF
-
-This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1.42.43** for the private network
-and the docker network on this host will be **172.31.22.0** and not **172.31.42.0**.
-The box hostname will be **devhost22.local** instead of devhost42.local.
-
-DEVHOST_AUTO_UPDATE
-~~~~~~~~~~~~~~~~~~~~~~
-You can tell to the provision script to run system updates and reprovision salt entirely by setting the **DEVHOST_AUTO_UPDATE** setting to ``true``.
-
-Hostnames managment
-+++++++++++++++++++++
-- We add the hosts presents in the VM to the /etc/hosts of the host at up &
-  reload stages (you ll be asked for)
-- Read makina-states.nodetypes.vagrantvm if you want to know which hostnames are
-  exported.
-- You can optionnaly sync those hosts with::
-
-  ./manage.sh sync_hosts
 
 Connecting to the vm
 +++++++++++++++++++++
@@ -465,79 +410,6 @@ Precise LTS - 12.04 - git: vagrant-ubuntu-lts-precise64
 - Recent Virtualbox
 - Linux hardware enablement stack kernel (3.8)
 
-Raring - 13.04  - git: vagrant-ubuntu-1304-raring64)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-As of now, we needed to backport those next-ubuntu stuff (saucy) for things to behave correctly and efficiently:
-
-- Lxc >= 1.0b
-- Kernel >= 3.11
-- Virtualbox >= 4.2.16
-
-Saucy - 13.10 - git: master
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-Mainline packages
-
-
-Debian
-+++++++
-Debian Wheezy - 7 - git: vagrant-debian-7-wheezy64
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Mainline packages
-
-Packer boxes
-------------
-Debian
-++++++
-We maintain some handmade Packer images from the official debian netinst iso
-           (see packer subdir)
-For packer, we use a docker subfolder with the appropriate stuff to build the base docker images insides.
-Goal is to use packer to construct base images for the vagrant ones when there are no base images avalaible from trusted sources.
-::
-
-    apt-get -t wheezy-backports install linux-image-3.10-0.bpo.3-amd64
-    linux-headers-3.10-0.bpo.3-amd64 initramfs-tools
-
-
-Docker Images
---------------
-- Contruct base environments to work with docker. (kernel, aufs, base setup)
-- Install a functional makina-states installation inside in ``server`` mode
-- Whereas the single process docker mainstream approach, we want to use the init systems
-providen by the underlying distribution to manage a bunch of things.
-
-Goal is to have in working state:
-
-    - init system
-    - cron
-    - logrotate
-    - sshd
-    - sudo
-    - syslog
-    - screen
-    - makina-states in server mode (vm)
-
-Installing lxcutils & docker from git repositories
------------------------------------------------------
-For now you need docker from git and lxc from git also to fix:
-- https://github.com/dotcloud/docker/issues/2278
-- https://github.com/dotcloud/docker/issues/1960
-
-You can install them in the vm with
-::
-
-    vagrant ssh
-    sudo su
-    cd /srv/docker
-    ./make.sh inst
-
-And uninstall them with
-::
-
-    vagrant ssh
-    sudo su
-    cd /srv/docker
-    ./make.sh teardown
-
 
 Git merge From branch a to branch b
 ------------------------------------
@@ -566,56 +438,5 @@ Discard::
 commit && push the result::
 
     git commit && push
-
-
-Use NFS Shared folders (obsolete)
------------------------------------
-* Install your OS NFS server
-* Edit vagrant_config.rb and set ``DEVHOST_HAS_NFS=true``.
-* The important thing here is to tuneup the number of avalaible workers for nfs
-  server operations.
-
-    * NOTE: [RECOMMENDED] **256** threads == **~512MO** ram allocated for nfs
-
-    * NOTE: **128** threads == **~302MO** ram allocated for nfs
-
-    * **512** is a lot faster but the virtualbox ethernet interfaces had some bugs
-      (kernel guest oops) at this speed.
-
-* On Debian / Ubuntu:
-
-    * Install nfs::
-
-        sudo apt-get install nfs-kernel-server nfs-common portmap virtualbox
-
-    * Edit  **/etc/default/nfs-kernel-server** and increase the **RPCNFSDCOUNT**
-      variable to 256.
-
-    * Restart the server::
-
-        sudo /etc/init.d/nfs-kernel-server restart
-
-* On Archlinux:
-
-    * Edit  **/etc/conf.d/nfs-server.conf** and increase the **NFSD_COUNT**
-      variable to 256.
-
-    * Enable at boot / Restart the services::
-
-        modprobe nfs # may return an error if already loaded
-        for i in rpc-idmapd.service and rpc-mountd.service nfsd.service;do
-            systemctl enable $i
-            service $i start
-        done
-
-* On MacOSX:
-
-    * Edit  **/etc/nfs.conf** and increase the **nfs.server.nfsd_threads**
-      variable to 512 or 256.
-    * Select, active & restart the NFS service in server admin
-
-For Vagrant you need to have a recent Vagrant version (vagrant is a virtualbox VM manager, to make it simple). But version ``1.3.4`` `is broken <https://github.com/mitchellh/vagrant/issues/2309>`_, so use ``1.3.3`` or ``1.3.5`` or greater. Get latest vagrant from `official download site <http://downloads.vagrantup.com/>`_, where you can find msi, dmg, rpm and deb packages.
-
-
 
 .. vim:set ts=4 sts=4:

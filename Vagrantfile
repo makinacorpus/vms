@@ -258,6 +258,12 @@ end
 # -- Other things ----------------------------------------------------------
 # Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
 VAGRANTFILE_API_VERSION = "2"
+# we do not use nfs anymore, but rely on sshfs
+if defined?(DEVHOST_HAS_NFS)
+    vagrant_config_lines << "DEVHOST_HAS_NFS=#{DEVHOST_HAS_NFS}"
+else
+    DEVHOST_HAS_NFS=false
+end
 
 #Vagrant::Config.run do |config|
 Vagrant.configure("2") do |config|
@@ -311,11 +317,6 @@ Vagrant.configure("2") do |config|
   # Warning: we share folder on a per folder basic to avoid filesystems loops
   #
   # do this host use NFS
-  if defined?(DEVHOST_HAS_NFS)
-      vagrant_config_lines << "DEVHOST_HAS_NFS=#{DEVHOST_HAS_NFS}"
-  else
-      DEVHOST_HAS_NFS=false
-  end
 
   mountpoints = {
       "./share" => "/vagrant/share",
@@ -413,7 +414,8 @@ Vagrant.configure("2") do |config|
 # SAVING CUSTOM CONFIGURATION TO A FILE (AND ONLY CUSTOMIZED ONE)
 vagrant_config = ""
 vagrant_config_lines_s = ""
-["", "module MyConfig"].each{ |s| vagrant_config += s + "\n" }
+["# do not write comments, they will be lost",
+ "module MyConfig"].each{ |s| vagrant_config += s + "\n" }
 vagrant_config_lines.each{ |s| vagrant_config_lines_s += "    "+ s + "\n" }
 vagrant_config += vagrant_config_lines_s
 ["end", ""].each{ |s| vagrant_config += s + "\n" }
@@ -443,7 +445,7 @@ pkg_cmd = [
 interface="eth1"
 hostip=\\$(ip addr show dev \\$interface 2> /dev/null|awk '/inet / {gsub("/.*", "", \\$2);print \\$2}'|head -n1)
 configured_hostip=\\$( cat /etc/network/interfaces|grep \\$interface -A3|grep address|awk '{print \\$2}')
-if [[ "\\$hostip" != "\\$configured_hostip" ]];then
+if [ "x\\$hostip" != "x\\$configured_hostip" ];then
     ifdown \\$interface &> /dev/null
     ifup \\$interface
     #{mtu_set}
@@ -453,7 +455,7 @@ fi
 # we will loose root_squash, so just replay the share and
 # enjoy from there write abilitlity
 # for mp in "/mnt/parent_etc";do
-#     if [[ "\\$(mount|egrep "\\$mp.* vboxsf .*\\(rw\\)"|wc -l)" != "0" ]];then
+#     if [ "x\\$(mount|egrep "\\$mp.* vboxsf .*\\(rw\\)"|wc -l)" != "x0" ];then
 #         umount "\\$mp"
 #         mount -t vboxsf "\\$mp" "\\$mp" -o gid=root,uid=root,rw
 #     fi
@@ -462,7 +464,7 @@ EOF},
     %{cat > /root/vagrant/provision_nfs.sh  << EOF
 #!/usr/bin/env bash
 MARKERS="/root/vagrant/markers"
-die_if_error() { if [[ "\\$?" != "0" ]];then output "There were errors";exit 1;fi; };
+die_if_error() { if [ "x\\$?" != "x0" ];then output "There were errors";exit 1;fi; };
 output() { echo "\\$@" >&2; };
 if [ ! -f \\$MARKERS/provision_step_nfs_done ];then
     if [[ ! -e \\$MARKERS ]];then
@@ -471,12 +473,14 @@ if [ ! -f \\$MARKERS/provision_step_nfs_done ];then
     output " [*] Installing nfs tools on guest for next reboot, please wait..."
     apt-get update -qq
     apt-get install -y --force-yes nfs-common portmap
-    if [ "0" == "$?" ];then
+    if [ "x0" = "x${?}" ];then
         touch \\$MARKERS/provision_step_nfs_done
     fi
 fi
-if [[ ! -e "/vagrant/vagrant/provision_script.sh" ]];then
-    output " [*] ERROR: You do not have /vagrant/vagrant/provision_script.sh, this means vagrant did not mount the vagrant directory in /srv, this VM wont be able to do anything usefull. Fix it and launch './manage.sh reload'!"
+if [ ! -e "/vagrant/vagrant/provision_script.sh" ];then
+    output " [*] ERROR: You do not have /vagrant/vagrant/provision_script.sh,"
+    output " [*] ERROR: this means vagrant did not mount the vagrant directory in /srv,"
+    output " [*] ERROR: Fix it and launch './manage.sh reload'!"
     exit 1
 fi
 EOF},
@@ -499,7 +503,7 @@ EOF},
       "/root/vagrant/provision_net.sh;",
       "/root/vagrant/provision_nfs.sh;",
       # "set +x",
-      "/vagrant/vagrant/provision_script.sh",
+      "echo /vagrant/vagrant/provision_script.sh",
   ]
   config.vm.provision :shell, :inline => pkg_cmd.join("\n")
 end
