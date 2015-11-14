@@ -49,8 +49,12 @@ details.
 
 Typically on Debian/Ubuntu::
 
-	wget -q "http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc" -O- | sudo apt-key add -
-	echo "deb http://download.virtualbox.org/virtualbox/debian $(lsb_release -sc) contrib">/etc/apt/sources.list.d/vbox.list
+	wget -q\
+        "http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc" -O-\
+        | sudo apt-key add -
+	echo \
+        "deb http://download.virtualbox.org/virtualbox/debian $(lsb_release -sc) contrib" \
+        >/etc/apt/sources.list.d/vbox.list
 	apt-get update
 	apt-get install virtualbox-5.0
 
