@@ -230,7 +230,7 @@ To create a new vm from an already existing one is damn easy
 
 Manual way
 ************
-- lasting Slash are importants with rsync
+- ending slashes are importants with rsync
 ::
 
   cd ~/makina/
