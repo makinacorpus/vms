@@ -5,10 +5,6 @@ Summary
 Makina-States based vagrant development box
 Included support for a docker cluster.
 
-This schema should help you visualize interactions between the VM and the development host
-
-.. image:: https://raw.github.com/makinacorpus/vms/master/vagrant/schema.png
-
 Organization
 -------------
 We use one branch for one os and one os version, and those are the currently
