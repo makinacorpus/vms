@@ -236,7 +236,8 @@ Manual way
   cd ~/makina/
   rsync -azv --exclude=VM --exclude="*.tar.bz2" <VM-template>/ <NEW-VM>/
   cd <NEW-VM>
-  ./manage reset && ./manage init ../<VM-TEMPLATE>/<devhost_master*tar.bz2> # the downloaded archive at init time
+  # the downloaded archive at init time
+  ./manage reset && ./manage init ../<VM-TEMPLATE>/<devhost_master*tar.bz2>
 
 New clone
 ~~~~~~~~~~~~~~
