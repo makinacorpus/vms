@@ -357,6 +357,6 @@ On Mavericks, you may encounter several issues, usually you need at least to rei
 
 Hack
 =====
-- `./doc/hack.rst`_
+- `<./doc/hack.rst>`_
 
 .. vim:set ts=4 sts=4:
