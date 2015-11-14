@@ -320,7 +320,6 @@ Vagrant.configure("2") do |config|
 
   mountpoints = {
       "./share" => "/vagrant/share",
-      "./docker" => "/vagrant/docker",
       "./packer" => "/vagrant/packer",
       "./vagrant" => "/vagrant/vagrant",
       File.expand_path('~/.ssh') => "/mnt/parent_ssh"

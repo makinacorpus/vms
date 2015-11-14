@@ -212,10 +212,8 @@ By default this file is not yet created and will be created on first usage. But 
     end
     EOF
 
-This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1.42.43** for the private network
-and the docker network on this host will be **172.31.22.0** and not **172.31.42.0**.
+This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1.42.43** for the private network.
 The box hostname will be **devhost22.local** instead of devhost42.local.
-
 
 Clone a vm from an existing one
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -305,7 +303,6 @@ Base mountpoints and folders
 - **/mnt/parent_home**: Host user Home folder
 - **/vagrant/share**: ``Current working directory/share`` in the host (where ./manage.sh up has been done
 - **/vagrant/packer**: ``Current working directory/packer`` in the host (where ./manage.sh up has been done
-- **/vagrant/docker**: ``Current working directory/docker`` in the host (where ./manage.sh up has been done
 - **/vagrant/vagrant**: ``Current working directory/vagrant`` in the host (where ./manage.sh up has been done
 - **/srv/salt**: Salt state tree
 - **/srv/projects**: makina Salt projects installation root
