@@ -76,12 +76,11 @@ For a Debian / Ubuntu deb-like host::
 
 For macosx, use `<https://releases.hashicorp.com/vagrant/1.7.4/vagrant_1.7.4.dmg>`_
 
-**IMPORTANT** THE VBGUEST PLUGIN, to sync the guest addition packages from your
+**IMPORTANT** install THE VBGUEST PLUGIN, to sync the guest addition packages from your
 host virtualbox version::
 
     vagrant plugin uninstall vagrant-vbguest
     vagrant plugin install vagrant-vbguest
-
 
 sshfs
 ++++++
