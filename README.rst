@@ -239,19 +239,6 @@ Manual way
   # the downloaded archive at init time
   ./manage reset && ./manage init ../<VM-TEMPLATE>/<devhost_master*tar.bz2>
 
-New clone
-~~~~~~~~~~~~~~
-::
-
-  mkdir -p ~/makina/
-  cd ~/makina/
-  # get this project in the vms subdirectory of this base place
-  git clone https://github.com/makinacorpus/vms.git vm2
-  cd vm2
-  or c
-
-m ID and Subnet.
-
 Connecting to the vm
 +++++++++++++++++++++
 - We have made a wrapper similar to ``vagrant ssh``.
