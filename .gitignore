@@ -2,7 +2,8 @@ packer_cache
 devhost-*.tar.bz2
 package.box.tar.tbz2
 salt-jenkins
-VM/
+/VM/
+/share/
 salt26
 lxcbin
 mastersalt-pillar/
@@ -41,4 +42,3 @@ deboostrap/
 *~
 docker/ubuntu-12.04-server-cloudimg-amd64-root.tar.gz
 docker/ubuntu-13.10-server-cloudimg-amd64-root.tar.gz
-

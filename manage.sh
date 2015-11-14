@@ -843,6 +843,7 @@ up() {
     if [ "x$(status)" != "xrunning" ];then
         notrunning="1"
     fi
+    if [ ! -d share ];then mkdir share;fi
     vagrant up $@
     lret=${?}
     # be sure of jumbo frames on anything else that macosx
