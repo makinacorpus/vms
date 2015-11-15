@@ -264,10 +264,15 @@ if defined?(DEVHOST_HAS_NFS)
 else
     DEVHOST_HAS_NFS=false
 end
+if ! defined?(SSH_INSERT_KEY)
+    SSH_INSERT_KEY=true
+end
+vagrant_config_lines << "SSH_INSERT_KEY=#{SSH_INSERT_KEY}"
 
 #Vagrant::Config.run do |config|
 Vagrant.configure("2") do |config|
   # Setup virtual machine box. This VM configuration code is always executed.
+  # config.ssh.insert_key = SSH_INSERT_KEY
   config.vm.box = REAL_BOX_NAME
   config.vm.box_url = BOX_URI
   config.vm.host_name = VM_HOSTNAME
@@ -322,7 +327,6 @@ Vagrant.configure("2") do |config|
       "./share" => "/vagrant/share",
       "./packer" => "/vagrant/packer",
       "./vagrant" => "/vagrant/vagrant",
-      File.expand_path('~/.ssh') => "/mnt/parent_ssh"
   }
   mountpoints.each do |mountpoint, target|
       shared_folder_args = {create: true}

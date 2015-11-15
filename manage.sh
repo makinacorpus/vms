@@ -356,6 +356,7 @@ destroy() {
     log "Destroy !"
     down
     vagrant destroy -f
+    if [ -d .vagrant ];then rm -rf .vagrant;fi
     mark_ssh_config_not_done
 }
 
@@ -972,7 +973,7 @@ export_() {
                 exit -1
             fi &&\
             if [ "x${nosed}" = "x" ];then \
-                vagrant_ssh "if [ -d ${netrules} ];then rm -rf ${netrules};touch ${netrules};fi";\
+                vagrant_ssh "if [ -d ${netrules} ];then rm -rf ${netrules};mkdir ${netrules};fi";\
                 vagrant_ssh "if [ -e ${netrules} ];then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i ${netrules};fi";\
             fi &&\
             vagrant_ssh "sudo ${PROVISION_WRAPPER} mark_export" 2>/dev/null
@@ -1128,10 +1129,16 @@ import() {
         fi
     fi
     # load initial box image & do initial provisionning
-    log "Initialiasing host from ${bname}" &&\
-        export DEVHOST_FORCED_BOX_NAME="${bname}" &&\
+    log "Initialiasing host from ${bname}"
+    export DEVHOST_FORCED_BOX_NAME="${bname}"
+    if [ ! -e ./vagrant_config.rb ];then
+        echo "module MyConfig">./vagrant_config.rb &&
+            echo "end">>./vagrant_config.rb
+    fi &&\
         sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
-        sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb
+        sed -i -e "/SSH_INSERT_KEY/d" ./vagrant_config.rb &&\
+        sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb &&\
+        sed -i -e "/MyConfig/a\    SSH_INSERT_KEY=false" ./vagrant_config.rb
     up && lret="0"
     down
     if [ "x${lret}" != "x0" ];then
@@ -1168,7 +1175,7 @@ reset() {
         if [ -e .vagrant ];then
             destroy
         fi
-        rm -rvf vagrant_config.rb .vagrant
+        if [ -e vagrant_config.rb ];then rm -vf vagrant_config.rb;fi
         log " [*] Reset done"
     else
         log " [*] Reset skipped: ${VMPATH} does not exists"

@@ -382,18 +382,6 @@ disable_base_box_services() {
     fi
 }
 
-cleanup_keys() {
-    lazy_apt_get_install rsync
-    mastersalt-call --local -lall state.sls makina-states.nodetypes.cleanup-ssh-keys
-}
-
-install_keys() {
-    lazy_apt_get_install rsync
-    # run lxc devhost settings
-    # and this will also trigger installing root ssh keys
-    mastersalt-call --local -lall state.sls makina-states.cloud.lxc.compute_node.devhost.devhost-ssh-keys
-}
-
 cleanup_misc() {
     rm -vf /etc/devhosts
     for user_home in $(awk -F: '{if ($6!="") print $1 ":" $6}' /etc/passwd);do
@@ -408,7 +396,6 @@ cleanup_misc() {
 mark_export() {
     output " [*] Cleaning and marking vm as exported"
     reset_git_configs
-    cleanup_keys
     cleanup_misc
     touch  "${export_marker}"
 }
@@ -536,7 +523,6 @@ handle_export() {
                 mkdir -p /var/cache/${i}-${j}
             done
         done
-        cleanup_salt
         reset_git_configs
         # remove vagrant conf as it can contain doublons on first load
         output " [*] Reset network interface file"
@@ -559,6 +545,11 @@ reset_git_configs() {
     done
 }
 
+sync_ssh() {
+    rsync -azv /home/vagrant/.ssh/ /root/.ssh/
+    chown -Rf root:root /root/.ssh/
+}
+
 get_devhost_num() {
     echo ${DEVHOST_NUM}
 }
@@ -568,6 +559,7 @@ if [ "x${VAGRANT_PROVISION_AS_FUNCS}" = "x" ];then
     output " [*] You can safely relaunch this script from within the vm"
     set_vars
     reset_hostname
+    sync_ssh
     handle_export
     create_base_dirs
     disable_base_box_services
@@ -575,7 +567,6 @@ if [ "x${VAGRANT_PROVISION_AS_FUNCS}" = "x" ];then
     configure_dns
     base_packages_sanitization
     install_or_refresh_makina_states
-    install_keys
     open_routes
     cleanup_space
     check_restart
