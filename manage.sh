@@ -1093,7 +1093,7 @@ import() {
             fi
             if [ "x${do_download}" != "x" ];then
                 download "${url}" "${image}"
-            else
+            elif [ "x${url}" != "x" ];then
                 log "${image} already exists, "
                 log "   delete this archive, if you want to redownload"
                 log "   from ${url}"
