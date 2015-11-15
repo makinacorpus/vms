@@ -77,7 +77,19 @@ HOSTONLY_SSH_CONFIG_DONE=""
 WRAPPER_PRESENT=""
 DEVHOST_NUM=""
 FUSERMOUNT="fusermount"
+TAR_FORMAT="${TAR_FORMAT:-bz2}"
 
+get_tar_knob() {
+    if echo "${@}" | egrep -q '.(xz|lzma)$';then
+        echo "J"
+    elif echo "${@}" | egrep -q '.(gz|gzip)$';then
+        echo "z"
+    elif echo "${@}" | egrep -q '.(bz2|bzip2)$';then
+        echo "j"
+    else
+        echo ""
+    fi
+}
 
 die_() {
     ret=${1}
@@ -163,9 +175,10 @@ usage() {
                     help_content "      print this help, --long-help print advanced options and additional descriptions"
                     ;;
                 init)
-                    help_header ${i} "[URL | FILEPATH]"
-                    help_content "      Initialise a new VM from either the specified archive produced by"
+                    help_header ${i} "[URL | FILEPATH | VAGRANT_BOX_NAME] [VAGRANT_BOX_NAME]"
+                    help_content "      Initialise a new VM from either a vagrant cached vm, the specified archive produced by"
                     help_content "      the export command or by default to the last stable release (no arguments to init)"
+                    help_content "      If vagrant box name is provided, pay attention that it won't reimport an already existing box into vagrant cache vms"
                     ;;
                 status)
                     help_header ${i}
@@ -654,10 +667,9 @@ get_release_url() {
 
 init() {
     cd "${VMPATH}"
-    url="${1:-"$(get_release_url)"}"
     status="$(status)"
     if [ "x$(status)" = "xnot created" ];then
-        import "${url}"
+        import "${@}"
     fi
     up
 }
@@ -896,7 +908,7 @@ get_vagrant_box_name() {
 }
 
 get_devhost_archive_name() {
-    echo "${1:-"$(get_box_name ${2})"}.tar.bz2"
+    echo "${1:-"$(get_box_name ${2})"}.tar.${TAR_FORMAT}"
 }
 
 export_() {
@@ -917,7 +929,8 @@ export_() {
     abox="$(get_devhost_archive_name ${bname})"
     nincludes=""
     includes=""
-    tar_preopts="cjvf"
+    tar_k=$(get_tar_knob "${abox}")
+    tar_preopts="c${tar_k}vf"
     tar_postopts="--numeric-owner"
     #
     # be sure to package a blank vagrantfile along with the box to not conflict with our Vagrantfile
@@ -935,6 +948,10 @@ export_() {
     fi
     if [ "x${UNAME}" != "xDarwin" ];then
         tar_preopts="${tar_preopts}p"
+    fi
+    if [ "x${tar_k}" = "xJ" ];then
+        export XZ_OPT="${VMS_XZ_OPT:-${XZ_OPT:-"-9e"}}"
+        log "using VMS_XZ_OPTS: ${XZ_OPT}"
     fi
     netrules="/etc/udev/rules.d/70-persistent-net.rules"
     if [ "x${nozerofree}" = "x" ];then
@@ -1011,7 +1028,7 @@ download() {
     active_echo
     wget=""
     url="${1}"
-    fname="${2:-${basename ${url}}}"
+    fname="${2:-$(basename ${url})}"
     # UA do not work in fact, redirect loop and empty file
     G_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.22 (KHTML, like Gecko) Ubuntu Chromium/25.0.1364.160 Chrome/25.0.1364.160 Safari/537.22"
     # freebsd
@@ -1034,29 +1051,44 @@ download() {
     unactive_echo
 }
 
+get_vagrant_boxes() {
+    vagrant box list 2> /dev/null|awk '{print " " $1 " "}'
+}
+
 import() {
-    NO_SYNC_HOSTS=1
     cd "${VMPATH}"
+    NO_SYNC_HOSTS=1
+    url=""
     image="${1:-$(get_devhost_archive_name $(get_release_name))}"
-    tar_preopts="-xjvpf"
+    bname="$(echo "${bname:-${2:-$(basename "${image}")}}" | sed "s/\.tar.*//g")"
+    box="$(get_vagrant_box_name ${bname})"
+    tar_k="$(get_tar_knob ${image})"
+    tar_preopts="-x${tar_k}vpf"
     tar_postopts="--numeric-owner"
-    boxes=" $(vagrant box list 2> /dev/null|awk '{print " " $1 " "}') "
-    shift
-    args=${@}
+    if [ "x$(echo ${image}|grep -q http;echo ${?})" = "x0" ];then
+        url="${image}"
+        image="$(basename ${image})"
+    fi
+    # test if vm has already been imported
     if [ "x$(status)" != "xnot created" ];then
         log "VM already imported,"
         log "   - Run it with: ${THIS} up"
         log "   - Delete it with: ${THIS} destroy"
+        exit 0
+    fi
+    if [ "x$(echo " $(get_vagrant_boxes) "|grep -q " ${bname} ";echo ${?})" = "x0" ];then
+        log "BASE VM already imported, redo base vm import by issuing:"
+        log "  vagrant box remove '${bname}' && ${THIS} ${LAUNCH_ARGS}"
     else
-        if [ "x$(echo ${image}|grep -q http;echo ${?})" = "x0" ];then
-            url="${image}"
-            image="$(basename ${image})"
+        if [ ! -e "${box}" ];then
             do_download=""
-            if [ ! -e ${image} ];then
-                do_download="1"
-            fi
-            if [ "x$(check_tmp_file ${image})" = "x" ];then
-                do_download="1"
+            if [ ! -e "${image}" ] && [ "x${url}" != "x" ];then
+                if [ ! -e ${image} ];then
+                    do_download="1"
+                fi
+                if [ "x$(check_tmp_file ${image})" = "x" ];then
+                    do_download="1"
+                fi
             fi
             if [ "x${do_download}" != "x" ];then
                 download "${url}" "${image}"
@@ -1065,60 +1097,48 @@ import() {
                 log "   delete this archive, if you want to redownload"
                 log "   from ${url}"
             fi
-        fi
-        if [ "x$(echo "${image}"|grep -q ".tar.bz2";echo ${?})" = "x0" ] && [ -e "${image}" ];then
-            bname="$(basename "${image}" .tar.bz2)"
-        else
-            log "invalid image file ${1} (must be a regular bzip2 tarfile end with .tar.bz2)"
-            exit -1
-        fi
-        bname="${bname:-$(get_box_name)}"
-        abox="${image}"
-        log "Getting box name from ${image}"
-        if [ ! -e "${image}" ];then
-            log "Missing file: ${image}"
-            exit -1
-        else
-            box="$(dd if=${image} bs=1024 count=10000 2>/dev/null|tar -tjf - 2>/dev/null)"
-        fi
-        if [ "x$(echo "${boxes}"|grep -q " ${bname} ";echo ${?})" = "x0" ];then
-            log "BASE VM already imported, redo base vm import by issuing:"
-            log "  vagrant box remove '${bname}' && ${THIS} ${LAUNCH_ARGS}"
-        else
+            if [ ! -e "${image}" ];then
+                log "Missing image file: ${image}"
+                exit -1
+            else
+                log "Getting box name from ${image}"
+                box="$(dd if=${image} bs=1024 count=10000 2>/dev/null|tar -t${tar_k}f - 2>/dev/null)"
+            fi
             if [ ! -e "${box}" ];then
                 log "Unarchiving ${image}"
                 # need to sudo to restore sticky GID
                 sudo tar ${tar_preopts} "${image}" $tar_postopts
                 if [ "x${?}" != "x0" ];then
                     log "Error unarchiving ${image}"
-                fi
-                if [ ! -e "${box}" ];then
-                    log "Missing ${box}"
-                    exit -1
+                    exit 1
                 fi
             else
-                log "Existing ${box}, if you want to unarchive again, delete it"
-            fi
-            log "Importing ${box} into vagrant bases boxes as '${bname}' box"
-            vagrant box add -f "${bname}" "${box}" && rm -f "${box}"
-            if [ "x${?}" != "x0" ];then
-                log "Error while importing ${box}"
-                exit ${?}
+                log "Existing ${box}, if you want to unarchive from image file again, delete it"
             fi
         fi
-        log "Initialiasing host from ${box}" &&\
-            export DEVHOST_FORCED_BOX_NAME="${bname}" &&\
-            sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
-            sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb
-        # load initial box image & do initial provisionning
-        up && lret="0"
-        down
-        if [ "x${lret}" != "x0" ];then
-            log "Error while importing ${box}"
-            exit $lret
-        else
-            log "Box ${box} imported !"
+        if [ ! -e "${box}" ];then
+            log "Missing ${box}"
+            exit -1
         fi
+        log "Importing ${box} into vagrant bases boxes as '${bname}' box"
+        vagrant box add -f "${bname}" "${box}" && rm -f "${box}"
+        if [ "x${?}" != "x0" ];then
+            log "Error while importing ${bname} (from: ${box}="
+            exit ${?}
+        fi
+    fi
+    # load initial box image & do initial provisionning
+    log "Initialiasing host from ${bname}" &&\
+        export DEVHOST_FORCED_BOX_NAME="${bname}" &&\
+        sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
+        sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb
+    up && lret="0"
+    down
+    if [ "x${lret}" != "x0" ];then
+        log "Error while importing ${bname}"
+        exit $lret
+    else
+        log "Box ${bname} imported !"
     fi
 }
 
@@ -1163,8 +1183,8 @@ get_abspath() {
 clonevm() {
     NEWVMPATH="${1}"
     OLDVMPATH="${VMPATH}"
-    tarballs="$(ls -1rt *.tar.bz2)"
-    tarball="$(ls -1rt devhost*.tar.bz2|head -n1)"
+    tarballs="$(ls -1rt *.tar.{bz2,gz,xz} 2>/dev/null)"
+    tarball="$(ls -1rt devhost*.tar.{bz2,gz,xz} 2>/dev/null|head -n1)"
     if [ ! -e ${NEWVMPATH} ];then
         mkdir "${NEWVMPATH}"
     fi
@@ -1195,6 +1215,8 @@ clonevm() {
     sudo rsync -av\
         --exclude=VM\
         --exclude="*.tar.bz2"\
+        --exclude="*.tar.xz"\
+        --exclude="*.tar.gz"\
         --exclude=.vagrant --exclude=vagrant_config.rb \
         "${OLDVMPATH}/" "${NEWVMPATH}/"
     cd "${NEWVMPATH}"||exit -1
@@ -1227,7 +1249,7 @@ clonevm() {
                 fi
             fi
         done &&\
-        ntarball="$(ls -1rt devhost*.tar.bz2|head -n1)" &&\
+        ntarball="$(ls -1rt devhost*.tar.{gz,bz2,xz} 2>/dev/null|head -n1)" &&\
         if [ ! -e "${ntarball}" ];then ntarball="${import_uri:-$(get_release_url)}";fi &&\
         pb=""
         cd "${NEWVMPATH}" &&\

@@ -249,11 +249,9 @@ EOF
                     /etc/apt/sources.list
                 apt-get update
             fi\
-                && apt-get update -qq\
-                && install_backports\
-                && apt-get upgrade -y\
-                && apt-get dist-upgrade -y --force-yes\
-                && lazy_apt_get_install git git-core bridge-utils
+                && apt-get update -qq -y \
+                && lazy_apt_get_install git git-core bridge-utils \
+                && install_needing_reboot
         fi
         die_in_error
         touch "${marker}"
@@ -277,16 +275,27 @@ check_restart() {
     fi
 }
 
-install_backports() {
-    marker="$MARKERS/vbox_backports_done"
-    if [  "x${IS_UBUNTU}" != "x" ];then
-        if [ ! -e "${marker}" ];then
-            output " [*] Installing linux-image-extra-virtual for AUFS support"
-            lazy_apt_get_install linux-image-extra-virtual && touch ${restart_marker} ${marker}
+install_needing_reboot() {
+    marker="$MARKERS/vbox_needing_reboot_done"
+    if [ ! -e "${marker}" ];then
+        if [  "x${IS_UBUNTU}" != "x" ];then
+            output " [*] Installing linux-image-extra-virtual for AUFS support" \
+                && lazy_apt_get_install linux-image-extra-virtual
             die_in_error "kernel install failed"
-            check_restart
+            output " [*] Initial dist-upgrade" \
+                && apt-get dist-upgrade -y --force-yes
+            die_in_error "dist-upgrade install failed"
+            output " [*] Installing latest system-d related packages" \
+                && apt-get install -t $(lsb_release -sc)-proposed \
+                systemd libpam-systemd libsystemd0 systemd-sysv policykit-1
+            die_in_error "systemd install failed"
+            touch "${marker}"
+        fi
+        if [ -e "${marker}" ];then
+            touch "${restart_marker}"
         fi
     fi
+    check_restart
 }
 
 run_boot_salt() {
@@ -391,7 +400,7 @@ cleanup_misc() {
         user="$(echo $user_home|awk -F: '{print $1}')"
         home="$(echo $user_home|awk -F: '{print $2}')"
         if [ -e "$home/.bash_history" ];then
-            rm -vf $home/.bash_history $home/.ssh/authorized_keys
+            rm -vf $home/.bash_history
         fi
     done
 }
