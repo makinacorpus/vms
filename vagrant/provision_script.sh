@@ -464,7 +464,7 @@ create_vm_mountpoint() {
         if [  "x$(is_mounted "$dest")" != "x" ];then
             log "Already mounted point: ${mountpoint}"
         else
-            if egrep -vq "${NOT_EXPORTED}" "${mountpoint}";then
+            if echo "${mountpoint}" | egrep -vq "${NOT_EXPORTED}";then
                 if [ -d "${mountpoint}" ];then
                     if [ ! -d "$dest" ];then
                         mkdir -pv "${dest}"
