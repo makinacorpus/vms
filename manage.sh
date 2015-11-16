@@ -947,7 +947,6 @@ export_() {
         zerofree=y
     fi
     if [ "x${zerofree}" != "x" ];then
-        log "Zerofree starting ! DO NOT INTERRUPT ANYMORE"
         do_zerofree
     else
         log "Skip zerofree on export"
@@ -1260,7 +1259,7 @@ test() {
 }
 
 do_zerofree() {
-    log "Zerofreing" &&\
+    log "Zerofree starting ! DO NOT INTERRUPT ANYMORE" &&\
     up &&\
     ssh__ "sudo /sbin/zerofree.sh" &&\
     log " [*] WM Zerofreed"
