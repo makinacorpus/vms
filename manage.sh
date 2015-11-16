@@ -941,7 +941,7 @@ export_() {
     netrules="/etc/udev/rules.d/70-persistent-net.rules"
     # XXX: REALLY IMPORTANT TO NOTE IS THAT THE BOC MUST BE THE FIRST TARED FILE !!!
     if [ "x${nozerofree}" = "x" ] && [ "x${zerofree}" = "x" ];then
-        log "Zerofree starting in 10 seconds, you can control C before the next log"
+        log "Zerofree will starting in 10 seconds, in the mean time you can interrupt the process with control-C"
         log "and relaunch with the same cmdline with nozerofree appended: eg ./manage.sh export nozerofree"
         sleep 10
         zerofree=y
