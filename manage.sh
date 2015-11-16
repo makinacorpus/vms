@@ -634,10 +634,10 @@ release() {
             git add "${rfile}" &&\
             git commit -am "RELEASE: ${rname}" &&\
             log "You ll need to git push when you ll have test an init" &&\
-            log "somewhere and the download works and the sf.net mirrors are well synchron,ized" &&\
+            log "somewhere and the download works and the sf.net mirrors are well synchronized" &&\
             log "URL to test is: $(get_release_url ${rname})" &&\
-            log "Automatic commit in 4 hours, or pres CC and issue git push manually" &&\
-            sleep "$((4 * 60 * 60))" && git push
+            log "Automatic commit in 30mins, or pres CC and issue git push manually" &&\
+            sleep "$((30 * 60))" && git push
         log "End of release"
     fi
 
