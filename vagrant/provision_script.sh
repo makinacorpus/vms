@@ -87,7 +87,7 @@ detect_os() {
 }
 
 set_vars() {
-    NOT_EXPORTED="proc sys dev lost+found guest"
+    NOT_EXPORTED="^(proc|sys|dev|lost+found|guest)\$"
     VM_EXPORT_MOUNTPOINT="/guest"
     MS_BRANCH="${MS_BRANCH:-master}"
     MS_NODETYPE="${MS_NODETYPE:-vagrantvm}"
@@ -464,7 +464,7 @@ create_vm_mountpoint() {
         if [  "x$(is_mounted "$dest")" != "x" ];then
             log "Already mounted point: ${mountpoint}"
         else
-            if [ " ${NOT_EXPORTED} " != *" ${mountpoint} "* ];then
+            if egrep -vq "${NOT_EXPORTED}" "${mountpoint}";then
                 if [ -d "${mountpoint}" ];then
                     if [ ! -d "$dest" ];then
                         mkdir -pv "${dest}"
