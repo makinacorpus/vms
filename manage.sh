@@ -620,7 +620,7 @@ release() {
     export VMPATH="${RELEASE_PATH}"
     log "Releasing ${rname}" &&\
         if [ ! -f "${rarc}" ];then
-            export_ "${rname}" nozerofree
+            export_ "${rname}" zerofree
         fi && \
         log "Running scp \"${rarc}\" ${SFTP_URL}/\"${rarc}\"" &&\
         scp "${rarc}" ${SFTP_URL}/"${rarc}"
@@ -898,8 +898,12 @@ get_release_url() {
 }
 
 export_() {
+    zerofree=""
+    nozerofree=""
     for i in ${@};do
-        if [ "x${i}" = "xnozerofree" ];then
+        if [ "x${i}" = "xzerofree" ];then
+            zerofree=y
+        elif [ "x${i}" = "xnozerofree" ];then
             nozerofree=y
         elif [ "x${i}" = "xnosed" ];then
             nosed=y
@@ -936,12 +940,15 @@ export_() {
     fi
     netrules="/etc/udev/rules.d/70-persistent-net.rules"
     # XXX: REALLY IMPORTANT TO NOTE IS THAT THE BOC MUST BE THE FIRST TARED FILE !!!
-    if [ "x${nozerofree}" = "x" ];then
+    if [ "x${nozerofree}" = "x" ] && [ "x${zerofree}" = "x" ];then
         log "Zerofree starting in 10 seconds, you can control C before the next log"
         log "and relaunch with the same cmdline with nozerofree appended: eg ./manage.sh export nozerofree"
         sleep 5
         log "Zerofree starting ! DO NOT INTERRUPT ANYMORE"
         sleep 5
+        zerofree=y
+    fi
+    if [ "x${zerofree}" != "x" ];then
         do_zerofree
     else
         log "Skip zerofree on export"
