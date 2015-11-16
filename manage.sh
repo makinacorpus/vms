@@ -943,12 +943,11 @@ export_() {
     if [ "x${nozerofree}" = "x" ] && [ "x${zerofree}" = "x" ];then
         log "Zerofree starting in 10 seconds, you can control C before the next log"
         log "and relaunch with the same cmdline with nozerofree appended: eg ./manage.sh export nozerofree"
-        sleep 5
-        log "Zerofree starting ! DO NOT INTERRUPT ANYMORE"
-        sleep 5
+        sleep 10
         zerofree=y
     fi
     if [ "x${zerofree}" != "x" ];then
+        log "Zerofree starting ! DO NOT INTERRUPT ANYMORE"
         do_zerofree
     else
         log "Skip zerofree on export"
