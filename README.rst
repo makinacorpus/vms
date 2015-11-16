@@ -39,8 +39,8 @@ We have improved performances by some techniques:
       guest to the host.
 
 
-Virtualbox
-++++++++++
+Virtualbox (recommended: >=5.0)
+++++++++++++++++++++++++++++++++
 Install Oracle Virtualbox at at least the **5.0** version and more generally the
 most up to date virtualbox release. Check `<https://www.virtualbox.org/>`_ for
 details.
