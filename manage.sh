@@ -380,7 +380,7 @@ internal_ssh() {
     fi
 }
 
-ssh_() {
+ssh__() {
     cd "${VMPATH}"
     sshhost="$(get_ssh_host "${ssh_config}")"
     if [ ! -e ${ssh_config} ];then
@@ -493,7 +493,7 @@ ssh_pre_reqs() {
 
 ssh_() {
     mount_vm
-    ssh_ $@
+    ssh__ $@
 }
 
 pre_down() {
@@ -1256,7 +1256,7 @@ test() {
 do_zerofree() {
     log "Zerofreing" &&\
     up &&\
-    ssh_ "sudo /sbin/zerofree.sh" &&\
+    ssh__ "sudo /sbin/zerofree.sh" &&\
     log " [*] WM Zerofreed"
 }
 
