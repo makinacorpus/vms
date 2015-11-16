@@ -119,7 +119,6 @@ ready_to_run() {
     output " [*] VM is now ready for './manage.sh ssh' or other usages..."
     output " ------------------------------- [ OK] -----------------------------------------"
     output " Once connected as root in the vm with \"./manage.sh ssh\" and \"sudo su -\""
-    output "   * You can upgrade all your projects with \"(master)salt-call [-l all] state.highstate\""
     output "   * You can run one specific state with \"(master)salt-call [-l all] state.sls name-of-state\""
     output " If you want to share this wm, use ./manage.sh export | import"
     output " Stop vm with './manage.sh down', connect it with './manage.sh ssh'"
@@ -217,12 +216,12 @@ configure_dns() {
 }
 
 initial_upgrade() {
-    marker="$MARKERS/vbox_init_global_upgrade"
+    initial_upgrade_marker="$MARKERS/vbox_init_global_upgrade"
     local force_apt_update=""
     if [ -e "$export_marker" ] && [ $DEVHOST_AUTO_UPDATE != "false" ];then
         force_apt_update="1"
     fi
-    if [ ! -e "$marker" ] || [ "x${force_apt_update}" != "x" ];then
+    if [ ! -e "${initial_upgrade_marker}" ] || [ "x${force_apt_update}" != "x" ];then
         output " [*] Upgrading base image"
         if [ "x${IS_DEBIAN_LIKE}" != "x" ];then
             output " [*] apt-get upgrade & dist-upgrade"
@@ -254,7 +253,7 @@ EOF
                 && install_needing_reboot
         fi
         die_in_error
-        touch "${marker}"
+        touch "${initial_upgrade_marker}"
     fi
 }
 
@@ -276,8 +275,8 @@ check_restart() {
 }
 
 install_needing_reboot() {
-    marker="$MARKERS/vbox_needing_reboot_done"
-    if [ ! -e "${marker}" ];then
+    install_needing_reboot_marker="$MARKERS/vbox_needing_reboot_done"
+    if [ ! -e "${install_needing_reboot_marker}" ];then
         if [  "x${IS_UBUNTU}" != "x" ];then
             output " [*] Installing linux-image-extra-virtual for AUFS support" \
                 && lazy_apt_get_install linux-image-extra-virtual
@@ -289,9 +288,9 @@ install_needing_reboot() {
                 && apt-get install -t $(lsb_release -sc)-proposed \
                 systemd libpam-systemd libsystemd0 systemd-sysv policykit-1
             die_in_error "systemd install failed"
-            touch "${marker}"
+            touch "${install_needing_reboot_marker}"
         fi
-        if [ -e "${marker}" ];then
+        if [ -e "${install_needing_reboot_marker}" ];then
             touch "${restart_marker}"
         fi
     fi
@@ -299,7 +298,7 @@ install_needing_reboot() {
 }
 
 run_boot_salt() {
-    bootsalt="$MS/_scripts/boot-salt.sh"
+    bootsalt="/srv/mastersalt/makina-states/_scripts/boot-salt.sh"
     local ret="0"
     if [ ! -e "$bootsalt_marker" ];then
         boot_word="Bootstrap"
@@ -307,7 +306,6 @@ run_boot_salt() {
         boot_word="Refresh"
         MS_BOOT_ARGS="-S ${MS_BOOT_ARGS}"
     fi
-    output " [*] $boot_word makina-states..."
     if [ ! -e "${bootsalt}" ];then
         output " [*] Running makina-states bootstrap directly from github"
         wget "http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh" -O "/tmp/boot-salt.sh"
@@ -316,6 +314,7 @@ run_boot_salt() {
     chmod u+x "${bootsalt}"
     if [ ! -e "${bootsalt_marker}" ];then
         activate_debug
+        output " [*] $boot_word makina-states..."
         "${bootsalt}" ${MS_BOOT_ARGS} && touch "${bootsalt_marker}"
         ret=${?}
         deactivate_debug
@@ -363,14 +362,14 @@ base_packages_sanitization() {
 }
 
 disable_base_box_services() {
-    marker="$MARKERS/disabled_base_box_services"
-    if [ ! -e "$marker" ];then
+    disable_base_box_services_marker="$MARKERS/disabled_base_box_services"
+    if [ ! -e "${disable_base_box_services_marker}" ];then
         for i in puppet chef-client;do
             if [ "x$i" = "xchef-client" ];then
                 ps aux|grep -- "$i"|awk '{print $2}'|xargs kill -9
             fi
-            if which systemctl 2>/dev/null;then
-                systemctl stop ${i} >/dev/null 2>&1
+            if which systemctl >/dev/null 2>&1;then
+                systemctl stop ${i}    >/dev/null 2>&1
                 systemctl disable ${i} >/dev/null 2>&1
             fi
             if [ -f /etc/init.d/$i ];then
@@ -382,7 +381,7 @@ disable_base_box_services() {
                 echo "START=no" > /etc/default/$i
             fi
         done
-        touch "$marker"
+        touch "${disable_base_box_services_marker}"
     fi
 }
 
@@ -458,24 +457,22 @@ ensure_localhost_in_hosts() {
 
 create_vm_mountpoint() {
     activate_debug
-    if [ ! -e "$VM_EXPORT_MOUNTPOINT" ];then
-        mkdir "$VM_EXPORT_MOUNTPOINT"
-    fi
+    if [ ! -e "${VM_EXPORT_MOUNTPOINT}" ];then mkdir "${VM_EXPORT_MOUNTPOINT}";fi
     cd /
-    ls -d * | while read mountpoint;do
-        dest="$VM_EXPORT_MOUNTPOINT/$mountpoint"
+    ls -d * | grep -v "${VM_EXPORT_MOUNTPOINT}" | while read mountpoint;do
+        dest="$VM_EXPORT_MOUNTPOINT/${mountpoint}"
         if [  "x$(is_mounted "$dest")" != "x" ];then
-            log "Already mounted point: $mountpoint"
+            log "Already mounted point: ${mountpoint}"
         else
-            if [ " $NOT_EXPORTED " != *" $mountpoint "* ];then
-                if [ -d "$mountpoint" ];then
+            if [ " ${NOT_EXPORTED} " != *" ${mountpoint} "* ];then
+                if [ -d "${mountpoint}" ];then
                     if [ ! -d "$dest" ];then
                         mkdir -pv "${dest}"
                     fi
                 elif [ -e "${mountpoint}" ];then
                     touch "${dest}"
                 fi
-                if [ "x$(is_mounted "$dest")" = "x" ];then
+                if [ "x$(is_mounted "${dest}")" = "x" ];then
                     log "Bind-Mounting /${mountpoint} -> ${dest}"
                     mount -o bind,rw,exec "${mountpoint}" "${dest}"
                     # is a symlink on debian, to /proc/mounts
@@ -500,8 +497,10 @@ create_vm_mountpoint() {
 umount_guest_mountpoint(){
     local hdone="0"
     mount|grep ${VM_EXPORT_MOUNTPOINT}|awk '{print $3}'|while read i;do
-        umount -f "$i"
-        log "Umounted point: ${i}"
+        umount -f "${i}" 2>&1 | grep -v "not mounted"
+        if [ "x${?}" = "x0" ];then
+            log "Umounted point: ${i}"
+        fi
         hdone="1"
     done
     # is a symlink on debian, to /proc/mounts

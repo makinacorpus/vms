@@ -942,9 +942,9 @@ export_() {
     fi
     netrules="/etc/udev/rules.d/70-persistent-net.rules"
     if [ "x${nozerofree}" = "x" ];then
-        log "Zerofree starting in 20 seconds, you can control C before the next log"
+        log "Zerofree starting in 10 seconds, you can control C before the next log"
         log "and relaunch with the same cmdline with nozerofree appended: eg ./manage.sh export nozerofree"
-        sleep 15
+        sleep 5
         log "Zerofree starting ! DO NOT INTERRUPT ANYMORE"
         sleep 5
         do_zerofree
