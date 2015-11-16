@@ -310,7 +310,7 @@ Shared from the host:
 
 Access the VM files from the host (aka: localedit)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-- To edit or access the files from your host system, you ll just have to ensure that the **./VM**
+- To edit or access the files from your HOST, you ll just have to ensure that the **./VM**
 folder which is a **sshfs** share of the ``/`` of the VM exported (as **root**) is populated.
 
 - For example, you can configure **<here>/VM/srv/projects/foo** as the project
