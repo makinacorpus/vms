@@ -1099,7 +1099,7 @@ import() {
         log "Importing ${box} into vagrant bases boxes as '${bname}' box"
         vagrant box add -f "${bname}" "${box}" && rm -f "${box}"
         if [ "x${?}" != "x0" ];then
-            log "Error while importing ${bname} (from: ${box}="
+            log "Error while importing ${bname} (from: ${box})"
             exit ${?}
         fi
     fi
@@ -1114,7 +1114,8 @@ import() {
         sed -i -e "/SSH_INSERT_KEY/d" ./vagrant_config.rb &&\
         sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb &&\
         sed -i -e "/MyConfig/a\    SSH_INSERT_KEY=false" ./vagrant_config.rb
-    up && lret="0"
+    lret=1
+    up && lret=${?}
     down
     if [ "x${lret}" != "x0" ];then
         log "Error while importing ${bname}"
