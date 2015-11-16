@@ -311,8 +311,7 @@ Shared from the host:
 Access the VM files from the host (aka: localedit)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - To edit or access the files from your host system, you ll just have to ensure that the **./VM**
-folder which is a mountpoint for the``/`` of the vm exported from
-the vm as the **root** user is populated.
+folder which is a **sshfs** share of the ``/`` of the VM exported (as **root**) is populated.
 
 - For example, you can configure **<here>/VM/srv/projects/foo** as the project
 workspace root for your eclipse setup.
