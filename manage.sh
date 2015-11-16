@@ -71,7 +71,6 @@ BASE_URL="${DEVHOST_BASE_URL:-"https://downloads.sourceforge.net/${PROJECT_PATH}
 SFTP_URL=frs.sourceforge.net:/home/frs/${PROJECT_PATH}
 PROVISION_WRAPPER="/vagrant/vagrant/provision_script_wrapper.sh"
 EXPORT_VAGRANTFILE="Vagrantfile-export"
-DEFAULT_NO_SYNC_HOSTS=${NO_SYNC_HOSTS}
 SSH_CONFIG_DONE=""
 HOSTONLY_SSH_CONFIG_DONE=""
 WRAPPER_PRESENT=""
@@ -617,7 +616,7 @@ release() {
     cd "${VMPATH}"
     OLD_VM_PATH="${VMPATH}"
     RELEASE_PATH="${VMPATH}-release"
-    NO_SYNC_HOSTS=1 NO_IMPORT=1 clonevm "${RELEASE_PATH}"
+    NO_IMPORT=1 clonevm "${RELEASE_PATH}"
     export VMPATH="${RELEASE_PATH}"
     log "Releasing ${rname}" &&\
         if [ ! -f "${rarc}" ];then
@@ -899,7 +898,6 @@ get_devhost_archive_name() {
 }
 
 export_() {
-    NO_SYNC_HOSTS=1
     for i in ${@};do
         if [ "x${i}" = "xnozerofree" ];then
             nozerofree=y
@@ -930,17 +928,14 @@ export_() {
             nincludes="${i} ${nincludes}"
         fi
     done
-    if [ "x${UNAME}" = "xDarwin" ];then
-        tar_postopts=""
-    fi
-    if [ "x${UNAME}" != "xDarwin" ];then
-        tar_preopts="${tar_preopts}p"
-    fi
+    if [ "x${UNAME}" = "xDarwin" ];then tar_postopts="";fi
+    if [ "x${UNAME}" != "xDarwin" ];then tar_preopts="${tar_preopts}p";fi
     if [ "x${tar_k}" = "xJ" ];then
         export XZ_OPT="${VMS_XZ_OPT:-${XZ_OPT:-"-9e"}}"
         log "using VMS_XZ_OPTS: ${XZ_OPT}"
     fi
     netrules="/etc/udev/rules.d/70-persistent-net.rules"
+    # XXX: REALLY IMPORTANT TO NOTE IS THAT THE BOC MUST BE THE FIRST TARED FILE !!!
     if [ "x${nozerofree}" = "x" ];then
         log "Zerofree starting in 10 seconds, you can control C before the next log"
         log "and relaunch with the same cmdline with nozerofree appended: eg ./manage.sh export nozerofree"
@@ -950,27 +945,35 @@ export_() {
         do_zerofree
     else
         log "Skip zerofree on export"
-    fi &&\
+    fi
     if [ ! -e "${box}" ];then
-        vagrant box remove $bname
+        vagrant box remove ${bname}
         down && up && gen_ssh_config &&\
             if [ "x${WRAPPER_PRESENT}" = "x" ];then \
                 log "${PROVISION_WRAPPER} is not there in the VM"
-                exit -1
-            fi &&\
-            if [ "x${nosed}" = "x" ];then \
-                vagrant_ssh "if [ -d ${netrules} ];then rm -rf ${netrules};mkdir ${netrules};fi";\
-                vagrant_ssh "if [ -e ${netrules} ];then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i ${netrules};fi";\
-            fi &&\
-            vagrant_ssh "sudo ${PROVISION_WRAPPER} mark_export" 2>/dev/null
-            down
-            export DEVHOST_FORCED_BOX_NAME="${bname}" &&\
-            log "Be patient, exporting now" &&\
-            vagrant package --vagrantfile "${packaged_vagrantfile}" --output "${box}" 2> /dev/null
-            rm -f "${EXPORT_VAGRANTFILE}"*
+        exit -1
+    fi
+    if [ "x${nosed}" = "x" ];then
+        vagrant_ssh "if [ -d ${netrules} ];then rm -rf ${netrules};mkdir ${netrules};fi";
+        vagrant_ssh "if [ -e ${netrules} ];then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i ${netrules};fi";
+    fi
+    vagrant_ssh "sudo ${PROVISION_WRAPPER} mark_export" 2>/dev/null &&\
+        down &&\
+        export DEVHOST_FORCED_BOX_NAME="${bname}" &&\
+        log "Be patient, exporting now" &&\
+        vagrant package --vagrantfile "${packaged_vagrantfile}" --output "${box}" 2> /dev/null &&\
+        rm -f "${EXPORT_VAGRANTFILE}"*  &&\
+        if [ -e "${box}" ] && [ ! -e "${abox}" ];then
+            log "Be patient, archiving now the whole full box package" &&\
+                tar ${tar_preopts} ${abox} ${box} ${includes} ${tar_postopts} &&\
+                rm -f "${box}" &&\
+                log "Export done of full box: ${VMPATH}/${abox}"
+        else
+            log "${VMPATH}/${abox}, delete it to redo"
+        fi
         lret="${?}"
-        down
-        up --no-provision && vagrant_ssh "sudo ${PROVISION_WRAPPER} unmark_exported" 2>/dev/null && down
+        down && up --no-provision &&\
+            vagrant_ssh "sudo ${PROVISION_WRAPPER} unmark_exported" 2>/dev/null && down
         if [ "x${lret}" != "x0" ];then
             log "error exporting ${box}"
             exit 1
@@ -978,23 +981,6 @@ export_() {
     else
         log "${VMPATH}/${box} exists, delete it to redo"
     fi
-    # XXX: REALLY IMPORTANT TO NOTE IS THAT THE BOC MUST BE THE FIRST TARED FILE !!!
-    if [ -e "${box}" ] && [ ! -e "${abox}" ];then
-        log "Be patient, archiving now the whole full box package" &&\
-        tar ${tar_preopts} ${abox} ${box} ${includes} ${tar_postopts} &&\
-        rm -f "${box}" &&\
-        log "Export done of full box: ${VMPATH}/${abox}"
-    else
-        log "${VMPATH}/${abox}, delete it to redo"
-    fi &&\
-    lret=${?}
-    if [ "x${lret}" != "x0" ];then
-        log "Error while exporting"
-        exit $lret
-    else
-        log "End of export"
-    fi
-    NO_SYNC_HOSTS=$DEFAULT_NO_SYNC_HOSTS
 }
 
 check_tmp_file() {
@@ -1044,7 +1030,6 @@ get_vagrant_boxes() {
 
 import() {
     cd "${VMPATH}"
-    NO_SYNC_HOSTS=1
     url=""
     sshurl=""
     image="${1:-$(get_devhost_archive_name $(get_release_name))}"
@@ -1270,7 +1255,7 @@ clonevm() {
 
 test() {
     TESTPATH="${VMPATH}-test"
-    NO_SYNC_HOSTS=1 NO_INPUT=1 clonevm "${TESTPATH}"
+    NO_INPUT=1 clonevm "${TESTPATH}"
 }
 
 do_zerofree() {
