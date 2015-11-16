@@ -306,28 +306,13 @@ workspace root for your eclipse setup.
 
 ssh (git) credential
 ~~~~~~~~~~~~~~~~~~~~~~
-- At each vm access
-
-    - We copy to the **root** and **vagrant** users:
-
-        - the current user ssh-keys
-        - the current user ssh-config
-
-    - We copy **vagrant** authorized_keys to **root/.ssh**.
-    - All of this is managed in **/vagrant/vagrant/install_keys.sh**
+- At each vm access, we copy **vagrant** authorized_keys to **root/.ssh**.
+- All of this is managed in **/vagrant/provision_scripts.sh:install_keys**
 
 This allow you from the host:
 
     - To log as vagrant or root user
     - To mount the guest filesystem as root (used in the core setup)
-    - git push/pull from the guest as if you were on the host
-
-If your project has custom users, just either (via saltstates):
-
-    - copy the **vagrant** ssh keys to your user $HOME
-    - Use an identity parameter pointing to the **vagrant** key pair
-
-
 
 Troubleshooting
 ===============
