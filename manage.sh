@@ -1046,6 +1046,7 @@ import() {
     cd "${VMPATH}"
     NO_SYNC_HOSTS=1
     url=""
+    sshurl=""
     image="${1:-$(get_devhost_archive_name $(get_release_name))}"
     bname="$(echo "${bname:-${2:-$(basename "${image}")}}" | sed "s/\.tar.*//g")"
     box="$(get_vagrant_box_name ${bname})"
@@ -1054,7 +1055,12 @@ import() {
     tar_postopts="--numeric-owner"
     if [ "x$(echo ${image}|grep -q http;echo ${?})" = "x0" ];then
         url="${image}"
+        log "using HTTP: ${url}"
         image="$(basename ${image})"
+    elif [ "x$(echo ${image}|grep -q :;echo ${?})" = "x0" ];then
+        sshurl="${image}"
+        log "using RSYNC(ssh): ${sshurl}"
+        image="$(basename $(echo "${image}"|sed "s/.*://g"))"
     fi
     # test if vm has already been imported
     if [ "x$(status)" != "xnot created" ];then
@@ -1069,17 +1075,20 @@ import() {
     else
         if [ ! -e "${box}" ];then
             do_download=""
-            if [ ! -e "${image}" ] && [ "x${url}" != "x" ];then
-                if [ ! -e ${image} ];then
-                    do_download="1"
-                fi
-                if [ "x$(check_tmp_file ${image})" = "x" ];then
-                    do_download="1"
-                fi
+            if [ ! -e "${image}" ];then
+                if  [ "x${url}" != "x" ];then do_download="1";fi
+                if  [ "x${sshurl}" != "x" ];then do_download="1";fi
+            else
+                if [ "x$(check_tmp_file ${image})" = "x" ];then do_download="1";fi
             fi
             if [ "x${do_download}" != "x" ];then
-                download "${url}" "${image}"
-            elif [ "x${url}" != "x" ];then
+                if [ "x${url}" != "x" ];then
+                    download "${url}" "${image}"
+                elif [ "x${sshurl}" != "x" ];then
+                    rsync -azvP "${sshurl}" "${image}"
+                    die_in_error "scp failed: ${sshurl} -> ${image}"
+                fi
+            elif [ "x${url}" != "x" ] || [ "x${sshurl}" != "x" ];then
                 log "${image} already exists, "
                 log "   delete this archive, if you want to redownload"
                 log "   from ${url}"
