@@ -643,11 +643,6 @@ release() {
 
 }
 
-get_release_url() {
-    rname="${1:-$(get_release_name)}"
-    echo "${BASE_URL}/$(get_devhost_archive_name ${rname})"
-}
-
 init() {
     cd "${VMPATH}"
     status="$(status)"
@@ -897,6 +892,12 @@ get_devhost_archive_name() {
     echo "${1:-"$(get_box_name ${2})"}.tar.${TAR_FORMAT}"
 }
 
+get_release_url() {
+    rname="${1:-$(get_release_name)}"
+    echo $rname
+    echo "${BASE_URL}/$(get_devhost_archive_name ${rname})"
+}
+
 export_() {
     for i in ${@};do
         if [ "x${i}" = "xnozerofree" ];then
@@ -1027,7 +1028,7 @@ import() {
     cd "${VMPATH}"
     url=""
     sshurl=""
-    image="${1:-$(get_devhost_archive_name $(get_release_name))}"
+    image="${1:-$(get_release_url $(get_release_name))}"
     bname="$(echo "${bname:-${2:-$(basename "${image}")}}" | sed "s/\.tar.*//g")"
     box="$(get_vagrant_box_name ${bname})"
     tar_k="$(get_tar_knob ${image})"
