@@ -1112,14 +1112,13 @@ import() {
     fi &&\
         sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
         sed -i -e "/SSH_INSERT_KEY/d" ./vagrant_config.rb &&\
-        sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb &&\
-        sed -i -e "/MyConfig/a\    SSH_INSERT_KEY=false" ./vagrant_config.rb
-    lret=1
-    up && lret=${?}
+        sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb
+    uplret=1
+    up && uplret=${?}
     down
-    if [ "x${lret}" != "x0" ];then
+    if [ "x${uplret}" != "x0" ];then
         log "Error while importing ${bname}"
-        exit $lret
+        exit $uplret
     else
         log "Box ${bname} imported !"
     fi

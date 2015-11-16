@@ -271,8 +271,6 @@ vagrant_config_lines << "SSH_INSERT_KEY=#{SSH_INSERT_KEY}"
 
 #Vagrant::Config.run do |config|
 Vagrant.configure("2") do |config|
-  # Setup virtual machine box. This VM configuration code is always executed.
-  # config.ssh.insert_key = SSH_INSERT_KEY
   config.vm.box = REAL_BOX_NAME
   config.vm.box_url = BOX_URI
   config.vm.host_name = VM_HOSTNAME
