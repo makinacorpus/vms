@@ -87,7 +87,7 @@ detect_os() {
 }
 
 set_vars() {
-    NOT_EXPORTED="^(proc|sys|dev|lost+found|guest)\$"
+    NOT_EXPORTED="^(proc|sys|dev|lost+found|guest|vmlinu.*)\$"
     VM_EXPORT_MOUNTPOINT="/guest"
     MS_BRANCH="${MS_BRANCH:-master}"
     MS_NODETYPE="${MS_NODETYPE:-vagrantvm}"
