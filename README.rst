@@ -60,8 +60,8 @@ Typically on Debian/Ubuntu::
 
 On MacOSX, Install `this DMG from virtualbox.org <http://download.virtualbox.org/virtualbox/5.0.10/VirtualBox-5.0.10-104061-OSX.dmg>`_
 
-Vagrant
-+++++++
+Vagrant (>=1.7)
+++++++++++++++++
 You could make you a supersudoer without password to avoid sudo questions when lauching the VMs (not required)::
 
     # visudo
