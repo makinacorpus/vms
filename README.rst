@@ -297,28 +297,36 @@ You can then delete them by using::
 
 File edition and access
 ++++++++++++++++++++++++++++
-Base mountpoints and folders
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-- **/mnt/parent_home**: Host user Home folder
-- **/vagrant/share**: ``Current working directory/share`` in the host (where ./manage.sh up has been done
-- **/vagrant/packer**: ``Current working directory/packer`` in the host (where ./manage.sh up has been done
-- **/vagrant/vagrant**: ``Current working directory/vagrant`` in the host (where ./manage.sh up has been done
+Base mountpoints and folders inside the VM
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - **/srv/salt**: Salt state tree
 - **/srv/projects**: makina Salt projects installation root
 - **/srv/pillar**: Pillar data
 
-Base file operations
-~~~~~~~~~~~~~~~~~~~~~~~~
-- To edit or access the files from your host system, youn ll just  have to use **./VM**
-which is a mountpoint for the``/`` of the vm exported from
-the vm as the **root** user.
+Shared from the host:
+- **/vagrant/share**: ``Current working directory/share`` in the host (where ./manage.sh up has been done
+- **/vagrant/packer**: ``Current working directory/packer`` in the host (where ./manage.sh up has been done
+- **/vagrant/vagrant**: ``Current working directory/vagrant`` in the host (where ./manage.sh up has been done
+
+Access the VM files from the host (aka: localedit)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- To edit or access the files from your host system, you ll just have to ensure that the **./VM**
+folder which is a mountpoint for the``/`` of the vm exported from
+the vm as the **root** user is populated.
 
 - For example, you can configure **<here>/VM/srv/projects/foo** as the project
 workspace root for your eclipse setup.
 
-- **You should do git or large operations from within the VM as it will not use
-  the shared network and will be faster**
+
+Launching the VM should be sufficient to see files inside **./VM**
+::
+
+    ./manage.sh up
+
+But in in case VM is empty::
+::
+
+    ./manage.sh mount_vm
 
 ssh (git) credential
 ~~~~~~~~~~~~~~~~~~~~~~
