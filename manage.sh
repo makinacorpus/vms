@@ -971,13 +971,8 @@ export_() {
         else
             log "${VMPATH}/${abox}, delete it to redo"
         fi
-        lret="${?}"
         down && up --no-provision &&\
             vagrant_ssh "sudo ${PROVISION_WRAPPER} unmark_exported" 2>/dev/null && down
-        if [ "x${lret}" != "x0" ];then
-            log "error exporting ${box}"
-            exit 1
-        fi
     else
         log "${VMPATH}/${box} exists, delete it to redo"
     fi
