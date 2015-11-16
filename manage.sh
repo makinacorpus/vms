@@ -894,7 +894,6 @@ get_devhost_archive_name() {
 
 get_release_url() {
     rname="${1:-$(get_release_name)}"
-    echo $rname
     echo "${BASE_URL}/$(get_devhost_archive_name ${rname})"
 }
 
