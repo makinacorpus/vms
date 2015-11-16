@@ -369,6 +369,10 @@ disable_base_box_services() {
             if [ "x$i" = "xchef-client" ];then
                 ps aux|grep -- "$i"|awk '{print $2}'|xargs kill -9
             fi
+            if which systemctl 2>/dev/null;then
+                systemctl stop ${i} >/dev/null 2>&1
+                systemctl disable ${i} >/dev/null 2>&1
+            fi
             if [ -f /etc/init.d/$i ];then
                 output " [*] Disabling $i"
                 service $i stop
