@@ -505,7 +505,7 @@ EOF},
       "rm -f /tmp/vagrant_provision_needs_restart",
       "/root/vagrant/provision_net.sh;",
       "/root/vagrant/provision_nfs.sh;",
-      "echo /vagrant/vagrant/provision_script.sh",
+      "/vagrant/vagrant/provision_script.sh",
   ]
   config.vm.provision :shell, :inline => pkg_cmd.join("\n")
 end

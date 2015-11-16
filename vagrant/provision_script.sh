@@ -546,7 +546,7 @@ reset_git_configs() {
 }
 
 sync_ssh() {
-    rsync -azv /home/vagrant/.ssh/ /root/.ssh/
+    rsync -a /home/vagrant/.ssh/ /root/.ssh/
     chown -Rf root:root /root/.ssh/
 }
 

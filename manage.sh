@@ -4,7 +4,7 @@ UNAME="$(uname)"
 actions=""
 actions_main_usage="usage init ssh up reload destroy down suspend status clonevm remount_vm umount_vm version shutdown poweroff off"
 actions_exportimport="export import"
-actions_advanced="do_zerofree test install_keys cleanup_keys mount_vm release internal_ssh gen_ssh_config reset is_mounted"
+actions_advanced="do_zerofree test install_keys mount_vm release internal_ssh  gen_ssh_config reset is_mounted"
 actions_alias="-h --help --long-help -l -v --version"
 actions="
     ${actions_exportimport}
@@ -247,10 +247,6 @@ usage() {
                     help_header ${i}
                     help_content "      Install the ssh keys from $(whoami) in the guest root and vagrant users"
                     ;;
-                cleanup_keys)
-                    help_header ${i}
-                    help_content "      Purge any ssh key contained in the VM"
-                    ;;
                 mount_vm)
                     help_header ${i}
                     help_content "      Mount the vm filesystem on the host using sshfs"
@@ -479,22 +475,11 @@ gen_ssh_config() {
     unactive_echo
 }
 
-cleanup_keys() {
-    active_echo
-    ssh_pre_reqs
-    if [ "x${WRAPPER_PRESENT}" != "x" ];then
-        vagrant_ssh "sudo ${PROVISION_WRAPPER} cleanup_keys" 2>/dev/null
-    else
-        log "Warning: could not cleanup ssh keys, shared folder mountpoint seems not present"
-    fi
-    unactive_echo
-}
-
 install_keys() {
     active_echo
     gen_ssh_config
     if [ "x${WRAPPER_PRESENT}" != "x" ];then
-        vagrant_ssh "sudo ${PROVISION_WRAPPER} install_keys" 2>/dev/null
+        vagrant_ssh "sudo ${PROVISION_WRAPPER} sync_ssh" 2>/dev/null
     else
         log "Warning: could not install ssh keys, shared folder mountpoint seems not present"
     fi
@@ -502,14 +487,12 @@ install_keys() {
 }
 
 ssh_pre_reqs() {
-    if [ "x$(status)" != "xrunning" ];then
-        up
-    fi
+    if [ "x$(status)" != "xrunning" ];then up;fi
     gen_ssh_config
     install_keys
 }
 
-ssh() {
+ssh_() {
     mount_vm
     ssh_ $@
 }
@@ -695,7 +678,6 @@ get_lsof_pids() {
 }
 
 is_mounted() {
-    #set -x
     mounted=""
     if [ "x$(mount|awk '{print $3}'|egrep "${VM}$" |grep -v grep| wc -l|sed -e "s/ //g")" != "x0" ]\
         || [ "x$(get_sshfs_ps| wc -l|sed -e "s/ //g")" != "x0" ];then
@@ -727,9 +709,7 @@ mount_vm() {
         umount_vm
     fi
     if [ ! -e "${VM}/home/vagrant/.ssh" ];then
-        if [ ! -e "${VM}" ];then
-            mkdir "${VM}"
-        fi
+        if [ ! -e "${VM}" ];then mkdir "${VM}";fi
         ssh_pre_reqs
         sshhost=$(get_ssh_host "${ssh_config}")
         if [ "x${sshhost}" != "x" ];then
@@ -738,10 +718,20 @@ mount_vm() {
             if [ "x$(egrep "^user_allow_other" /etc/fuse.conf 2>/dev/null|wc -l|sed -e "s/ //g")" != "0" ];then
                 sshopts="${sshopts},allow_other"
             fi
-            if [ "x${UNAME}" != "xDarwin" ];then
-                sshopts="${sshopts},nonempty"
+            if [ "x${UNAME}" != "xDarwin" ];then sshopts="${sshopts},nonempty";fi
+            mountpoint="/guest"
+            if ssh -F "${ssh_config}" "${sshhost}"  test ! -e /guest;then
+                if ssh -F "${ssh_config}" "${sshhost}" sudo ${PROVISION_WRAPPER} create_vm_mountpoint;then
+                    if ssh -F "${ssh_config}" "${sshhost}" test ! -e /guest/bin;then
+                        log "/guest does not exists, fallback to /"
+                        mountpoint="/"
+                    fi
+                else
+                    log "/guest populator does not exists, fallback to /"
+                    mountpoint="/"
+                fi
             fi
-            sshfs -F "${ssh_config}" root@${sshhost}:/guest -o ${sshopts} "${VM}"
+            sshfs -F "${ssh_config}" root@${sshhost}:"${mountpoint}" -o ${sshopts} "${VM}"
         else
             log "Cant' mount devhost, empty ssh host"
             exit -1
@@ -827,9 +817,7 @@ do_fusermount () {
 }
 
 umount_vm() {
-    if [ "x${DARWIN_DEBUG}" != "x" ];then
-        set -x
-    fi
+    if [ "x${DARWIN_DEBUG}" != "x" ];then set -x;fi
     cd "${VMPATH}"
     if [ "x$(is_mounted)" != "x" ];then
         log "Umounting of ${VM}"
@@ -844,9 +832,7 @@ umount_vm() {
         log "Can't umount vm"
         exit "${?}"
     fi
-    if [ "x${DARWIN_DEBUG}" != "x" ];then
-        set +x
-    fi
+    if [ "x${DARWIN_DEBUG}" != "x" ];then set +x;fi
 }
 
 up() {
@@ -1281,7 +1267,7 @@ test() {
 do_zerofree() {
     log "Zerofreing" &&\
     up &&\
-    ssh "sudo /sbin/zerofree.sh" &&\
+    ssh_ "sudo /sbin/zerofree.sh" &&\
     log " [*] WM Zerofreed"
 }
 
@@ -1300,7 +1286,7 @@ if [ "x${MANAGE_AS_FUNCS}" = "x" ];then
     if [ "x${thismatch}" = "xmatch" ];then
         shift
         case ${action} in
-            export) action="export_"
+            export|ssh) action="${action}_"
                 ;;
             -v|--version) action="version"
                 ;;
