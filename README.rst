@@ -98,7 +98,25 @@ MacOSX
     - uninstall sshfs from MacFuse if any
 
 - Install **osxfuse** & **sshfs** from `osxfuse <http://osxfuse.github.io/>`_
-- Ensure that **user_allow_other** is on ``/etc/fuse.conf`` and uncommented out
+- Ensure that **user_allow_other** is on ``/etc/fuse.conf`` and uncommented out.
+
+Ensure that your user is a fuse member
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Your user needs to be in the fuse group
+```
+id
+uid=1000(x) gid=1000(x) groupes=1000(x),4(adm),24(cdrom),27(sudo),30(dip),46(plugdev),111(fuse)
+```
+
+If fuse is not there:
+```
+   sudo gpasswd -a $(whoami) fuse
+```
+
+If you were not in the fuse group, either reconnect your session or reboot your
+machine, or use ``newgrp fuse`` in any existing shell.
+
 
 Optimizations (optional)
 +++++++++++++++++++++++++
