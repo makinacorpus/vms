@@ -304,9 +304,9 @@ Base mountpoints and folders inside the VM
 - **/srv/pillar**: Pillar data
 
 Shared from the host:
-    - **/vagrant/share**: ``Current working directory/share`` in the host (where ./manage.sh up has been done
-    - **/vagrant/packer**: ``Current working directory/packer`` in the host (where ./manage.sh up has been done
-    - **/vagrant/vagrant**: ``Current working directory/vagrant`` in the host (where ./manage.sh up has been done
+    - **/vagrant/share**: ``./share`` in the host (where ./manage.sh up has been done
+    - **/vagrant/packer**: ``./packer`` in the host (where ./manage.sh up has been done
+    - **/vagrant/vagrant**: ``./vagrant`` in the host (where ./manage.sh up has been done
 
 Access the VM files from the host (aka: localedit)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
