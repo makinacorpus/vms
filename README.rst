@@ -163,11 +163,7 @@ To launch a Vagrant command always ``cd`` to the VM base directory::
 
   cd ~/makina/vms
 
-Initialising from scratch (low level base OS mage) rather than from a prebacked and downloaded box::
-
-  ./manage.sh up
-
-Starting the VM **ONLY** after the first creation. (if you have not launched first **init**, it will rebuild the entire image)::
+Starting the VM **ONLY** after the first creation. (if you have not launched first **init**, it will have the glorious effect **rebuild the entire image from scratch**)::
 
   ./manage.sh up
 
