@@ -146,7 +146,7 @@ You will have to use ``./manage.sh``, a wrapper to ``vagrant`` in the spirit but
     git clone https://github.com/makinacorpus/vms.git vms
     cd vms
 
-- start the VM a first time, this will launch a preconfigured VM after having downloaded it from our Mirrors (sourceforge)::
+- Start the VM via ``init`` the first time, this will launch a preconfigured VM after having downloaded it from our Mirrors (sourceforge)::
 
     ./manage.sh init
 
