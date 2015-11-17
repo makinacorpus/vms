@@ -2,7 +2,7 @@
 
 Summary
 =======
-Makina-States based vagrant development box
+Makina-States based vagrant development cluster builder
 Included support for a docker cluster.
 
 Organization
@@ -12,14 +12,16 @@ under support boxes:
 
 - **vagrant-ubuntu-1504-vivid64** Ubuntu vivid / 64 bits
 
-Install Development VM
+Install Development VMs
 --------------------------
 Following theses instructions you can install this git repository on a directory of your local host,
 then start a Virtualbox vm from this directory.
-this virtualbox VM is handled by vagrant and will then run the docker VMs or any
+this virtualbox VM(s) is handled by vagrant and will then run the docker VMs or any
 part of your project.
-You will be able to edit any files on the vm from your host, via the **VM** subdirectory which uses
+You will be able to edit any files on the vm from your host, via the **VM/<hostname>** subdirectory which uses
 under the hood a **sshfs** mountpoint, using **root** to connect to the vm.
+
+By default, we build a cluster of **1** node.
 
 Prerequisites
 +++++++++++++++
@@ -173,7 +175,7 @@ You will have to use ``./manage.sh``, a wrapper to ``vagrant`` in the spirit but
 Now that vagrant has created a virtualbox vm for you, you should always manipulate this virtualbox VM with ``./manage.sh`` command and use directly ``vagrant`` at last resort.
 
 Please note that when the vm is running, we will try to mount the VM root as
-root user with sshfs in the ``./VM`` folder.
+root user with sshfs in the ``./VM/<hostname>`` folder.
 
 To launch a Vagrant command always ``cd`` to the VM base directory::
 
@@ -226,6 +228,27 @@ By default this file is not yet created and will be created on first usage. But 
 This way the second vagrant VM is now using IP: **10.1.22.43** instead of **10.1.42.43** for the private network.
 The box hostname will be **devhost22.local** instead of devhost42.local.
 
+Spawning multiple virtualbox inside the same "environment"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Spawning a cluster based on the **BASE BOX** is easy, you just need to tell how
+many machines you want.
+
+For the moment though, the basesetup will be identical on each node.
+But after that, you can reconfigure the boxes to do what their respectives roles
+bring them to do...
+::
+
+    cat  > vagrant_config.rb << EOF
+    module MyConfig
+      MACHINES="3"
+    end
+    EOF
+
+::
+
+  ./manage.sh up
+
+
 Clone a vm from an existing one
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Take note that it will provision the base vm of the template and not the running VM.
@@ -265,6 +288,7 @@ Connecting to the vm
 
 Export/Import
 ++++++++++++++
+**THE EXPORT WILL ONLY WORK WITH A ONE NODE SETUP**
 
 To export in **package.tar.bz2**, to share this development host with someone::
 
@@ -310,14 +334,14 @@ Shared from the host:
 
 Access the VM files from the host (aka: localedit)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-- To edit or access the files from your HOST, you ll just have to ensure that the **./VM**
+- To edit or access the files from your HOST, you ll just have to ensure that the **./VM/<hostname>**
   folder is populated. Indeed, it's a **sshfs** share pointing to the ``/`` of the VM (as **root**).
 
-- For example, you can configure **<here>/VM/srv/projects/foo** as the project
+- For example, you can configure **<here>/VM/<hostname>//srv/projects/foo** as the project
   workspace root for your eclipse setup.
 
 
-Launching the VM should be sufficient to see files inside **./VM**
+Launching the VM should be sufficient to see files inside **./VM/<hostname>**
 ::
 
     ./manage.sh up
@@ -325,7 +349,7 @@ Launching the VM should be sufficient to see files inside **./VM**
 But in in case VM is empty::
 ::
 
-    ./manage.sh mount_vm
+    ./manage.sh mount_vm <vm_name>
 
 ssh (git) credential
 ~~~~~~~~~~~~~~~~~~~~~~
