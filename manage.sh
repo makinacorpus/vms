@@ -2,9 +2,9 @@
 LAUNCH_ARGS="${@}"
 UNAME="$(uname)"
 actions=""
-actions_main_usage="usage init ssh up reload destroy down suspend status clonevm remount_vm umount_vm version shutdown poweroff off"
+actions_main_usage="usage init ssh up reload env destroy down suspend status clonevm remount_vm umount_vm version shutdown poweroff off"
 actions_exportimport="export import"
-actions_advanced="do_zerofree test install_keys mount_vm release internal_ssh  gen_ssh_config reset is_mounted"
+actions_advanced="do_zerofree test install_keys mount_vm release internal_ssh gen_ssh_config reset is_mounted"
 actions_alias="-h --help --long-help -l -v --version"
 actions="
     ${actions_exportimport}
@@ -254,6 +254,11 @@ usage() {
                     help_header ${i}
                     help_content "      Umount the vm filesystem"
                     ;;
+
+                env)
+                    help_header ${i}
+                    help_content "      Get MISC variables to be used in shell (DOCKER_HOST, DEVHOST_IP, etc)"
+                    ;;
                 remount_vm)
                     help_header ${i}
                     help_content "      Mount or Remount the vm filesystem"
@@ -419,6 +424,11 @@ set_devhost_num() {
     fi
 }
 
+get_devhost_num() {
+    if [ "x${DEVHOST_NUM}" = "x" ];then set_devhost_num;fi
+    echo "${DEVHOST_NUM}"
+}
+
 mark_ssh_config_not_done() {
     HOSTONLY_SSH_CONFIG_DONE=""
     SSH_CONFIG_DONE=""
@@ -437,15 +447,30 @@ gen_internal_ssh_config() {
     fi
 }
 
-gen_hostonly_ssh_config() {
-    if [ "x${HOSTONLY_SSH_CONFIG_DONE}" != "x" ];then return 0;fi
-    # replace the ip by the hostonly interface one in our ssh wrappers
-    hostip=$(vagrant_ssh "ip addr show dev eth1 2> /dev/null" 2>/dev/null)
-    devhost_num="${DEVHOST_NUM}"
-    cp -f "${internal_ssh_config}" "${ssh_config}"
+raw_ssh() {
+    sshhost=$(grep "Host " "${VMPATH}/.vagrant/ssh-config" |awk '{print $2}')
+    ssh -F .vagrant/ssh-config root@${sshhost} "${@}"
+}
+
+raw_internal_ssh() {
+    sshhost=$(grep "Host " "${VMPATH}/ .vagrant/internal-ssh-config" |awk '{print $2}')
+    ssh -F .vagrant/ssh-config root@${sshhost} "${@}"
+}
+
+get_host_ip() {
+    hostip=$(raw_ssh ip addr show dev eth1)
     if [ "x${hostip}" != "x" ];then
         hostip=$(echo "${hostip}"|awk '/inet / {gsub("/.*", "", $2);print $2}'|head -n1)
     fi
+    echo "${hostip}"
+}
+
+gen_hostonly_ssh_config() {
+    if [ "x${HOSTONLY_SSH_CONFIG_DONE}" != "x" ];then return 0;fi
+    # replace the ip by the hostonly interface one in our ssh wrappers
+    hostip=$(get_host_ip)
+    devhost_num="${DEVHOST_NUM}"
+    cp -f "${internal_ssh_config}" "${ssh_config}"
     if [ "x${hostip}" = "x" ];then
         log "Fallback to internal as we could not detect any ip on eth1"
         ssh_config=$internal_ssh_config
@@ -463,9 +488,7 @@ gen_ssh_config() {
         log " [*] VM is not running, can't generate ssh configs"
         exit 1
     fi
-    if [ ! -d .vagrant ];then
-        mkdir .vagrant
-    fi
+    if [ ! -d .vagrant ];then mkdir .vagrant;fi
     active_echo
     gen_internal_ssh_config
     set_wrapper_present
@@ -1265,6 +1288,18 @@ do_zerofree() {
     log " [*] WM Zerofreed"
 }
 
+env_() {
+    if [ "x$(status)" != "xrunning" ];then
+        echo "# VM IS NOT RUNNING"
+    else
+        gen_ssh_config
+        ip=$(get_host_ip)
+        echo export DOCKER_HOST=\"tcp://${ip}\"
+        echo export DEVHOST_IP=\"${ip}\"
+        echo export DEVHOST_NUM=\"$(get_devhost_num)\"
+    fi
+}
+
 action="${1}"
 
 if [ "x${MANAGE_AS_FUNCS}" = "x" ];then
@@ -1280,7 +1315,7 @@ if [ "x${MANAGE_AS_FUNCS}" = "x" ];then
     if [ "x${thismatch}" = "xmatch" ];then
         shift
         case ${action} in
-            export|ssh) action="${action}_"
+            env|export|ssh) action="${action}_"
                 ;;
             -v|--version) action="version"
                 ;;
