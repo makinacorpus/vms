@@ -1,9 +1,5 @@
 # -*- mode: ruby -*-
 # vim: set ft=ruby ts=2 et sts=2 tw=0 ai:
-# !!!!!!!!!!!!!!!!:
-# !!! IMPORTANT !!!
-# !!!!!!!!!!!!!!!!!
-# If you want to improve perfomances specially network related, please read the end of this file
 
 require 'digest/md5'
 require 'etc'
@@ -12,14 +8,7 @@ require 'rbconfig'
 CWD=File.dirname(__FILE__)
 VSETTINGS_N="vagrant_config"
 VSETTINGS_P=File.dirname(__FILE__)+"/"+VSETTINGS_N+".rb"
-DEVHOST_DEBUG=ENV.fetch("DEVHOST_DEBUG", "").strip()
 UNAME=`uname`.strip
-devhost_debug=DEVHOST_DEBUG
-if devhost_debug.to_s.strip.length == 0
-  devhost_debug=false
-else
-  devhost_debug=true
-end
 vagrant_config_lines = []
 
 def eprintf(*args)
@@ -29,7 +18,6 @@ def eprintf(*args)
 end
 
 # --------------------- CONFIGURATION ZONE ----------------------------------
-#
 # If you want to alter any configuration setting, put theses settings in a ./vagrant_config.rb file
 # This way you will be able to "git up" the project more easily and get this Vagrantfile updated
 #
@@ -54,12 +42,15 @@ end
 #    #MS_BRANCH="stable"
 #    #MS_NODETYPE="vagrantvm"
 #    #MS_BOOT_ARGS="-C -MM --mastersalt localhost -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m devhost\\${DEVHOST_NUM}.local"
-#    # set it to true to replace default Virtualbox shares
-#    # by nfs shares, if you have problems with guests additions
-#    # for example
-#    DEVHOST_HAS_NFS=false
 # end
 # -------------o<---------------
+
+#------------- NETWORKING DETAILS ----------------
+# 2 NETWORKS DEFINED, 1 NAT, 1 HOST ONLY
+#   The default one is a NAT one, automatically done by vagrant, allows internal->external
+#    and some NAT port mappings (by defaut a 2222->22 is managed bu vagrant
+#   The private one will let you ref your dev things with a static IP
+#    in your /etc/hosts
 
 # detect current host OS
 def os
@@ -88,12 +79,12 @@ def get_uuid
     end
     uuid
 end
+
 begin
   require_relative VSETTINGS_N
   include MyConfig
 rescue LoadError
 end
-# --- End Load optional config file -----------------
 
 UBUNTU_RELEASE="vivid"
 
@@ -193,11 +184,15 @@ else
     APT_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
 end
 
-# ----------------- END CONFIGURATION ZONE ----------------------------------
+#------------ SHARED FOLDERS ----------------------------
+# HOST -> VM: Some of host./ subdirectories are mapped to /vagrant/<dir> in the VM
+# HOST <- VM: VM /guest is mapped to host ./VM using sshfs
+mountpoints = {"./share" => "/vagrant/share",
+               "./packer" => "/vagrant/packer",
+               "./vagrant" => "/vagrant/vagrant"}
 
 # ------ Init based on configuration values ---------------------------------
 # Chances are you do not want to alter that.
-
 BOX_PRIVATE_SUBNET=BOX_PRIVATE_SUBNET_BASE+DEVHOST_NUM
 BOX_PRIVATE_IP=BOX_PRIVATE_SUBNET+".43" # so 10.1.XX.YY by default
 BOX_PRIVATE_GW=BOX_PRIVATE_SUBNET+".1"
@@ -214,11 +209,6 @@ VIRTUALBOX_VM_NAME="#{VIRTUALBOX_BASE_VM_NAME} (#{SCWD})"
 eprintf(" [*] VB NAME: '#{VIRTUALBOX_VM_NAME}'\n")
 eprintf(" [*] VB IP: #{BOX_PRIVATE_IP}\n")
 eprintf(" [*] VB MEMORY|CPUS|MAX_CPU_USAGE_PERCENT: #{MEMORY}MB | #{CPUS} | #{MAX_CPU_USAGE_PERCENT}%\n")
-if devhost_debug
-  eprintf(" [*] To have multiple hosts, you can change the third bits of IP (default: #{DEVHOST_NUM_DEF}) via the MAKINA_DEVHOST_NUM env variable)\n")
-  eprintf(" [*] if you want to share this wm, dont forget to have ./vagrant_config.rb along\n")
-end
-
 VM_HOSTNAME="devhost"+DEVHOST_NUM+".local" # so devhostxx.local by default
 
 # ------------- MAKINA STATES CONFIGURATION -----------------------
@@ -239,9 +229,6 @@ else
 end
 
 # ------------- BASE IMAGE UBUNTU  -----------------------
-# You can pre-download this image with
-# vagrant box add precise64 http://cloud-images.ubuntu.com/precise/precise/current/precise-server-cloudimg-amd64-vagrant-disk1.box
-
 if defined?(BOX_NAME)
     vagrant_config_lines << "BOX_NAME=\"#{BOX_NAME}\""
 else
@@ -269,150 +256,7 @@ if ! defined?(SSH_INSERT_KEY)
 end
 vagrant_config_lines << "SSH_INSERT_KEY=#{SSH_INSERT_KEY}"
 
-#Vagrant::Config.run do |config|
-Vagrant.configure("2") do |config|
-  config.vm.box = REAL_BOX_NAME
-  config.vm.box_url = BOX_URI
-  config.vm.host_name = VM_HOSTNAME
-  config.vm.provider "virtualbox" do |vb|
-      vb.name="#{VIRTUALBOX_VM_NAME}"
-  end
-
-  # -- VirtualBox Guest Additions ----------
-  if Vagrant.has_plugin?('vbguest management')
-    if DEVHOST_HAS_NFS
-        config.vbguest.auto_update = false
-        config.vbguest.auto_reboot = false
-        config.vbguest.no_install = true
-    else
-        config.vbguest.auto_update = AUTO_UPDATE_VBOXGUEST_ADD
-        config.vbguest.auto_reboot = true
-        config.vbguest.no_install = false
-    end
-  end
-
-  #------------- NETWORKING ----------------
-  # 2 NETWORKS DEFINED, 1 NAT, 1 HOST ONLY
-  # The default one is a NAT one, automatically done by vagrant, allows internal->external
-  #   and some NAT port  mappings (by defaut a 2222->22 is managed bu vagrant
-  # The public one is commented by default will give you an easy access to outside
-  # The private one will let you ref your dev things with a static IP
-  # in your /etc/hosts
-  #
-  # 1st network is bridging (public DHCP) on eth0 of yout machine
-  # If you do not have an eth0 Vagrant will ask you for an interface
-  #config.vm.network "public_network", :bridge => 'eth0'
-  # we force the nic id slot to be sure not to have doublons of this
-  # interface on multiple restarts (vagrant bug)
-  config.vm.network "private_network", ip: BOX_PRIVATE_IP, adapter: 2
-  # NAT PORTS, if you want...
-  #config.vm.network "forwarded_port", guest: 80, host: 8080
-  #config.vm.network "forwarded_port", guest: 22, host: 2222
-
-  #------------ SHARED FOLDERS ----------------------------
-  # Some of current directory subdirectories are mapped to the /srv of the mounted host
-  # In this /srv we'll find the salt-stack things and projects
-  # we use SSHFS to avoid speed penalities on VirtualBox (between *10 and *100)
-  # and the "sendfile" bugs with nginx and apache
-  # config.vm.synced_folder ".", "/srv/",owner: "vagrant", group: "vagrant"
-  # be careful, we neded to ALLOW ROOT OWNERSHIP on this /srv directory, so "no_root_squash" option
-  #
-  # Warning: we share folder on a per folder basic to avoid filesystems loops
-  #
-  # do this host use NFS
-
-  mountpoints = {
-      "./share" => "/vagrant/share",
-      "./packer" => "/vagrant/packer",
-      "./vagrant" => "/vagrant/vagrant",
-  }
-  mountpoints.each do |mountpoint, target|
-      shared_folder_args = {create: true}
-      if DEVHOST_HAS_NFS
-          shared_folder_args.update({
-              :nfs => true,
-              :nfs_udp => false,
-              :linux__nfs_options => ["rw", "no_root_squash", "no_subtree_check",],
-              :bsd__nfs_options => ["maproot=root:wheel", "alldirs"],
-              :mount_options => [
-                  "vers=3", "rw","noatime", "nodiratime",
-                  "udp", "rsize=32768", "wsize=32768",
-              ],
-          })
-      end
-      config.vm.synced_folder(mountpoint, target, shared_folder_args)
-  end
-  # disable default /vagrant shared folder
-  config.vm.synced_folder ".", "/vagrant", disabled: true
-
-  #------------- PROVISIONING ------------------------------
-  # We push all the code in a script which manages the versioning of
-  # provisioning.
-  # Since vagrant 1.3.0 provisioning is run only on the first "up"
-  # or when --provision is used. But we need to run this script
-  # on each up/reload, so that at least this script can handle the
-  # launch of daemons which depends on NFS /srv mount which is done quite
-  # late by vagrant and cannot be done on upstart. So first let's remove
-  # the one-time provisioning marker
-
-  # vagrant 1.3 HACK: provision is now run only at first boot, we want to run it every time
-  if File.exist?("#{CWD}/.vagrant/machines/default/virtualbox/action_provision")
-    # hack: remove this "provision-is-done" marker
-    File.delete("#{CWD}/.vagrant/machines/default/virtualbox/action_provision")
-  end
-
-  # To manage edition rights sync between the VM and the local host
-  # we need to ensure the current user is member of a group editor (gid: 65753) and
-  # that this group exists
-  newgid = 65753 # the most important
-  newgroup = 'editor'
-  user = Etc.getlogin
-
-  #eprintf(" [*] Checking if local group %s exists\n", newgroup )
-  # also search for a possible custom name
-  found = false
-  Etc.group {|g|
-    if g.gid == newgid
-      found = true
-      newgroup = g.name
-      break
-    end
-  }
-  if !found
-    eprintf(" [*] local group %s does not exists, creating it\n", newgroup)
-    if os == :linux or os == :unix
-      # Unix
-      `sudo groupadd -g #{newgid} #{newgroup}`
-    else
-      # Mac
-      `sudo dscl . -create /groups/#{newgroup} gid #{newgid}`
-    end
-  end
-  #  eprintf(" [*] Checking if current user %s is member of group %s\n", user, newgroup)
-  # loop on members of newgid to find our user
-  found = false
-  Etc.getgrgid(newgid).mem.each { |u|
-    if u == user
-      found = true
-      break
-    end
-  }
-  if !found
-    eprintf(" [*] User %s is not member of group %s, adding him\n", user, newgroup)
-    if os == :linux or os == :unix
-      # Linux
-      `sudo gpasswd -a #{user} #{newgroup}`
-    else
-      #Mac
-      `sudo dseditgroup -o edit -t user -a #{user} #{newgroup}`
-    end
-  end
-
-  if devhost_debug
-    eprintf(" [*] local routes ok, check it on your guest host with 'ip route show'\n")
-  end
-
-# SAVING CUSTOM CONFIGURATION TO A FILE (AND ONLY CUSTOMIZED ONE)
+# SAVING CUSTOM CONFIGURATION TO A FILE (AND ONLY CUSTOMIZED variables will be written)
 vagrant_config = ""
 vagrant_config_lines_s = ""
 ["# do not write comments, they will be lost",
@@ -420,9 +264,6 @@ vagrant_config_lines_s = ""
 vagrant_config_lines.each{ |s| vagrant_config_lines_s += "    "+ s + "\n" }
 vagrant_config += vagrant_config_lines_s
 ["end", ""].each{ |s| vagrant_config += s + "\n" }
-if devhost_debug
-  eprintf(" [*] Saving vagrant settings:\n#{vagrant_config_lines_s}")
-end
 vsettings_f=File.open(VSETTINGS_P, "w")
 vsettings_f.write(vagrant_config)
 vsettings_f.close()
@@ -431,13 +272,12 @@ mtu_set = "ifconfig eth1 mtu 9000"
 if os == :macosx
     mtu_set="/bin/true"
 end
-# Now generate the provision script, put it inside /root VM's directory and launch it
-# provision script has been moved to a bash script as it growned too much see ./provision_script.sh
-# the only thing we cant move is to test for NFS to be there as the shared file system relies on it
+
+
+# the provision script
 pkg_cmd = [
     # FOR NFS ENABLE JUMBO FRAMES, OTHER PART IN ON THE VAGRANTFILE
     # FOR HOST ONLY INTERFACE VBOXNET
-    # "set -x",
     mtu_set,
     "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
     %{cat > /root/vagrant/provision_net.sh  << EOF
@@ -451,16 +291,6 @@ if [ "x\\$hostip" != "x\\$configured_hostip" ];then
     ifup \\$interface
     #{mtu_set}
 fi
-# be sure to have root rights on ROOT owned shared folders
-# by default if others non-root folders are mounted afterwards
-# we will loose root_squash, so just replay the share and
-# enjoy from there write abilitlity
-# for mp in "/mnt/parent_etc";do
-#     if [ "x\\$(mount|egrep "\\$mp.* vboxsf .*\\(rw\\)"|wc -l)" != "x0" ];then
-#         umount "\\$mp"
-#         mount -t vboxsf "\\$mp" "\\$mp" -o gid=root,uid=root,rw
-#     fi
-# done
 EOF},
     %{cat > /root/vagrant/provision_nfs.sh  << EOF
 #!/usr/bin/env bash
@@ -486,7 +316,6 @@ if [ ! -e "/vagrant/vagrant/provision_script.sh" ];then
 fi
 EOF},
     %{cat > /root/vagrant/provision_settings.sh  << EOF
-DEVHOST_DEBUG="#{DEVHOST_DEBUG}"
 DEVHOST_HAS_NFS="#{DEVHOST_HAS_NFS}"
 DEVHOST_AUTO_UPDATE="#{DEVHOST_AUTO_UPDATE}"
 DNS_SERVERS="#{DNS_SERVERS}"
@@ -504,7 +333,46 @@ EOF},
       "/root/vagrant/provision_net.sh;",
       "/root/vagrant/provision_nfs.sh;",
       "/vagrant/vagrant/provision_script.sh",
-  ]
+]
+
+Vagrant.configure("2") do |config|
+  if Vagrant.has_plugin?('vbguest management')
+    if DEVHOST_HAS_NFS
+        config.vbguest.auto_update = false
+        config.vbguest.auto_reboot = false
+        config.vbguest.no_install = true
+    else
+        config.vbguest.auto_update = AUTO_UPDATE_VBOXGUEST_ADD
+        config.vbguest.auto_reboot = true
+        config.vbguest.no_install = false
+    end
+  end
+  config.vm.box = REAL_BOX_NAME
+  config.vm.box_url = BOX_URI
+  config.vm.host_name = VM_HOSTNAME
+  config.vm.provider "virtualbox" do |vb|
+        vb.name="#{VIRTUALBOX_VM_NAME}"
+  end
+  config.vm.network "private_network", ip: BOX_PRIVATE_IP, adapter: 2
+  mountpoints.each do |mountpoint, target|
+      shared_folder_args = {create: true}
+      if DEVHOST_HAS_NFS
+          shared_folder_args.update({
+              :nfs => true,
+              :nfs_udp => false,
+              :linux__nfs_options => ["rw", "no_root_squash", "no_subtree_check",],
+              :bsd__nfs_options => ["maproot=root:wheel", "alldirs"],
+              :mount_options => ["vers=3", "rw","noatime", "nodiratime",
+                                 "udp", "rsize=32768", "wsize=32768"]})
+      end
+      config.vm.synced_folder(mountpoint, target, shared_folder_args)
+  end
+  # disable default /vagrant shared folder
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+  # vagrant 1.3 HACK: provision is now run only at first boot, we want to run it every time
+  if File.exist?("#{CWD}/.vagrant/machines/default/virtualbox/action_provision")
+    File.delete("#{CWD}/.vagrant/machines/default/virtualbox/action_provision")
+  end
   config.vm.provision :shell, :inline => pkg_cmd.join("\n")
 end
 
@@ -516,13 +384,6 @@ Vagrant::VERSION >= "1.1.0" and Vagrant.configure("2") do |config|
     vb.customize ["modifyvm", :id, "--cpus", CPUS]
     vb.customize ["modifyvm", :id, "--cpuexecutioncap", MAX_CPU_USAGE_PERCENT]
     vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
-    # nictypes: 100mb:     Am79C970A|Am79C973
-    #           1gb intel: 82540EM|82543GC|82545EM
-    #           virtio:     virtio
-    # if os == :macosx
-    #     vb.customize ["modifyvm", :id, "--nictype2", "82543GC"]
-    # end
-    #uuid = 'b71e292b-87e5-4ec8-8ecb-337b9482676f'
     uuid = get_uuid
     if uuid != nil
       interface_hostonly = `VBoxManage showvminfo #{uuid} --machinereadable|grep -i hostonlyadapter2|sed 's/.*="//'|sed 's/"//'`.strip()
