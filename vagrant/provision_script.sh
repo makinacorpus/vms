@@ -332,6 +332,19 @@ test_online() {
     echo ${?}
 }
 
+
+fix_salt() {
+    fix_salt_marker="$MARKERS/fix_salt_done"
+    if [ ! -e "${fix_salt_marker}" ];then
+        ls -d /salt-venv/*/src/salt 2>/dev/null | while read d;do
+            log " [*] Reset salt repo: ${d}"
+            cd "${d}"
+            git reset --hard
+        done
+        touch "${fix_salt_marker}"
+    fi
+}
+
 install_or_refresh_makina_states() {
     # upgrade salt only if online
     if [ "x$(test_online)" = "x0" ];then
@@ -574,6 +587,7 @@ if [ "x${VAGRANT_PROVISION_AS_FUNCS}" = "x" ];then
     configure_dns
     base_packages_sanitization
     install_or_refresh_makina_states
+    fix_salt
     open_routes
     cleanup_space
     check_restart
