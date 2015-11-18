@@ -456,7 +456,14 @@ internal_ssh() {
 
 ssh__() {
     cd "${VMPATH}"
-    local sshhost="$(default_to_first_host ${sshhost})"
+    local sshhost=""
+    if [ "x${1}" != "x" ];then
+        if all_hosts|sed -e "s/\(^\|$\)/ /g" | grep -q " ${1} ";then
+            sshhost="${1}"
+            shift
+        fi
+    fi
+    sshhost="$(default_to_first_host ${sshhost})"
     if [ ! -e ${ssh_config} ];then
         log " [*] missing ${ssh_config}"
         exit 1
