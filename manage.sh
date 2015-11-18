@@ -4,7 +4,7 @@ UNAME="$(uname)"
 actions=""
 actions_main_usage="usage init ssh up reload env destroy down suspend status clonevm remount_vm umount_vm version shutdown poweroff off"
 actions_exportimport="export import"
-actions_advanced="do_zerofree test install_keys mount_vm release internal_ssh gen_ssh_config reset"
+actions_advanced="do_zerofree test install_keys mount_vm release internal_ssh gen_ssh_config reset detailed_status"
 actions_internal="ssh__ long_status all_running_hosts all_hosts first_running_host get_devhost_num is_mounted first_host"
 actions_alias="-h --help --long-help -l -v --version"
 actions="
@@ -343,6 +343,20 @@ long_status() {
             echo "${hostline}"
         fi
     done
+}
+
+detailed_status() {
+    echo "host                      status      ip_local"
+    echo "--------------------------------------------------------"
+    while read -u 3 l;do
+        local sshhost="$(echo ${l}|awk '{print $1}')"
+        local hstatus="$(echo ${l}|sed -e "s/[^ ]\+ \+//")"
+        local add=""
+        if [ "x${hstatus}" = "xrunning" ];then
+            add="${add}     ip_local:$(get_host_ip)"
+        fi
+        echo "${l}${add}"
+    done 3< <(long_status)
 }
 
 status() {

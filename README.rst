@@ -248,6 +248,10 @@ bring them to do...
 
   ./manage.sh up
 
+You can then get some infos
+::
+
+    ./manage.sh detailed_status [--no-header]
 
 Clone a vm from an existing one
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
