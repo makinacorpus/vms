@@ -2,16 +2,13 @@
 # vim: set ft=ruby ts=2 et sts=2 tw=0 ai:
 require 'digest/md5'
 require 'etc'
-require 'rbconfig'
-
 # Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
 VAGRANTFILE_API_VERSION = "2"
-
-CWD=File.dirname(__FILE__)
-VSETTINGS_N="vagrant_config"
-VSETTINGS_P=File.dirname(__FILE__)+"/"+VSETTINGS_N+".rb"
-UNAME=`uname`.strip
-vagrant_config_lines = []
+CWD = File.dirname(__FILE__)
+SCWD = CWD.gsub(/\//, '_').slice(1..-1)
+if File.exists? "#{CWD}/vagrant_config.rb"
+    raise "Migrate your vagrant_config.rb to vagrant_config.yaml (same variables but in yaml format)"
+end
 
 def eprintf(*args)
   $stdout = STDERR
@@ -19,36 +16,45 @@ def eprintf(*args)
   $stdout = STDOUT
 end
 
+class Hash
+  def setdefault(key, value)
+    if self[key].nil?
+      self[key] = value
+    else
+      self[key]
+    end
+  end
+end
+
 # --------------------- CONFIGURATION ZONE ----------------------------------
-# If you want to alter any configuration setting, put theses settings in a ./vagrant_config.rb file
+# If you want to alter any configuration setting, put theses settings in a ./vagrant_config.yml file
 # This file would contain a combinaison of those settings
 # The most importants are:
 #    DEVHOST_NUM (network subnet related, default: lower available)
 # -------------o<---------------
-# module MyConfig
-#    CPUS="1"
-#    MEMORY="512"
-#    DEVHOST_NUM="3"
-#    MACHINES="1" # number of machines to spawn
-#    BOX_URI="http://foo/vivid64.img
-#    MAX_CPU_USAGE_PERCENT="25"
-#    DNS_SERVERS="8.8.8.8"
-#    BOX="vivid64"
-#    BOX="devhost-vagrant-ubuntu-1504-vivid64_2"
-#    APT_MIRROR="http://mirror.ovh.net/ftp.ubuntu.com/"
-#    APT_MIRROR="http://ubuntu-archive.mirrors.proxad.net/ubuntu/"
-#    MS_BRANCH="stable"
-#    MS_NODETYPE="vagrantvm"
-#    MS_BOOT_ARGS="-C -MM --mastersalt localhost -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m devhost\\${DEVHOST_NUM}.local"
-# end
+# --
+# CPUS: 1
+# MEMORY: 512
+# DEVHOST_NUM: 3
+# MACHINES: "1" # number of machines to spawn
+# BOX_URI: "http://foo/vivid64.img
+# MAX_CPU_USAGE_PERCENT: 25
+# DNS_SERVERS: "8.8.8.8"
+# BOX: "vivid64"
+# BOX: "devhost-vagrant-ubuntu-1504-vivid64_2"
+# APT_MIRROR: "http://mirror.ovh.net/ftp.ubuntu.com/"
+# APT_MIRROR: "http://ubuntu-archive.mirrors.proxad.net/ubuntu/"
+# MS_BRANCH: "stable"
+# HAS_NFS: false
+# MS_NODETYPE: "vagrantvm"
+# MS_BOOT_ARGS: |
+#               -C -MM --mastersalt localhost -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m devhost\\${DEVHOST_NUM}.local
 # -------------o<---------------
-
 #------------- NETWORKING DETAILS ----------------
 # 2 NETWORKS DEFINED, 1 NAT, 1 HOST ONLY
 #   The default one is a NAT one, automatically done by vagrant, allows internal->external
 #    and some NAT port mappings (by defaut a 2222->22 is managed bu vagrant
-#   The private one will let you ref your dev things with a static IP
-#    in your /etc/hosts
+#   The private one will let you ref your dev things with a static IP in your /etc/hosts
 
 # detect current host OS
 def os
@@ -78,46 +84,42 @@ def get_uuid(machine)
     uuid
 end
 
-begin
-  require_relative VSETTINGS_N
-  include MyConfig
-rescue LoadError
-end
-
-UBUNTU_RELEASE="vivid"
-
+cfg = Hash.new
 # Number of machines to spawn
-if defined?(MACHINES)
-    vagrant_config_lines << "MACHINES=\"#{MACHINES}\""
-else
-    MACHINES="1"
-end
+cfg['DEVHOST_NUM'] = nil
+cfg['UNAME'] = `uname`.strip
+# Number of machines to spawn
+cfg['MACHINES'] = 1
+# Per Machine resources quotas
+cfg['MEMORY'] = 1024
+cfg['CPUS'] = 2
+cfg['MAX_CPU_USAGE_PERCENT'] = 50
+cfg['HAS_NFS'] = false
+# network & misc devhost settings
+cfg['DEVHOST_AUTO_UPDATE'] = true
+cfg['AUTO_UPDATE_VBOXGUEST_ADD'] = true
+cfg['DNS_SERVERS'] = '8.8.8.8'
+cfg['BOX_PRIVATE_SUBNET_BASE'] = "10.1."
+# OS
+cfg['OS'] = 'Ubuntu'
+cfg['OS_RELEASE'] = 'vivid'
+cfg['APT_MIRROR'] = 'http://fr.archive.ubuntu.com/ubuntu'
+cfg['APT_PROXY'] = ''
+# MAKINA STATES CONFIGURATION
+cfg['MS_BRANCH'] = 'stable'
+cfg['MS_NODETYPE'] = 'vagrantvm'
+cfg['MS_BOOT_ARGS'] = "-C -MM --mastersalt localhost -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m devhost\\${DEVHOST_FQDN}"
 
-# MEMORY SIZE OF THE VM (the more you can, like 1024 or 2048, this is the VM hosting all your projects dockers)
-if defined?(MEMORY)
-    vagrant_config_lines << "MEMORY=\"#{MEMORY}\""
-else
-    MEMORY="1024"
+# load settings from a local file in case
+localcfg = Hash.new
+VSETTINGS_Y = "#{CWD}/vagrant_config.yml"
+if File.exist?(VSETTINGS_Y)
+  localcfg = YAML.load_file(VSETTINGS_Y)
 end
-if defined?(CPUS)
-    vagrant_config_lines << "CPUS=\"#{CPUS}\""
-else
-    CPUS="2"
-end
-# Number of available CPU for this VM
-# LIMIT ON CPU USAGE
-if defined?(MAX_CPU_USAGE_PERCENT)
-    vagrant_config_lines << "MAX_CPU_USAGE_PERCENT=\"#{MAX_CPU_USAGE_PERCENT}\""
-else
-    MAX_CPU_USAGE_PERCENT="50"
-end
+cfg = cfg.merge(localcfg)
 
-# do we launch core salt updates on provision
-if defined?(DEVHOST_AUTO_UPDATE)
-    vagrant_config_lines << "DEVHOST_AUTO_UPDATE=#{DEVHOST_AUTO_UPDATE}"
-else
-    DEVHOST_AUTO_UPDATE=true
-end
+# Can be overidden by env. (used by manage.sh import/export)
+cfg.each_pair { |i, val| cfg[i] = ENV.fetch("DEVHOST_#{i}", val) }
 
 # IP managment
 # The box used a default NAT private IP, defined automatically by vagrant and virtualbox
@@ -125,22 +127,11 @@ end
 # By default the private IP will be 10.1.XX.YY/24. This is used for file share, but, as you will have a fixed
 # IP for this VM it could be used in your /etc/host file to reference any name on this vm
 # (the default devhostYY.local or devhotsXX.local entry is managed by salt).
-# If you have several VMs you may need to alter at least the MAKINA_DEVHOST_NUM to obtain a different
-# IP network and docker IP network on this VM
-#
-# You can change the subnet used via the MAKINA_DEVHOST_NUM
-# EG: export MAKINA_DEVHOST_NUM=44 will give an ip of 10.1.XX.YY for this host
-# This setting is saved upon reboots, you need to set it only once.
-# (be careful with env variable if you run several vms)
-# You could also set it in the ./vagrant_config.rb to get it fixed at any time
-# and specified for each vm
-#
+# If you have several VMs you may need to alter at least the DEVHOST_NUM to obtain a different IP network
 # Be sure to have only one unique subnet per devhost per physical host
-#
-if not defined?(DEVHOST_NUM)
+if not cfg['DEVHOST_NUM']
     consumed_nums = []
     skipped_nums = ["1", "254"]
-    DEVHOST_NUM = nil
     `VBoxManage list vms|grep -i devhost`.split(/\n/).each do |l|
       n = l.downcase.sub(/.*devhost ([0-9]*) .*/, '\\1')
       if not consumed_nums.include?(n) and not n.empty?
@@ -149,125 +140,47 @@ if not defined?(DEVHOST_NUM)
     end
     ("1".."254").each do |num|
       if !consumed_nums.include?(num) && !skipped_nums.include?(num)
-        DEVHOST_NUM = num
+        cfg['DEVHOST_NUM'] = num
         break
       end
     end
-    if not DEVHOST_NUM
+    if not cfg['DEVHOST_NUM']
       raise "There is no devhosts numbers left in (#{consumed_nums})"
     end
 end
-vagrant_config_lines << "DEVHOST_NUM=\"#{DEVHOST_NUM}\""
-BOX_PRIVATE_SUBNET_BASE="10.1."
-BOX_PRIVATE_SUBNET=BOX_PRIVATE_SUBNET_BASE+DEVHOST_NUM
+localcfg['DEVHOST_NUM'] = cfg['DEVHOST_NUM']
 
-# Custom dns server
-if defined?(DNS_SERVERS)
-    vagrant_config_lines << "DNS_SERVER=\"#{DNS_SERVERS}\""
-else
-    DNS_SERVERS="8.8.8.8"
-end
-
-# This is the case on ubuntu <= 13.10
-# on ubuntu < 13.04 else the synced folder would not work.
-if defined?(AUTO_UPDATE_VBOXGUEST_ADD)
-    vagrant_config_lines << "AUTO_UPDATE_VBOXGUEST_ADD=\"#{AUTO_UPDATE_VBOXGUEST_ADD}\""
-else
-    AUTO_UPDATE_VBOXGUEST_ADD=true
-end
-
-# ------------- Mirror to download packages -----------------------
-if defined?(APT_MIRROR)
-    vagrant_config_lines << "APT_MIRROR=\"#{APT_MIRROR}\""
-else
-    APT_MIRROR="http://fr.archive.ubuntu.com/ubuntu"
-end
+# save back config to yaml (mainly for persiting devhost_num)
+File.open("#{VSETTINGS_Y}", 'w') {|f| f.write localcfg.to_yaml }
 
 #------------ SHARED FOLDERS ----------------------------
-# HOST -> VM: Some of host./ subdirectories are mapped to /vagrant/<dir> in the VM
-# HOST <- VM: VM /guest is mapped to host ./VM using sshfs
-mountpoints = {"./share" => "/vagrant/share",
-               "./packer" => "/vagrant/packer",
-               "./vagrant" => "/vagrant/vagrant"}
+mountpoints = {"./share" => "/vagrant/share", "./packer" => "/vagrant/packer", "./vagrant" => "/vagrant/vagrant"}
 
-# ------ Init based on configuration values ---------------------------------
-
-# md5 based on currentpath
-# Name on your VirtualBox panel
-VIRTUALBOX_BASE_VM_NAME="DevHost "+DEVHOST_NUM+" Ubuntu "+UBUNTU_RELEASE+"64"
-VBOX_NAME_FILE=File.dirname(__FILE__) + "/.vb_name"
-SCWD = CWD.gsub(/\//, '_').slice(1..-1)
-VM_HOST="devhost"+DEVHOST_NUM
-
-# ------------- MAKINA STATES CONFIGURATION -----------------------
-if defined?(MS_BRANCH)
-    vagrant_config_lines << "MS_BRANCH=\"#{MS_BRANCH}\""
-else
-    MS_BRANCH="stable"
-end
-if defined?(MS_NODETYPE)
-    vagrant_config_lines << "MS_NODETYPE=\"#{MS_NODETYPE}\""
-else
-    MS_NODETYPE="vagrantvm"
-end
-if defined?(MS_BOOT_ARGS)
-    vagrant_config_lines << "MS_BOOT_ARGS=\"#{MS_BOOT_ARGS}\""
-else
-    MS_BOOT_ARGS="-C -MM --mastersalt localhost -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m devhost\\${DEVHOST_FQDN}"
-end
-
-# ------------- BASE IMAGE UBUNTU  -----------------------
-if defined?(BOX)
-    vagrant_config_lines << "BOX=\"#{BOX}\""
-else
-    BOX=UBUNTU_RELEASE+"64"
-end
-# Can be overidden by env. (used by manage.sh import/export)
-BOX = ENV.fetch("DEVHOST_BOX", BOX).strip()
-if defined?(BOX_URI)
-    vagrant_config_lines << "BOX_URI=\"#{BOX_URI}\""
-else
-    BOX_URI="http://cloud-images.ubuntu.com/vagrant/"+UBUNTU_RELEASE+"/current/"+UBUNTU_RELEASE+"-server-cloudimg-amd64-vagrant-disk1.box"
-end
-
-# we do not use nfs anymore, but rely on sshfs
-if defined?(HAS_NFS)
-    vagrant_config_lines << "HAS_NFS=#{HAS_NFS}"
-else
-    HAS_NFS=false
-end
-
-# saving configuration to a file (only customized variables will be written)
-vagrant_config = ""
-vagrant_config_lines_s = ""
-["# do not write comments, they will be lost", "module MyConfig"].each{ |s| vagrant_config += s + "\n" }
-vagrant_config_lines.each{ |s| vagrant_config_lines_s += "    "+ s + "\n" }
-vagrant_config += vagrant_config_lines_s
-["end", ""].each{ |s| vagrant_config += s + "\n" }
-vsettings_f=File.open(VSETTINGS_P, "w")
-vsettings_f.write(vagrant_config)
-vsettings_f.close()
-
-mtu_set = "ifconfig eth1 mtu 9000"
-if os == :macosx
-    mtu_set="/bin/true"
-end
+#------------ Computed variables ------------------------
+cfg.setdefault('BOX', "#{cfg['OS_RELEASE']}64")
+cfg.setdefault('BOX_URI',
+               "http://cloud-images.ubuntu.com/vagrant/"\
+               "#{cfg['OS_RELEASE']}/current/#{cfg['OS_RELEASE']}-server-cloudimg-amd64-vagrant-disk1.box")
+cfg['VIRTUALBOX_BASE_VM_NAME'] = "DevHost #{cfg['DEVHOST_NUM']} #{cfg['OS']} #{cfg['OS_RELEASE']}64"
+cfg['VM_HOST'] = "devhost#{cfg['DEVHOST_NUM']}"
+cfg['BOX_PRIVATE_SUBNET'] = "#{cfg['BOX_PRIVATE_SUBNET_BASE']}#{cfg['DEVHOST_NUM']}"
+cfg['MTU_SET'] = if os == :macosx then "/bin/true" else "ifconfig eth1 mtu 9000" end
 
 Vagrant.configure("2") do |config|
   if Vagrant.has_plugin?('vbguest management')
-    if HAS_NFS
+    if cfg['HAS_NFS']
         config.vbguest.auto_update = false
         config.vbguest.auto_reboot = false
         config.vbguest.no_install = true
     else
-        config.vbguest.auto_update = AUTO_UPDATE_VBOXGUEST_ADD
+        config.vbguest.auto_update = cfg['AUTO_UPDATE_VBOXGUEST_ADD']
         config.vbguest.auto_reboot = true
         config.vbguest.no_install = false
     end
   end
   mountpoints.each do |mountpoint, target|
     shared_folder_args = {create: true}
-    if HAS_NFS
+    if cfg['HAS_NFS']
         shared_folder_args.update({
             :nfs => true,
             :nfs_udp => false,
@@ -280,15 +193,15 @@ Vagrant.configure("2") do |config|
   end
   # disable default /vagrant shared folder
   config.vm.synced_folder ".", "/vagrant", disabled: true
-  (1..MACHINES.to_i).each do |machine_num|
-     hostname = "#{VM_HOST}-#{machine_num}"
+  (1..cfg['MACHINES'].to_i).each do |machine_num|
+     hostname = "#{cfg['VM_HOST']}-#{machine_num}"
      machine = hostname
      config.vm.define  machine do |sub|
-       box_private_ip=BOX_PRIVATE_SUBNET+".#{machine_num + 1}"
+       box_private_ip=cfg['BOX_PRIVATE_SUBNET']+".#{machine_num + 1}"
        fqdn="#{machine}.local"
-       virtualbox_vm_name="#{VIRTUALBOX_BASE_VM_NAME} #{machine_num} (#{SCWD})"
-       sub.vm.box = BOX
-       sub.vm.box_url = BOX_URI
+       virtualbox_vm_name="#{cfg['VIRTUALBOX_BASE_VM_NAME']} #{machine_num} (#{SCWD})"
+       sub.vm.box = cfg['BOX']
+       sub.vm.box_url = cfg['BOX_URI']
        if machine_num > 1
            sub.vm.host_name = fqdn
        else
@@ -305,7 +218,7 @@ Vagrant.configure("2") do |config|
        provision_scripts = [
          # FOR NFS ENABLE JUMBO FRAMES, OTHER PART IN ON THE VAGRANTFILE
          # FOR HOST ONLY INTERFACE VBOXNET
-         mtu_set,
+         cfg['MTU_SET'],
          "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
          %{cat > /root/vagrant/provision_net.sh  << EOF
 #!/usr/bin/env bash
@@ -316,7 +229,7 @@ configured_hostip=\\$( cat /etc/network/interfaces|grep \\$interface -A3|grep ad
 if [ "x\\$hostip" != "x\\$configured_hostip" ];then
     ifdown \\$interface &> /dev/null
     ifup \\$interface
-    #{mtu_set}
+    #{cfg['MTU_SET']}
 fi
 EOF},
          %{cat > /root/vagrant/provision_nfs.sh  << EOF
@@ -343,22 +256,23 @@ if [ ! -e "/vagrant/vagrant/provision_script.sh" ];then
 fi
 EOF},
          %{cat > /root/vagrant/provision_settings_#{machine}.sh  << EOF
-export DEVHOST_NUM="#{DEVHOST_NUM}"
+export DEVHOST_NUM="#{cfg['DEVHOST_NUM']}"
 export DEVHOST_MACHINE="#{machine}"
-export DEVHOST_BASE_NAME="#{VIRTUALBOX_BASE_VM_NAME}"
+export DEVHOST_BASE_NAME="#{cfg['VIRTUALBOX_BASE_VM_NAME']}"
 export DEVHOST_HOSTNAME="#{hostname}"
 export DEVHOST_FQDN="#{fqdn}"
 export DEVHOST_MACHINE_NUM="#{machine_num}"
 export DEVHOST_IP="#{box_private_ip}"
 export DEVHOST_VB_NAME="#{virtualbox_vm_name}"
-export DNS_SERVERS="#{DNS_SERVERS}"
-export APT_MIRROR="#{APT_MIRROR}"
-export HAS_NFS="#{HAS_NFS}"
-export DEVHOST_AUTO_UPDATE="#{DEVHOST_AUTO_UPDATE}"
-export DEVHOST_HOST_OS="#{UNAME}"
-export MS_BRANCH="#{MS_BRANCH}"
-export MS_NODETYPE="#{MS_NODETYPE}"
-export MS_BOOT_ARGS="#{MS_BOOT_ARGS}"
+export DNS_SERVERS="#{cfg['DNS_SERVERS']}"
+export APT_MIRROR="#{cfg['APT_MIRROR']}"
+export APT_PROXY="#{cfg['APT_PROXY']}"
+export HAS_NFS="#{cfg['HAS_NFS']}"
+export DEVHOST_AUTO_UPDATE="#{cfg['DEVHOST_AUTO_UPDATE']}"
+export DEVHOST_HOST_OS="#{cfg['UNAME']}"
+export MS_BRANCH="#{cfg['MS_BRANCH']}"
+export MS_NODETYPE="#{cfg['MS_NODETYPE']}"
+export MS_BOOT_ARGS="#{cfg['MS_BOOT_ARGS']}"
 EOF},
          "chmod 700 /root/vagrant/provision_*.sh",
          "rm -f /tmp/vagrant_provision_needs_restart",
@@ -373,12 +287,12 @@ end
 Vagrant.configure("2") do |config|
   config.vm.provider :virtualbox do |vb|
     vb.customize ["modifyvm", :id, "--ioapic", "on"]
-    vb.customize ["modifyvm", :id, "--memory", MEMORY]
-    vb.customize ["modifyvm", :id, "--cpus", CPUS]
-    vb.customize ["modifyvm", :id, "--cpuexecutioncap", MAX_CPU_USAGE_PERCENT]
+    vb.customize ["modifyvm", :id, "--memory", cfg['MEMORY']]
+    vb.customize ["modifyvm", :id, "--cpus", cfg['CPUS']]
+    vb.customize ["modifyvm", :id, "--cpuexecutioncap", cfg['MAX_CPU_USAGE_PERCENT']]
     vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
-    (1..MACHINES.to_i).each do |machine_num|
-       machine = "#{VM_HOST}_#{machine_num}"
+    (1..cfg['MACHINES'].to_i).each do |machine_num|
+       machine = "#{cfg['VM_HOST']}_#{machine_num}"
        uuid = get_uuid machine
        if uuid != nil
          interface_hostonly = `VBoxManage showvminfo #{uuid} --machinereadable|grep -i hostonlyadapter2|sed 's/.*="//'|sed 's/"//'`.strip()
