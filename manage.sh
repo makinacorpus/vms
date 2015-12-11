@@ -310,16 +310,6 @@ EOF
 
 }
 
-write_test_config() {
-    num="${1}"
-    cat > vagrant_config.rb << EOF
-module MyConfig
-    DEVHOST_NUM="${num}"
-    VIRTUALBOX_VM_NAME="DevHost ${num} Ubuntu ${name}64"
-end
-EOF
-}
-
 status_() {
     vagrant status 2> /dev/null
 }
@@ -369,9 +359,9 @@ status() {
 
 is_running() {
     if status | grep -vq running;then
-        echo ""
+        return 0
     else
-        echo "1"
+        return 1
     fi
 }
 
@@ -569,7 +559,7 @@ gen_hostonly_ssh_config() {
 
 gen_ssh_config() {
     cd "${VMPATH}"
-    if [ "x$(is_running)" = "x" ];then
+    if ! is_running;then
         log " [*] VM is not running, can't generate ssh configs"
         exit 1
     fi
@@ -594,7 +584,7 @@ install_keys() {
 }
 
 ssh_pre_reqs() {
-    if [ "x$(is_running)" = "x" ];then up;fi
+    if ! is_running;then up;fi
     gen_ssh_config
     install_keys
 }
@@ -635,7 +625,7 @@ down() {
     cd "${VMPATH}"
     umount_vm
     log "Down !"
-    if [ "x$(is_running)" = "x" ];then
+    if is_running;then
         pre_down
         vagrant halt -f
         mark_ssh_config_not_done
@@ -964,8 +954,9 @@ umount_vm() {
 up() {
     cd "${VMPATH}"
     log "Up !"
+    set -x
     notrunning=""
-    if [ "x$(is_running)" = "x" ];then
+    if ! is_running; then
         notrunning="1"
     fi
     if [ ! -d share ];then mkdir share;fi
@@ -989,7 +980,7 @@ reload() {
     cd "${VMPATH}"
     log "Reload!"
     umount_vm
-    if [ "x$(is_running)" = "x" ];then
+    if ! is_running;then
         mark_ssh_config_not_done
         up
     else
@@ -1060,7 +1051,7 @@ export_() {
     #
     packaged_vagrantfile="$(generate_packaged_vagrantfile)"
     nincludes=""
-    for i in .vb_* vagrant_config.rb;do
+    for i in .vb_* vagrant_config.rb vagrant_config.yml;do
         if [ -e "${i}" ];then
             nincludes="${i} ${nincludes}"
         fi
@@ -1251,6 +1242,13 @@ import() {
         sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
         sed -i -e "/SSH_INSERT_KEY/d" ./vagrant_config.rb &&\
         sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb
+
+    if [ ! -e ./vagrant_config.yml ];then
+        echo "---">./vagrant_config.yml
+    fi &&\
+        sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
+        sed -i -e "/SSH_INSERT_KEY/d" ./vagrant_config.rb &&\
+        sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb
     uplret=1
     up && uplret=${?}
     down
@@ -1286,6 +1284,7 @@ reset() {
     if [ -e "${VMPATH}" ];then
         cd "${VMPATH}"
         if [ -e .vagrant ];then destroy;fi
+        if [ -e vagrant_config.yml ];then rm -vf vagrant_config.yml;fi
         if [ -e vagrant_config.rb ];then rm -vf vagrant_config.rb;fi
         log " [*] Reset done"
     else
@@ -1335,12 +1334,12 @@ clonevm() {
         --exclude="*.tar.bz2"\
         --exclude="*.tar.xz"\
         --exclude="*.tar.gz"\
-        --exclude=.vagrant --exclude=vagrant_config.rb \
+        --exclude=.vagrant --exclude=vagrant_config.rb --exclude=vagrant_config.yml \
         "${OLDVMPATH}/" "${NEWVMPATH}/"
     cd "${NEWVMPATH}"||exit -1
     ID=$(whoami)
     sudo chown -f "${ID}" packer VM docker
-    sudo chown -Rf "${ID}" .git vagrant vagrant_config.rb .vagrant
+    sudo chown -Rf "${ID}" .git vagrant vagrant_config.rb vagrant_config.yml .vagrant
     if [ -f manage.sh ] && [ "x${NO_CLEAN}" = "x" ];then
         log "Wiping in ${NEWVMPATH}"
         ./manage.sh reset
