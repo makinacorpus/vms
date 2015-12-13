@@ -1081,7 +1081,7 @@ export_() {
     #
     packaged_vagrantfile="$(generate_packaged_vagrantfile)"
     nincludes=""
-    for i in .vb_* vagrant_config.rb vagrant_config.yml;do
+    for i in .vb_* vagrant_config.yml;do
         if [ -e "${i}" ];then
             nincludes="${i} ${nincludes}"
         fi
@@ -1265,14 +1265,6 @@ import() {
     # load initial box image & do initial provisionning
     log "Initialiasing host from ${bname}"
     export DEVHOST_BOX="${bname}"
-    if [ ! -e ./vagrant_config.rb ];then
-        echo "module MyConfig">./vagrant_config.rb &&
-            echo "end">>./vagrant_config.rb
-    fi &&\
-        sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.rb &&\
-        sed -i -e "/SSH_INSERT_KEY/d" ./vagrant_config.rb &&\
-        sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.rb
-
     if [ ! -e ./vagrant_config.yml ];then
         echo "---">./vagrant_config.yml
     fi &&\
