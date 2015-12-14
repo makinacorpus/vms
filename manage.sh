@@ -23,7 +23,6 @@ YELLOW="\\e[0;33m"
 YELLOW="\\e[0;33m"
 NORMAL="\\e[0;0m"
 
-
 if [ "x${NO_COLORS}" != "x" ];then
     YELLOW=""
     RED=""
