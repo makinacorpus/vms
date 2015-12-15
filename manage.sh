@@ -346,47 +346,45 @@ detailed_status() {
             add="${add}     ip_local:$(get_host_ip)"
         fi
         echo "${l}${add}"
-    done 3< <(long_status)
+    done 3< <(long_status ${@})
 }
 
 status() {
-    if [ "x${@}" != "x" ];then
-        long_status "${@}"| sed -e "s/[^ ]\+ \+//" | uniq
-    else
-        long_status|sed -e "s/[^ ]\+ \+//" | uniq
-    fi
+    long_status ${@} | sed -e "s/[^ ]\+ \+//" | uniq
 }
 
 is_running() {
-    if status | grep -vq running;then
-        return 0
-    else
-        return 1
-    fi
+    local i=""
+    for i in ${@:-$(all_hosts)};do
+        if status $i | grep -vq running;then
+            return 1
+        fi
+    done
+    return 0
 }
 
 all_hosts() {
-    long_status|awk '{print $1}'
+    long_status $@ | awk '{print $1}'
 }
 
 first_host() {
     if [ "x${FIRST_HOST}" = "x" ];then
-        FIRST_HOST=$(all_hosts | head -n 1)
+        FIRST_HOST=$(all_hosts| head -n 1)
     fi
     echo ${FIRST_HOST}
 }
 
 all_running_hosts() {
-    long_status|grep running|awk '{print $1}'
+    long_status $@ | grep running | awk '{print $1}'
 }
 
 first_running_host() {
-    all_running_hosts | head -n 1
+    all_running_hosts $@ | head -n 1
 }
 
 default_to_first_host() {
     if [ "x${1}" = "x" ];then
-        echo $(first_host)
+        echo $(first_host $@)
     else
         echo "${1}"
     fi
@@ -412,17 +410,23 @@ vagrant_ssh() {
 
 destroy() {
     cd "${VMPATH}"
-    log "Destroy !"
-    down
-    vagrant destroy -f
-    if [ -d .vagrant ];then rm -rf .vagrant;fi
+    local u=""
+    for i in ${@:-$(all_hosts)};do
+        log "Destroy $i !"
+        down $i
+        vagrant destroy -f $i
+        if [ -d .vagrant/machines/$i ];then rm -rf .vagrant/machines/$i;fi
+    done
     mark_ssh_config_not_done
 }
 
 suspend() {
     cd "${VMPATH}"
-    log "Suspend !"
-    vagrant suspend
+    local u=""
+    for i in ${@:-$(all_hosts)};do
+        log "Suspend $i !"
+        vagrant suspend $i
+    done
 }
 
 
@@ -575,84 +579,102 @@ gen_ssh_config() {
 install_keys() {
     active_echo
     gen_ssh_config
-    if [ "x${WRAPPER_PRESENT}" != "x" ];then
-        vagrant_ssh "sudo ${PROVISION_WRAPPER} sync_ssh" 2>/dev/null
-    else
-        log "Warning: could not install ssh keys, shared folder mountpoint seems not present"
-    fi
+    local i=""
+    for i in ${@:-$(all_hosts)};do
+        if [ "x${WRAPPER_PRESENT}" != "x" ];then
+            sshhost=${i} vagrant_ssh "sudo ${PROVISION_WRAPPER} sync_ssh" 2>/dev/null
+        else
+            log "Warning: $i: could not install ssh keys, shared folder mountpoint seems not present"
+        fi
+    done
     unactive_echo
 }
 
 ssh_pre_reqs() {
-    if ! is_running;then up;fi
     gen_ssh_config
-    install_keys
+    local u=""
+    for i in ${@:-$(all_hosts)};do
+        if ! is_running $i;then up $i;fi
+        install_keys $i
+    done
 }
 
 ssh_() {
-    mount_vm
+    mount_vm $@
     ssh__ ${@}
 }
 
 pre_down() {
-    if [ "x$(status)" = "xrunning" ];then
-        umount_vm
-        vagrant_ssh "sudo sync" 2>/dev/null
-    else
-        log " [*] pre_down: VM already stopped"
-    fi
+    local u=""
+    for i in ${@:-$(all_hosts)};do
+        if [ "x$(status)" = "xrunning" ];then
+            umount_vm $i
+            sshhost=$i vagrant_ssh "sudo sync" 2>/dev/null
+        else
+            log " [*] pre_down: VM already stopped $i"
+        fi
+    done
 }
 
 remount_vm() {
-    log "Remounting vm"
-    umount_vm && mount_vm
+    local i=""
+    for i in ${@:-$(all_hosts)};do
+        log "Remounting vm $i"
+        umount_vm $i && mount_vm $i
+    done
 }
 
 poweroff() {
-    down "${@}"
+    down ${@}
 }
 
 off() {
-    down "${@}"
+    down ${@}
 }
 
 
 shutdown() {
-    down "${@}"
+    down ${@}
 }
 
 down() {
     cd "${VMPATH}"
-    umount_vm
-    log "Down !"
-    if is_running;then
-        pre_down
-        vagrant halt -f
-        mark_ssh_config_not_done
-    else
-        log " [*] VM already stopped"
-    fi
+    local i=""
+    for i in ${@:-$(all_hosts)};do
+        umount_vm $i
+        log "Down $i !"
+        if is_running $i;then
+            pre_down $i
+            vagrant halt -f $i
+            mark_ssh_config_not_done $i
+        else
+            log " [*] VM already stopped $i"
+        fi
+    done
 }
 
 maybe_finish_creation() {
     lret=$1
     shift
     restart_marker="/tmp/vagrant_provision_needs_restart"
-    if [ "x${lret}" != "x0" ];then
-        for i in $(seq 3);do
-            marker="$(vagrant_ssh "test -e ${restart_marker}" &> /dev/null;echo ${?})"
-            if [ "x${marker}" = "x0" ];then
-                log "First runs, we issue a scheduled reload after the first up(s)"
-                reload ${@}
-                lret="${?}"
-            elif [ "x${lret}" != "x0" ];then
-                log "Error in vagrant up/reload"
-                exit 1
-            else
-                break
-            fi
-        done
-    fi
+    local i=""
+    for i in ${@:-$(all_hosts)};do
+        if [ "x${lret}" != "x0" ];then
+            for i in $(seq 3);do
+                marker="$(sshhost=$i vagrant_ssh "test -e ${restart_marker}" &> /dev/null;echo ${?})"
+                if [ "x${marker}" = "x0" ];then
+                    log "$i: First runs, we issue a scheduled reload after the first up(s)"
+                    reload ${i}
+                    lret="${?}"
+                elif [ "x${lret}" != "x0" ];then
+                    log "$i: Error in vagrant up/reload"
+                    exit 1
+                else
+                    break
+                fi
+            done
+        fi
+    done
 }
 
 get_version_file() {
@@ -786,7 +808,7 @@ get_ssh_host() {
         log "Invalid ${sshconfig}, does not exist"
         exit 1
     fi
-    grep "Host\ " "${sshconfig}" |awk '{print $2}' 2>/dev/null
+    grep "Host\ " "${sshconfig}" | awk '{print $2}' 2>/dev/null
 }
 
 mount_vm() {
@@ -806,7 +828,7 @@ mount_vm() {
         fi
         if [ ! -e "${VM}/${host}/home/vagrant/.ssh" ];then
             if [ ! -e "${VM}/${host}" ];then mkdir "${VM}/${host}";fi
-            ssh_pre_reqs
+            ssh_pre_reqs $@
             if [ "x${sshhost}" != "x" ];then
                 log "Mounting devhost(${sshhost}):/ --sshfs--> ${VM}/${host}"
                 sshopts="transform_symlinks,reconnect,BatchMode=yes"
@@ -894,6 +916,7 @@ do_umount() {
 
 do_fusermount () {
     noumount=""
+    local u=""
     for i in ${@};do
         case ${i} in
             noumount) noumount=1;shift;
@@ -953,42 +976,49 @@ umount_vm() {
 
 up() {
     cd "${VMPATH}"
-    log "Up !"
-    set -x
-    notrunning=""
-    if ! is_running; then
-        notrunning="1"
-    fi
-    if [ ! -d share ];then mkdir share;fi
-    vagrant up ${@}
-    lret=${?}
-    # be sure of jumbo frames on anything else that macosx
-    if [ "x${notrunning}" != "x" ] && [ "x${UNAME}" != "xDarwin" ];then
-        vagrant_ssh "sudo ifconfig eth1 mtu 9000" 2>/dev/null
-    fi
-    post_up ${lret} ${@}
+    local i=""
+    for i in ${@:-$(all_hosts)};do
+        log "Up $i !"
+        notrunning=""
+        if ! is_running $i; then
+            notrunning="1"
+        fi
+        if [ ! -d share ];then mkdir share;fi
+        vagrant up ${i}
+        lret=${?}
+        # be sure of jumbo frames on anything else that macosx
+        if [ "x${notrunning}" != "x" ] && [ "x${UNAME}" != "xDarwin" ];then
+            sshhost=$i vagrant_ssh "sudo ifconfig eth1 mtu 9000" 2>/dev/null
+        fi
+        post_up ${lret} ${i}
+    done
 }
 
 post_up() {
     lret=$1
     shift
-    maybe_finish_creation ${lret} ${@}
-    mount_vm
+    local i=""
+    for i in ${@:-$(all_hosts)};do
+        maybe_finish_creation ${lret} ${i}
+        mount_vm $i
+    done
 }
 
 reload() {
     cd "${VMPATH}"
-    log "Reload!"
-    umount_vm
-    if ! is_running;then
-        mark_ssh_config_not_done
-        up
-    else
-        pre_down
-        vagrant reload ${@}
-        lret=${?}
-        post_up ${lret} ${@}
-    fi
+    for i in ${@:-$(all_hosts)};do
+        log "Reload $i !"
+        umount_vm $i
+        if ! is_running $i;then
+            mark_ssh_config_not_done $i
+            up $i
+        else
+            pre_down $i
+            vagrant reload ${i}
+            lret=${?}
+            post_up ${lret} ${i}
+        fi
+    done
 }
 
 generate_packaged_vagrantfile() {
