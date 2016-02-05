@@ -1,5 +1,6 @@
 # -*- mode: ruby -*-
 # vim: set ft=ruby ts=2 et sts=2 tw=0 ai:
+require 'yaml'
 require 'digest/md5'
 require 'etc'
 # Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
