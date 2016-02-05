@@ -817,7 +817,7 @@ mount_vm() {
             umount_vm ${host}
         fi
         if [ ! -e "${VM}/${host}/home/vagrant/.ssh" ];then
-            if [ ! -e "${VM}/${host}" ];then mkdir "${VM}/${host}";fi
+            if [ ! -e "${VM}/${host}" ];then mkdir -p "${VM}/${host}";fi
             ssh_pre_reqs $@
             if [ "x${sshhost}" != "x" ];then
                 log "Mounting devhost(${sshhost}):/ --sshfs--> ${VM}/${host}"
