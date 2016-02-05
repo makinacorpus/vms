@@ -29,6 +29,8 @@ You need to have installed ``virtualbox``, ``vagrant`` (with ``vagrant-vbguest``
 
 On macosx, sshfs is also known as MacFusion.
 
+Please, **read the next chapters** for details on installation and settings of theses elements (you will maybe need to alter some settings for sshfs, and we'll detail how to install theses various elements).
+
 By default file transferts between host and guest is **really, really slow**.
 We have improved performances by some techniques:
 
@@ -91,6 +93,7 @@ Linux / *BSD
 - Install your sshfs distribution package (surely **sshfs**).
 - Relog into a new session or reboot
 - Ensure that **user_allow_other** is on ``/etc/fuse.conf`` and uncommented out
+- ensure that ``/etc/fuse.conf`` can be read : ``chmod a+r /etc/fuse.conf``
 
 MacOSX
 ~~~~~~
