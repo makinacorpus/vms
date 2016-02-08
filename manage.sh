@@ -346,7 +346,7 @@ detailed_status() {
 }
 
 status() {
-    long_status ${@} | sed -e "s/[^ ]\+ \+//" | uniq
+    long_status ${@} | sed -e "s/[^ ]* *//" | uniq
 }
 
 is_running() {
@@ -1142,7 +1142,7 @@ check_tmp_file() {
     fname="${1}"
     res="ok"
     if [ -e ${fname} ];then
-        tmpsize=$(dd if=${fname} bs=4046 count=40000 2>/dev/null|wc -c)
+        tmpsize=$(dd if=${fname} bs=4046 count=40000 2>/dev/null|wc -c | sed -e 's/^[[:space:]]*//')
         if [ "x${tmpsize}" != "x161840000" ];then
             log "Invalid download, deleting tmp file"
             rm -f "${fname}"
