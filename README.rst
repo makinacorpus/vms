@@ -103,7 +103,7 @@ MacOSX
     - uninstall sshfs from MacFuse if any
 
 - Install **osxfuse** & **sshfs** from `osxfuse <http://osxfuse.github.io/>`_
-- Ensure that **user_allow_other** is on ``/etc/fuse.conf`` and uncommented out.
+- Ensure that **user_allow_other** is on ``/etc/fuse.conf`` and uncommented out. Add also "defer_permissions".
 
 Ensure that your user is a fuse member
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
