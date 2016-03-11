@@ -160,7 +160,7 @@ EOF
 }
 
 get_grain() {
-    mastersalt-call --local grains.get $1 --out=raw 2>/dev/null
+    /srv/makina-states/_scripts/salt-call grains.get $1 --out=raw 2>/dev/null
 }
 
 is_apt_installed() {
@@ -302,7 +302,7 @@ install_needing_reboot() {
 }
 
 run_boot_salt() {
-    bootsalt="/srv/mastersalt/makina-states/_scripts/boot-salt.sh"
+    bootsalt="/srv/makina-states/_scripts/boot-salt.sh"
     local ret="0"
     if [ ! -e "$bootsalt_marker" ];then
         boot_word="Bootstrap"

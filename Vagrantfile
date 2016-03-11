@@ -106,9 +106,10 @@ cfg['OS_RELEASE'] = 'vivid'
 cfg['APT_MIRROR'] = 'http://fr.archive.ubuntu.com/ubuntu'
 cfg['APT_PROXY'] = ''
 # MAKINA STATES CONFIGURATION
-cfg['MS_BRANCH'] = 'stable'
+cfg['MS_BRANCH'] = 'v2'
 cfg['MS_NODETYPE'] = 'vagrantvm'
-cfg['MS_BOOT_ARGS'] = "-C -MM --mastersalt localhost -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m devhost\\${DEVHOST_FQDN}"
+cfg['MS_BOOT_ARGS'] = "-C -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m devhost\\${DEVHOST_FQDN}"
+cfg['MS_BOOT_ARGS_v1'] = "-MM --mastersalt localhost #{cfg['MS_BOOT_ARGS']}"
 
 # load settings from a local file in case
 localcfg = Hash.new
@@ -283,6 +284,7 @@ export DEVHOST_HOST_OS="#{cfg['UNAME']}"
 export MS_BRANCH="#{cfg['MS_BRANCH']}"
 export MS_NODETYPE="#{cfg['MS_NODETYPE']}"
 export MS_BOOT_ARGS="#{cfg['MS_BOOT_ARGS']}"
+export MS_BOOT_ARGS_v1="#{cfg['MS_BOOT_ARGS']}"
 EOF},
          "chmod 700 /root/vagrant/provision_*.sh",
          "rm -f /tmp/vagrant_provision_needs_restart",
