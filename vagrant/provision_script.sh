@@ -301,13 +301,20 @@ install_needing_reboot() {
     check_restart
 }
 
+set_v1() {
+    output " [*] Using makina-states v1"
+    bootsalt="${bootsalt_v1}"
+    MS_BOOT_ARGS="${MS_BOOT_ARGS_V1}"
+}
+
 run_boot_salt() {
     bootsalt_v1="/srv/salt/makina-states/_scripts/boot-salt.sh"
     bootsalt="/srv/makina-states/_scripts/boot-salt.sh"
-    if [ ! -e ${bootsalt} ] && [ -e ${bootsalt_v1} ] || [ "x${MS_BRANCH}" = "xstable" ];then
-        output " [*] Using makina-states v1"
-        bootsalt="${bootsalt_v1}"
-        MS_BOOT_ARGS="${MS_BOOT_ARGS_V1}"
+    if [ ! -e ${bootsalt} ] && [ -e ${bootsalt_v1} ];then
+        set_v1
+    fi
+    if [ "x${MS_BRANCH}" = "xstable" ];then
+        set_v1
     fi
     local ret="0"
     if [ ! -e "$bootsalt_marker" ];then
