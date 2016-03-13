@@ -302,7 +302,13 @@ install_needing_reboot() {
 }
 
 run_boot_salt() {
+    bootsalt_v1="/srv/salt/makina-states/_scripts/boot-salt.sh"
     bootsalt="/srv/makina-states/_scripts/boot-salt.sh"
+    if [ ! -e ${bootsalt} ] && [ -e ${bootsalt_v1} ] || [ "x${MS_BRANCH}" = "xstable" ];then
+        output " [*] Using makina-states v1"
+        bootsalt="${bootsalt_v1}"
+        MS_BOOT_ARGS="${MS_BOOT_ARGS_V1}"
+    fi
     local ret="0"
     if [ ! -e "$bootsalt_marker" ];then
         boot_word="Bootstrap"
@@ -312,7 +318,7 @@ run_boot_salt() {
     fi
     if [ ! -e "${bootsalt}" ];then
         output " [*] Running makina-states bootstrap directly from github"
-        wget "http://raw.github.com/makinacorpus/makina-states/master/_scripts/boot-salt.sh" -O "/tmp/boot-salt.sh"
+        wget "http://raw.github.com/makinacorpus/makina-states/${MS_BRANCH}/_scripts/boot-salt.sh" -O "/tmp/boot-salt.sh"
         bootsalt="/tmp/boot-salt.sh"
     fi
     chmod u+x "${bootsalt}"

@@ -109,7 +109,7 @@ cfg['APT_PROXY'] = ''
 cfg['MS_BRANCH'] = 'v2'
 cfg['MS_NODETYPE'] = 'vagrantvm'
 cfg['MS_BOOT_ARGS'] = "-C -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m devhost\\${DEVHOST_FQDN}"
-cfg['MS_BOOT_ARGS_v1'] = "-MM --mastersalt localhost #{cfg['MS_BOOT_ARGS']}"
+cfg['MS_BOOT_ARGS_V1'] = "-MM --mastersalt localhost #{cfg['MS_BOOT_ARGS']}"
 
 # load settings from a local file in case
 localcfg = Hash.new
