@@ -316,6 +316,12 @@ run_boot_salt() {
     if [ "x${MS_BRANCH}" = "xstable" ];then
         set_v1
     fi
+    if [ "x${bootsalt_v1}" != "x${bootsalt}" ]; then
+        if ! echo $MS_BOOT_ARGS | grep -q "--highstates";then
+            output " [*] Appending --highstates to bootsalt args"
+            MS_BOOT_ARGS="${MS_BOOT_ARGS} --highstates"
+        fi
+    fi
     local ret="0"
     if [ ! -e "$bootsalt_marker" ];then
         boot_word="Bootstrap"
