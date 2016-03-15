@@ -38,11 +38,11 @@ end
 # MEMORY: 512
 # DEVHOST_NUM: 3
 # MACHINES: "1" # number of machines to spawn
-# BOX_URI: "http://foo/vivid64.img
+# BOX_URI: "http://foo/xenial64.img
 # MAX_CPU_USAGE_PERCENT: 25
 # DNS_SERVERS: "8.8.8.8"
-# BOX: "vivid64"
-# BOX: "devhost-vagrant-ubuntu-1504-vivid64_2"
+# BOX: "xenial64"
+# BOX: "devhost-vagrant-ubuntu-1504-xenial64_2"
 # APT_MIRROR: "http://mirror.ovh.net/ftp.ubuntu.com/"
 # APT_MIRROR: "http://ubuntu-archive.mirrors.proxad.net/ubuntu/"
 # MS_BRANCH: "stable"
@@ -102,7 +102,7 @@ cfg['AUTO_UPDATE_VBOXGUEST_ADD'] = true
 cfg['DNS_SERVERS'] = '8.8.8.8'
 # OS
 cfg['OS'] = 'Ubuntu'
-cfg['OS_RELEASE'] = 'vivid'
+cfg['OS_RELEASE'] = 'xenial'
 cfg['APT_MIRROR'] = 'http://fr.archive.ubuntu.com/ubuntu'
 cfg['APT_PROXY'] = ''
 # MAKINA STATES CONFIGURATION
@@ -163,8 +163,8 @@ cfg.setdefault('BOX_PRIVATE_SUBNET', "#{cfg['BOX_PRIVATE_SUBNET_BASE']}#{cfg['DE
 # BOX SELECTION
 cfg.setdefault('BOX', "#{cfg['OS_RELEASE']}64")
 cfg.setdefault('BOX_URI',
-               "http://cloud-images.ubuntu.com/vagrant/"\
-               "#{cfg['OS_RELEASE']}/current/#{cfg['OS_RELEASE']}-server-cloudimg-amd64-vagrant-disk1.box")
+               "https://cloud-images.ubuntu.com/"\
+               "#{cfg['OS_RELEASE']}/current/#{cfg['OS_RELEASE']}-server-cloudimg-amd64-vagrant.box")
 
 # save back config to yaml (mainly for persiting devhost_num)
 File.open("#{VSETTINGS_Y}", 'w') {|f| f.write localcfg.to_yaml }
@@ -213,10 +213,12 @@ Vagrant.configure("2") do |config|
        virtualbox_vm_name = "#{cfg['VIRTUALBOX_BASE_VM_NAME']} #{machine_num} (#{SCWD})"
        sub.vm.box = cfg['BOX']
        sub.vm.box_url = cfg['BOX_URI']
+       # bug with ubuntu >= 15.10; hostname setup failed
+       # we work around by setting it ourself !
        if machine_num > 1
-           sub.vm.host_name = fqdn
+           sub.vm.host_name = hostname
        else
-           sub.vm.host_name = fqdn
+           sub.vm.host_name = hostname
        end
        sub.vm.provider "virtualbox" do |vb|
            vb.name = "#{virtualbox_vm_name}"
@@ -230,13 +232,18 @@ Vagrant.configure("2") do |config|
          # FOR NFS ENABLE JUMBO FRAMES, OTHER PART IN ON THE VAGRANTFILE
          # FOR HOST ONLY INTERFACE VBOXNET
          cfg['MTU_SET'],
+         "",
          "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
          %{cat > /root/vagrant/provision_net.sh  << EOF
 #!/usr/bin/env bash
 # be sure to have the configured ip in config rather that prior to import one
+echo '#{hostname}' > /etc/hostname
+hostname '#{hostname}'
 interface="eth1"
 hostip=\\$(ip addr show dev \\$interface 2> /dev/null|awk '/inet / {gsub("/.*", "", \\$2);print \\$2}'|head -n1)
-configured_hostip=\\$( cat /etc/network/interfaces|grep \\$interface -A3|grep address|awk '{print \\$2}')
+configured_hostip=\\$( cat /etc/network/interfaces /etc/network/interfaces.d/* 2>/dev/null|grep \\$interface -A3|grep address|awk '{print \\$2}')
+sed -i -re "/127.0.0.1 .*#{hostname}.*/d" /etc/hosts
+echo "127.0.0.1 #{fqdn} #{hostname}" >> /etc/hosts
 if [ "x\\$hostip" != "x\\$configured_hostip" ];then
     ifdown \\$interface &> /dev/null
     ifup \\$interface

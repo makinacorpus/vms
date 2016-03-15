@@ -420,7 +420,7 @@ set_wrapper_present(){
     local slug="${sshhost//-/}"
     eval local stest="\$WRAPPER_PRESENT_${slug}"
     if [ "x${stest}" = "x" ];then
-        if [ "x$(sshuser=vagrant sshhost=$sshhost \
+        if [ "x$(sshuser=$(get_user $sshhost) sshhost=$sshhost \
                   raw_internal_ssh_ \
                     sudo test -e "${PROVISION_WRAPPER}";echo ${?})" = "x0" ];then
             eval WRAPPER_PRESENT_${slug}="1"
@@ -510,6 +510,11 @@ gen_hostonly_ssh_config() {
             eval HOSTONLY_SSH_CP_CONFIG_DONE_${slug}=-1
         fi
         hostip=$(get_host_ip $sshhost)
+        if [ "x${hostip}" = "x" ] && is_running $i;then
+            # in case of failure, try to install keys
+            install_keys $sshhost
+            hostip=$(get_host_ip $sshhost)
+        fi
         if [ "x${hostip}" != "x" ];then
             sed -i -e "/Host ${sshhost}/, /Host / s/HostName.*/HostName ${hostip}/g" "${ssh_config}-${sshhost}"
             sed -i -e "/Port.*/d" "${ssh_config}-${sshhost}"
@@ -542,7 +547,9 @@ gen_ssh_configs() {
     for i in $allhosts;do
         gen_internal_ssh_config $i
         set_wrapper_present $i
-        gen_hostonly_ssh_config $i
+        if [ "x${nohostonly:-""}" = "x" ]; then
+            gen_hostonly_ssh_config $i
+        fi
     done
     unactive_echo
 }
@@ -551,9 +558,9 @@ install_keys() {
     active_echo
     local i=""
     for i in $(default_to_all_hosts $@);do
-        gen_ssh_configs $i
+        nohostonly=y gen_ssh_configs $i
         if set_wrapper_present $i;then
-            sshuser=vagrant sshhost=${i} raw_internal_ssh_ sudo ${PROVISION_WRAPPER} sync_ssh 2>/dev/null
+            sshuser=$(get_user $sshhost) sshhost=${i} raw_internal_ssh_ sudo ${PROVISION_WRAPPER} sync_ssh 2>/dev/null
         else
             log "Warning: $i: could not install ssh keys, shared folder mountpoint seems not present"
         fi
@@ -610,7 +617,7 @@ pre_down() {
     for i in $(default_to_all_hosts $@);do
         if [ "x$(status)" = "xrunning" ];then
             umount_vm $i
-            sshuser=vagrant sshhost=$i raw_internal_ssh_ sudo sync 2>/dev/null
+            sshuser=$(get_user $sshhost) sshhost=$i raw_internal_ssh_ sudo sync 2>/dev/null
         else
             log " [*] pre_down: VM already stopped $i"
         fi
@@ -662,7 +669,7 @@ maybe_finish_creation() {
     for i in $(default_to_all_hosts $@);do
         if [ "x${lret}" != "x0" ];then
             for i in $(seq 3);do
-                marker="$(sshuser=vagrant sshhost=$i raw_internal_ssh_ \
+                marker="$(sshuser=$(get_user $sshhost) sshhost=$i raw_internal_ssh_ \
                     sudo test -e ${restart_marker} &> /dev/null;echo ${?})"
                 if [ "x${marker}" = "x0" ];then
                     log "$i: First runs, we issue a scheduled reload after the first up(s)"
@@ -677,6 +684,14 @@ maybe_finish_creation() {
             done
         fi
     done
+}
+
+get_user() {
+    user=$(grep "User " "${VMPATH}/.vagrant/internal-ssh-config-${1}" 2>/dev/null|awk '{print $2}')
+    if [ "x${user}" = "x" ]; then
+        user=vagrant
+    fi
+    echo ${user}
 }
 
 get_version_file() {
@@ -979,7 +994,7 @@ up() {
         lret=${?}
         # be sure of jumbo frames on anything else that macosx
         if [ "x${notrunning}" != "x" ] && [ "x${UNAME}" != "xDarwin" ];then
-            sshuser=vagrant sshhost=$i raw_internal_ssh_ sudo ifconfig eth1 mtu 9000 2>/dev/null
+            sshuser=$(get_user $i) sshhost=$i raw_internal_ssh_ sudo ifconfig eth1 mtu 9000 2>/dev/null
         fi
         post_up ${lret} ${i}
     done
@@ -1111,12 +1126,12 @@ export_() {
             return -1
         fi
         if [ "x${nosed}" = "x" ];then
-            sshuser=vagrant sshhost=$sshhost raw_internal_ssh_ \
+            sshuser=$(get_user $sshhost) sshhost=$sshhost raw_internal_ssh_ \
                 "bash -c \"if sudo test -d ${netrules};then sudo rm -rf ${netrules};sudo mkdir ${netrules};fi\""
-            sshuser=vagrant sshhost=$sshhost raw_internal_ssh_ \
+            sshuser=$(get_user $sshhost) sshhost=$sshhost raw_internal_ssh_ \
                 "bash -c \"if sudo test -e ${netrules};then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i ${netrules};fi\""
         fi
-        sshuser=vagrant sshhost=$sshhost raw_internal_ssh_ \
+        sshuser=$(get_user $sshhost) sshhost=$sshhost raw_internal_ssh_ \
           sudo ${PROVISION_WRAPPER} mark_export 2>/dev/null &&\
             down $sshhost &&\
             export DEVHOST_BOX="${bname}" &&\
@@ -1132,7 +1147,7 @@ export_() {
                 log "${VMPATH}/${abox}, delete it to redo"
             fi
             down $sshhost && up $sshhost --no-provision &&\
-              sshuser=vagrant sshhost=$sshhost raw_internal_ssh_ \
+                sshuser=$(get_user $sshhost)  sshhost=$sshhost raw_internal_ssh_ \
                 sudo ${PROVISION_WRAPPER} unmark_exported 2>/dev/null && down
         else
         log "$sshhost: ${VMPATH}/${box} exists, delete it to redo"
@@ -1417,7 +1432,7 @@ do_zerofree() {
     local sshhost="$(default_to_first_host ${1:-$sshhost})"
     log "Zerofree starting for $sshhost ! DO NOT INTERRUPT ANYMORE"\
         && up ${sshhost}\
-        && sshuser=vagrant raw_internal_ssh_ sudo /sbin/zerofree.sh\
+        && sshuser=$(get_user $sshhost) raw_internal_ssh_ sudo /sbin/zerofree.sh\
         && log " [*] VM Zerofreed: $sshhost"
 }
 
