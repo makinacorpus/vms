@@ -580,7 +580,12 @@ reset_git_configs() {
 
 sync_ssh() {
     if [ ! -e /root/.ssh ];then mkdir /root/.ssh;fi
-    rsync -a /home/vagrant/.ssh/authorized* /root/.ssh/
+    if [ -e /home/vagrant ]; then
+        user=vagrant
+    else
+        user=ubuntu
+    fi
+    rsync -a /home/$user/.ssh/authorized* /root/.ssh/
     chown -Rf root:root /root/.ssh/
 }
 
