@@ -120,6 +120,19 @@ If fuse is not there::
 If you were not in the fuse group, either reconnect your session or reboot your
 machine, or use ``newgrp fuse`` in any existing shell.
 
+.. warning::
+   On Fedora, there is no group *fuse*. Just be sure that you have read/write
+   permissions with :
+   
+   .. code::
+   
+   	ll /dev/fuse
+   	
+   You should got :
+   
+   .. code::
+   
+   	crw-rw-rw- 1 root root 10, 229  4 mars  08:26 /dev/fuse
 
 Optimizations (optional)
 +++++++++++++++++++++++++
