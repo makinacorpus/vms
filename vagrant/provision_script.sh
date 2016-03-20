@@ -512,7 +512,8 @@ create_vm_mountpoint() {
                     log "Bind-Mounting /${mountpoint} -> ${dest}"
                     mount -o bind,rw,exec "${mountpoint}" "${dest}"
                     # is a symlink on debian, to /proc/mounts
-                    if [ "x$(readlink "/etc/mtab")" != "x/proc/mounts" ];then
+                    if [ -h /etc/mtab ] &&\
+                        ! readlink -f /etc/mtab | grep -q proc;then
                         cat /proc/mounts>/etc/mtab
                     fi
                 else
