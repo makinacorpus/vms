@@ -338,7 +338,7 @@ run_boot_salt() {
     if [ ! -e "${bootsalt_marker}" ];then
         activate_debug
         output " [*] $boot_word makina-states..."
-        "${bootsalt}" ${MS_BOOT_ARGS} && touch "${bootsalt_marker}"
+        LANG=C LC_ALL=C "${bootsalt}" ${MS_BOOT_ARGS} && touch "${bootsalt_marker}"
         ret=${?}
         deactivate_debug
     fi
