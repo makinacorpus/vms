@@ -982,9 +982,10 @@ umount_vm() {
 
 up() {
     cd "${VMPATH}"
-    local i=""
+    local i="" retry=""
     for i in $(default_to_all_hosts $@);do
         log "Up $i !"
+        local u=$(get_user ${i})
         notrunning=""
         if ! is_running $i; then
             notrunning="1"
@@ -992,6 +993,58 @@ up() {
         if [ ! -d share ];then mkdir share;fi
         vagrant up ${i}
         lret=${?}
+        # workaround for 15.10+ bug
+        # see https://github.com/mitchellh/vagrant/issues/7155
+        if is_running ${i}; then
+            distrib=$(sshuser=$u sshhost=$i raw_internal_ssh_ lsb_release -i -s)
+            release=$(sshuser=$u sshhost=$i raw_internal_ssh_ lsb_release -r -s|sed -e "s/\.//g")
+            if [ "x${distrib}" = "xUbuntu" ] && [ "${release}" -gt "1510" ]; then
+                sshuser=$u sshhost=$i raw_internal_ssh_ tee vaghostname.sh >/dev/null << EOF
+#!/usr/bin/env bash
+gen() {
+    echo $i > /etc/hostname
+    hostname $i
+    echo "127.0.0.1 ${i}.local ${i}" >> /etc/hosts
+    exit 0
+}
+if ! grep -q $i /etc/hosts ;then
+    gen
+fi
+exit 1
+EOF
+                if sshuser=$u sshhost=$i raw_internal_ssh_ sudo bash vaghostname.sh;then
+                    log "/etc/hosts fixed for $i !"
+                    retry="1"
+                fi
+                sshuser=$u sshhost=$i raw_internal_ssh_ tee vageth1.sh >/dev/null << EOF
+#!/usr/bin/env bash
+gen() {
+    cat > /etc/network/interfaces.d/eth1.cfg << FEO
+auto eth1
+iface eth1 inet manual
+FEO
+    exit 0
+}
+if [ -e /etc/network/interfaces.d/eth1.cfg ];then
+    if ! grep -q eth1 /etc/network/interfaces.d/eth1.cfg ;then
+        gen
+    fi
+elif [ ! -e /etc/network/interfaces.d/eth1.cfg ];then
+    gen
+fi
+exit 1
+EOF
+                if sshuser=$u sshhost=$i raw_internal_ssh_ sudo bash vageth1.sh;then
+                    log "/etc/network/interfaces.d/eth1.cfg fixed for $i !"
+                    retry="1"
+                fi
+            fi
+        fi
+        if [ "x${retry}" != "x" ]; then
+            vagrant halt ${i}
+            vagrant up ${i}
+            lret=${?}
+        fi
         # be sure of jumbo frames on anything else that macosx
         if [ "x${notrunning}" != "x" ] && [ "x${UNAME}" != "xDarwin" ];then
             sshuser=$(get_user $i) sshhost=$i raw_internal_ssh_ sudo ifconfig eth1 mtu 9000 2>/dev/null
