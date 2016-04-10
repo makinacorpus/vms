@@ -87,6 +87,7 @@ detect_os() {
 }
 
 set_vars() {
+    export HOME="/root" # bugfix for vagrant non-shell
     NOT_EXPORTED="^(proc|sys|dev|lost+found|guest|vmlinu.*)\$"
     VM_EXPORT_MOUNTPOINT="/guest"
     MS_BRANCH="${MS_BRANCH:-master}"
@@ -317,30 +318,26 @@ run_boot_salt() {
         set_v1
     fi
     if [ "x${bootsalt_v1}" != "x${bootsalt}" ]; then
-        if ! echo $MS_BOOT_ARGS | grep -q "--highstates";then
+        if ! echo $MS_BOOT_ARGS | grep -q -- "--highstates";then
             output " [*] Appending --highstates to bootsalt args"
             MS_BOOT_ARGS="${MS_BOOT_ARGS} --highstates"
         fi
-    fi
-    local ret="0"
-    if [ ! -e "$bootsalt_marker" ];then
-        boot_word="Bootstrap"
-    else
-        boot_word="Refresh"
-        MS_BOOT_ARGS="-S ${MS_BOOT_ARGS}"
     fi
     if [ ! -e "${bootsalt}" ];then
         output " [*] Running makina-states bootstrap directly from github"
         wget "http://raw.github.com/makinacorpus/makina-states/${MS_BRANCH}/_scripts/boot-salt.sh" -O "/tmp/boot-salt.sh"
         bootsalt="/tmp/boot-salt.sh"
     fi
+    bootsalt="/vagrant/vagrant/boot-salt.sh"
     chmod u+x "${bootsalt}"
     if [ ! -e "${bootsalt_marker}" ];then
         activate_debug
-        output " [*] $boot_word makina-states..."
+        output " [*] Bootstrap makina-states..."
         LANG=C LC_ALL=C "${bootsalt}" ${MS_BOOT_ARGS} && touch "${bootsalt_marker}"
         ret=${?}
         deactivate_debug
+    else
+        output " [*] makinastates bootstrap done ($bootsalt_marker exists)"
     fi
     die_in_error_ ${ret} "Bootsalt failed"
     . /etc/profile
@@ -367,7 +364,6 @@ fix_salt() {
 install_or_refresh_makina_states() {
     # upgrade salt only if online
     if [ "x$(test_online)" = "x0" ];then
-        export SALT_BOOT_SKIP_CHECKOUTS=1
         run_boot_salt
         die_in_error
     else
@@ -603,6 +599,7 @@ get_devhost_num() {
 if [ "x${VAGRANT_PROVISION_AS_FUNCS}" = "x" ];then
     output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: ${0}"
     output " [*] You can safely relaunch this script from within the vm"
+    [[ -f /etc/profile ]] && . /etc/profile
     set_vars
     reset_hostname
     sync_ssh

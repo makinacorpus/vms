@@ -297,7 +297,7 @@ EOF},
          "rm -f /tmp/vagrant_provision_needs_restart",
          "/root/vagrant/provision_net.sh;",
          "/root/vagrant/provision_nfs.sh;",
-         "export WANT_SETTINGS='1' && /vagrant/vagrant/provision_script.sh"]
+         "export WANT_SETTINGS='1' && su -l -c /vagrant/vagrant/provision_script.sh"]
        sub.vm.provision :shell, :inline => provision_scripts.join("\n")
     end
   end
