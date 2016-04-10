@@ -80,6 +80,13 @@ For a Debian / Ubuntu deb-like host::
 
 For macosx, use `<https://releases.hashicorp.com/vagrant/1.7.4/vagrant_1.7.4.dmg>`_
 
+For Fedora, you **must** export the environment variable `VAGRANT_DEFAULT_PROVIDER` and set it to *virtualbox* otherwise, it will assume KVM (via libvirt) as default provider. So for exemple, you can do :
+
+.. code::
+
+  echo "export VAGRANT_DEFAULT_PROVIDER=virtualbox" >> ~/.bashrc
+  source ~/.bashrc
+
 **IMPORTANT** install THE VBGUEST PLUGIN, to sync the guest addition packages from your
 host virtualbox version::
 
