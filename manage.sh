@@ -1115,7 +1115,7 @@ get_release_url() {
 }
 
 export_() {
-    local sshhost="$(default_to_first_host ${sshhost})"
+    local sshhost="$(default_to_first_host ${sshhost:-${1:-""}})"
     zerofree=""
     nozerofree=""
     for i in ${@};do
