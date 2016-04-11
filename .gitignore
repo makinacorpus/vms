@@ -29,3 +29,5 @@ debian/debian-base.tgz
 cache/
 deboostrap/
 *~
+*-console.log
+/*.deb
