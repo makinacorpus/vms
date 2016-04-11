@@ -326,7 +326,8 @@ run_boot_salt() {
         wget "http://raw.github.com/makinacorpus/makina-states/${MS_BRANCH}/_scripts/boot-salt.sh" -O "/tmp/boot-salt.sh"
         bootsalt="/tmp/boot-salt.sh"
     fi
-    bootsalt="/vagrant/vagrant/boot-salt.sh"
+    # dev
+    # bootsalt="/vagrant/vagrant/boot-salt.sh"
     chmod u+x "${bootsalt}"
     if [ ! -e "${bootsalt_marker}" ];then
         activate_debug
