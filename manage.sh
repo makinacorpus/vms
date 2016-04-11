@@ -740,6 +740,7 @@ release() {
     rarc="$(get_devhost_archive_name ${rname})"
     rver="$(get_next_version)"
     nocommit=""
+    local sshhost="$(default_to_first_host ${sshhost})"
     for i in ${@};do
         case ${i} in
             --noinput|--no-input) NO_INPUT=1
@@ -757,7 +758,7 @@ release() {
     export VMPATH="${RELEASE_PATH}"
     log "Releasing ${rname}" &&\
         if [ ! -f "${rarc}" ];then
-            export_ "${rname}" zerofree
+            sshhost=${sshhost} export_ "${rname}" zerofree
         fi && \
         log "Running scp \"${rarc}\" ${SFTP_URL}/\"${rarc}\"" &&\
         scp "${rarc}" ${SFTP_URL}/"${rarc}"
@@ -1114,7 +1115,7 @@ get_release_url() {
 }
 
 export_() {
-    local sshhost="$(default_to_first_host ${1})"
+    local sshhost="$(default_to_first_host ${sshhost})"
     zerofree=""
     nozerofree=""
     for i in ${@};do
