@@ -582,14 +582,24 @@ reset_git_configs() {
 }
 
 sync_ssh() {
-    if [ ! -e /root/.ssh ];then mkdir /root/.ssh;fi
-    if [ -e /home/vagrant ]; then
-        user=vagrant
-    else
-        user=ubuntu
+    if [ ! -e /root/.ssh ];then
+        mkdir /root/.ssh
+        chmod 700 /root/.ssh
     fi
-    rsync -a /home/$user/.ssh/authorized* /root/.ssh/
-    chown -Rf root:root /root/.ssh/
+    fics=""
+    users="ubuntu vagrant"
+    for u in ${users};do
+        for i in $(ls /home/${u}/.ssh/authorized_key* 2>/dev/null);do
+            fics="${fics} ${i}"
+        done
+    done
+    if [ "x${fics}" != "x" ];then
+        echo > /root/.ssh/authorized_keys
+        for i in ${fics};do
+            cat ${i} >> /root/.ssh/authorized_keys
+            echo >> /root/.ssh/authorized_keys
+        done
+    fi
 }
 
 get_devhost_num() {

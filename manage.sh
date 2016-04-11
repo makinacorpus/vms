@@ -560,7 +560,7 @@ install_keys() {
     for i in $(default_to_all_hosts $@);do
         nohostonly=y gen_ssh_configs $i
         if set_wrapper_present $i;then
-            sshuser=$(get_user $sshhost) sshhost=${i} raw_internal_ssh_ sudo ${PROVISION_WRAPPER} sync_ssh 2>/dev/null
+            sshuser=$(get_user $i) sshhost=${i} raw_internal_ssh_ sudo ${PROVISION_WRAPPER} sync_ssh 2>/dev/null
         else
             log "Warning: $i: could not install ssh keys, shared folder mountpoint seems not present"
         fi
@@ -617,7 +617,7 @@ pre_down() {
     for i in $(default_to_all_hosts $@);do
         if [ "x$(status)" = "xrunning" ];then
             umount_vm $i
-            sshuser=$(get_user $sshhost) sshhost=$i raw_internal_ssh_ sudo sync 2>/dev/null
+            sshuser=$(get_user $i) sshhost=$i raw_internal_ssh_ sudo sync 2>/dev/null
         else
             log " [*] pre_down: VM already stopped $i"
         fi
@@ -668,11 +668,11 @@ maybe_finish_creation() {
     local i=""
     for i in $(default_to_all_hosts $@);do
         if [ "x${lret}" != "x0" ];then
-            for i in $(seq 3);do
-                marker="$(sshuser=$(get_user $sshhost) sshhost=$i raw_internal_ssh_ \
+            for j in $(seq 3);do
+                marker="$(sshuser=$(get_user $i) sshhost=$i raw_internal_ssh_ \
                     sudo test -e ${restart_marker} &> /dev/null;echo ${?})"
                 if [ "x${marker}" = "x0" ];then
-                    log "$i: First runs, we issue a scheduled reload after the first up(s)"
+                    log "$i: First runs ($j), we issue a scheduled reload after the first up(s)"
                     reload ${i}
                     lret="${?}"
                 elif [ "x${lret}" != "x0" ];then
@@ -823,6 +823,7 @@ mount_vm() {
     if [ "x${hosts}" = "x" ];then hosts=$(all_hosts);fi
     local host=""
     local sshhost=""
+    ssh_pre_reqs ${hosts}
     for host in ${hosts};do
         local sshhost="${host}"
         # something is wrong with the mountpath, killing it
@@ -833,7 +834,6 @@ mount_vm() {
         fi
         if [ ! -e "${VM}/${host}/home/vagrant/.ssh" ];then
             if [ ! -e "${VM}/${host}" ];then mkdir -p "${VM}/${host}";fi
-            ssh_pre_reqs $@
             if [ "x${sshhost}" != "x" ];then
                 log "Mounting devhost(${sshhost}):/ --sshfs--> ${VM}/${host}"
                 sshopts="transform_symlinks,reconnect,BatchMode=yes"
@@ -963,6 +963,9 @@ umount_vm() {
     cd "${VMPATH}"
     local host=""
     for host in ${hosts};do
+        if is_running $host;then
+            ssh_pre_reqs ${host}
+        fi
         if [ "x$(is_mounted ${host})" != "x" ];then
             log "Umounting of ${VM}/${host}"
             do_fusermount noumount "${host}"
