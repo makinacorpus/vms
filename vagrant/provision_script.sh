@@ -123,8 +123,6 @@ set_vars() {
 ready_to_run() {
     output " [*] VM is now ready for './manage.sh ssh' or other usages..."
     output " ------------------------------- [ OK] -----------------------------------------"
-    output " Once connected as root in the vm with \"./manage.sh ssh\" and \"sudo su -\""
-    output "   * You can run one specific state with \"(master)salt-call [-l all] state.sls name-of-state\""
     output " If you want to share this wm, use ./manage.sh export | import"
     output " Stop vm with './manage.sh down', connect it with './manage.sh ssh'"
 }
