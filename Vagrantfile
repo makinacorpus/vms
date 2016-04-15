@@ -111,7 +111,10 @@ cfg['MS_NODETYPE'] = 'vagrantvm'
 cfg['MS_BOOT_ARGS'] = "-C -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m devhost\\${DEVHOST_FQDN}"
 cfg['MS_BOOT_ARGS_V1'] = "-MM --mastersalt localhost #{cfg['MS_BOOT_ARGS']}"
 cfg['SERIAL'] = ["disconnected"]
-
+cfg['SSH_USERNAME'] = if ['xenial'].include? cfg['OS_RELEASE']
+                      then "ubuntu"
+                      else "vagrant"
+                      end
 # load settings from a local file in case
 localcfg = Hash.new
 VSETTINGS_Y = "#{CWD}/vagrant_config.yml"
@@ -212,6 +215,7 @@ Vagrant.configure("2") do |config|
        box_private_ip = cfg['BOX_PRIVATE_SUBNET']+".#{machine_num + 1}"
        fqdn = "#{machine}.local"
        virtualbox_vm_name = "#{cfg['VIRTUALBOX_BASE_VM_NAME']} #{machine_num} (#{SCWD})"
+       sub.ssh.username = cfg['SSH_USERNAME']
        sub.vm.box = cfg['BOX']
        sub.vm.box_url = cfg['BOX_URI']
        # bug with ubuntu >= 15.10; hostname setup failed
