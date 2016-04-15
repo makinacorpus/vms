@@ -110,6 +110,7 @@ cfg['MS_BRANCH'] = 'v2'
 cfg['MS_NODETYPE'] = 'vagrantvm'
 cfg['MS_BOOT_ARGS'] = "-C -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m devhost\\${DEVHOST_FQDN}"
 cfg['MS_BOOT_ARGS_V1'] = "-MM --mastersalt localhost #{cfg['MS_BOOT_ARGS']}"
+cfg['SERIAL'] = ["disconnected"]
 
 # load settings from a local file in case
 localcfg = Hash.new
@@ -310,6 +311,7 @@ Vagrant.configure("2") do |config|
     vb.customize ["modifyvm", :id, "--cpus", cfg['CPUS']]
     vb.customize ["modifyvm", :id, "--cpuexecutioncap", cfg['MAX_CPU_USAGE_PERCENT']]
     vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+    vb.customize ["modifyvm", :id, "--uartmode1"] + cfg['SERIAL']
     (1..cfg['MACHINES'].to_i).each do |machine_num|
        machine = "#{cfg['VM_HOST']}_#{machine_num}"
        uuid = get_uuid machine
