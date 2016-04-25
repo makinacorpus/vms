@@ -64,7 +64,7 @@ Typically on Debian/Ubuntu::
 
 On MacOSX, Install `this DMG from virtualbox.org <http://download.virtualbox.org/virtualbox/5.0.10/VirtualBox-5.0.10-104061-OSX.dmg>`_
 
-Vagrant (>=1.7)
+Vagrant (>=1.8.1)
 ++++++++++++++++
 You could make you a supersudoer without password to avoid sudo questions when lauching the VMs (not required)::
 
@@ -74,11 +74,11 @@ You could make you a supersudoer without password to avoid sudo questions when l
 
 For a Debian / Ubuntu deb-like host::
 
-    url="https://releases.hashicorp.com/vagrant/1.7.4/vagrant_1.7.4_x86_64.deb"
+    url="https://releases.hashicorp.com/vagrant/1.8.1/vagrant_1.8.1_x86_64.deb"
     wget "$url" -O $(basename $url) || curl "$url" -o $(basename url)
     sudo dpkg -i $(basename $url)
 
-For macosx, use `<https://releases.hashicorp.com/vagrant/1.7.4/vagrant_1.7.4.dmg>`_
+For macosx, use `<https://releases.hashicorp.com/vagrant/1.8.1/vagrant_1.8.1.dmg>`_
 
 For Fedora, you **must** export the environment variable `VAGRANT_DEFAULT_PROVIDER` and set it to *virtualbox* otherwise, it will assume KVM (via libvirt) as default provider. So for exemple, you can do :
 
