@@ -572,7 +572,8 @@ handle_export() {
 }
 
 reset_git_configs() {
-    find / -type d -name .git -not \( -path guest -prune \)|while read dotgit; do
+    find /var /etc /srv /home /opt \( \( -path guest -prune -or -path "*lxcfs*" \)\
+        -prune -o  -type d -name .git -print \)|while read dotgit; do
         cd "${dotgit}" &> /dev/null &&\
         output " [*] Resetting ${dotgit}" &&\
         for i in user.email user.name;do git config --local --unset ${i};done &&\
