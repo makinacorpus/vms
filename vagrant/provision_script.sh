@@ -187,7 +187,7 @@ open_routes() {
     output " [*] allow routing of traffic coming from dev host going to docker net"
     sysctl -w net.ipv4.ip_forward=1
     sysctl -w net.ipv4.conf.all.rp_filter=0
-    sysctl -w net.ipv4.conf.all.log_martians=1
+    # sysctl -w net.ipv4.conf.all.log_martians=1
 }
 
 cleanup_restart_marker() {
