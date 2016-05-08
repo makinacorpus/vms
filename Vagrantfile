@@ -92,6 +92,7 @@ cfg['UNAME'] = `uname`.strip
 # Number of machines to spawn
 cfg['MACHINES'] = 1
 # Per Machine resources quotas
+cfg['DOMAIN'] = 'local'
 cfg['MEMORY'] = 1024
 cfg['CPUS'] = 2
 cfg['MAX_CPU_USAGE_PERCENT'] = 50
@@ -108,7 +109,7 @@ cfg['APT_PROXY'] = ''
 # MAKINA STATES CONFIGURATION
 cfg['MS_BRANCH'] = 'v2'
 cfg['MS_NODETYPE'] = 'vagrantvm'
-cfg['MS_BOOT_ARGS'] = "-C -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m devhost\\${DEVHOST_FQDN}"
+cfg['MS_BOOT_ARGS'] = "-C -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m \\${DEVHOST_FQDN}"
 cfg['MS_BOOT_ARGS_V1'] = "-MM --mastersalt localhost #{cfg['MS_BOOT_ARGS']}"
 cfg['SERIAL'] = ["disconnected"]
 cfg['SSH_USERNAME'] = if ['xenial'].include? cfg['OS_RELEASE']
@@ -213,7 +214,6 @@ Vagrant.configure("2") do |config|
      machine = hostname
      config.vm.define  machine do |sub|
        box_private_ip = cfg['BOX_PRIVATE_SUBNET']+".#{machine_num + 1}"
-       fqdn = "#{machine}.local"
        virtualbox_vm_name = "#{cfg['VIRTUALBOX_BASE_VM_NAME']} #{machine_num} (#{SCWD})"
        sub.ssh.username = cfg['SSH_USERNAME']
        sub.vm.box = cfg['BOX']
@@ -225,6 +225,7 @@ Vagrant.configure("2") do |config|
        else
            sub.vm.host_name = hostname
        end
+       fqdn = "#{hostname}.#{cfg['DOMAIN']}"
        sub.vm.provider "virtualbox" do |vb|
            vb.name = "#{virtualbox_vm_name}"
        end
@@ -247,7 +248,11 @@ hostname '#{hostname}'
 interface="eth1"
 hostip=\\$(ip addr show dev \\$interface 2> /dev/null|awk '/inet / {gsub("/.*", "", \\$2);print \\$2}'|head -n1)
 configured_hostip=\\$( cat /etc/network/interfaces /etc/network/interfaces.d/* 2>/dev/null|grep \\$interface -A3|grep address|awk '{print \\$2}')
-sed -i -re "/127.0.0.1 .*#{hostname}.*/d" /etc/hosts
+sed -i -re "/::1 .*(localhost|#{fqdn}|#{hostname}).*/d" /etc/hosts
+sed -i -re "/127.0.0.1 .*(localhost|#{fqdn}|#{hostname}).*/d" /etc/hosts
+sed -i '1i::1 #{fqdn} #{hostname}' /etc/hosts
+sed -i '1i127.0.0.1 #{fqdn} #{hostname}' /etc/hosts
+echo "::1 #{fqdn} #{hostname}" >> /etc/hosts
 echo "127.0.0.1 #{fqdn} #{hostname}" >> /etc/hosts
 if [ "x\\$hostip" != "x\\$configured_hostip" ];then
     ifdown \\$interface &> /dev/null
@@ -283,6 +288,7 @@ export DEVHOST_NUM="#{cfg['DEVHOST_NUM']}"
 export DEVHOST_MACHINE="#{machine}"
 export DEVHOST_BASE_NAME="#{cfg['VIRTUALBOX_BASE_VM_NAME']}"
 export DEVHOST_HOSTNAME="#{hostname}"
+export DEVHOST_DOMAIN="#{cfg['DOMAIN']}"
 export DEVHOST_FQDN="#{fqdn}"
 export DEVHOST_MACHINE_NUM="#{machine_num}"
 export DEVHOST_IP="#{box_private_ip}"
