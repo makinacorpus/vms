@@ -304,11 +304,13 @@ set_v1() {
     output " [*] Using makina-states v1"
     bootsalt="${bootsalt_v1}"
     MS_BOOT_ARGS="${MS_BOOT_ARGS_V1}"
+    MS_V1="x"
 }
 
 run_boot_salt() {
     bootsalt_v1="/srv/salt/makina-states/_scripts/boot-salt.sh"
     bootsalt="/srv/makina-states/_scripts/boot-salt.sh"
+    MS_V1=""
     if [ ! -e ${bootsalt} ] && [ -e ${bootsalt_v1} ];then
         set_v1
     fi
@@ -337,6 +339,10 @@ run_boot_salt() {
         deactivate_debug
     else
         output " [*] makinastates bootstrap done ($bootsalt_marker exists)"
+        if [ "x${MS_V1}" = "x" ];then
+            LANG=C LC_ALL=C "${bootsalt}" -C --reconfigure \
+                -m "${DEVHOST_FQDN}" -n "${DEVHOST_MS_NODETYPE}"
+        fi
     fi
     die_in_error_ ${ret} "Bootsalt failed"
     . /etc/profile
