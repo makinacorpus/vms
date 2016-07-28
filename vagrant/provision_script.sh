@@ -96,7 +96,7 @@ set_vars() {
     CONF_ROOT="${CONF_ROOT:-"${ROOT}etc"}"
     PREFIX="${PREFIX:-"${ROOT}srv"}"
     # source a maybe existing settings file
-    SETTINGS="${SETTINGS:-"${ROOT}root/vagrant/provision_settings_$(hostname).sh"}"
+    SETTINGS="${SETTINGS:-"${ROOT}root/vagrant/provision_settings_${DEVHOST_MACHINE}.sh"}"
     if [ "x${WANT_SETTINGS}" != "x" ] && [ ! -f "$SETTINGS" ];then
         echo "settings not found: ${SETTINGS}"
         exit 1

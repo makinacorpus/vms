@@ -862,7 +862,7 @@ mount_vm() {
                     sshopts="${sshopts},allow_other"
                 fi
                 if [ "x${UNAME}" != "xDarwin" ];then sshopts="${sshopts},nonempty";fi
-                if [ "x${UNAME}" = "xDarwin" ];then sshopts="${sshopts},defer_permissions";fi
+                if [ "x${UNAME}" = "xDarwin" ];then sshopts="${sshopts},defer_permissions,Compression=no,noappledouble,no_readahead,negative_vncache,auto_cache";fi
                 mountpoint="/guest"
                 if ssh -F "${ssh_config}-${sshhost}" "${sshhost}"  test ! -e /guest;then
                     if ssh -F "${ssh_config}-${sshhost}" "${sshhost}" sudo ${PROVISION_WRAPPER} create_vm_mountpoint;then
