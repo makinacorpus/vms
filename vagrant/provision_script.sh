@@ -317,7 +317,7 @@ run_boot_salt() {
         set_v1
     fi
     if [ "x${bootsalt_v1}" != "x${bootsalt}" ]; then
-        if ! echo $MS_BOOT_ARGS | grep -q "--highstates";then
+        if ! echo $MS_BOOT_ARGS | grep -q -- "--highstates";then
             output " [*] Appending --highstates to bootsalt args"
             MS_BOOT_ARGS="${MS_BOOT_ARGS} --highstates"
         fi
@@ -334,10 +334,12 @@ run_boot_salt() {
         wget "http://raw.github.com/makinacorpus/makina-states/${MS_BRANCH}/_scripts/boot-salt.sh" -O "/tmp/boot-salt.sh"
         bootsalt="/tmp/boot-salt.sh"
     fi
+    bootsalt="/vagrant/vagrant/boot-salt.sh"
     chmod u+x "${bootsalt}"
     if [ ! -e "${bootsalt_marker}" ];then
         activate_debug
         output " [*] $boot_word makina-states..."
+        output " -> "${bootsalt}" ${MS_BOOT_ARGS}"
         LANG=C LC_ALL=C "${bootsalt}" ${MS_BOOT_ARGS} && touch "${bootsalt_marker}"
         ret=${?}
         deactivate_debug
@@ -367,7 +369,6 @@ fix_salt() {
 install_or_refresh_makina_states() {
     # upgrade salt only if online
     if [ "x$(test_online)" = "x0" ];then
-        export SALT_BOOT_SKIP_CHECKOUTS=1
         run_boot_salt
         die_in_error
     else
