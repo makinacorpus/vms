@@ -221,11 +221,11 @@ Vagrant.configure("2") do |config|
        fqdn = "#{hostname}.#{cfg['DOMAIN']}"
        # do not use vagrant hostname plugin, it's evil
        # https://github.com/mitchellh/vagrant/blob/master/plugins/guests/debian/cap/change_host_name.rb#L22-L23
-       sub.vm.host_name = nil
+       sub.vm.hostname = nil
        #if machine_num > 1
-       #    sub.vm.host_name = fqdn
+       #    sub.vm.hostname = fqdn
        #else
-       #    sub.vm.host_name = fqdn
+       #    sub.vm.hostname = fqdn
        #end
        sub.vm.provider "virtualbox" do |vb|
            vb.name = "#{virtualbox_vm_name}"
