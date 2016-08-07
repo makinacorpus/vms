@@ -87,6 +87,7 @@ detect_os() {
 }
 
 set_vars() {
+    export HOME="/root" # bugfix for vagrant non-shell
     NOT_EXPORTED="^(proc|sys|dev|lost+found|guest|vmlinu.*)\$"
     VM_EXPORT_MOUNTPOINT="/guest"
     MS_BRANCH="${MS_BRANCH:-master}"
@@ -122,8 +123,6 @@ set_vars() {
 ready_to_run() {
     output " [*] VM is now ready for './manage.sh ssh' or other usages..."
     output " ------------------------------- [ OK] -----------------------------------------"
-    output " Once connected as root in the vm with \"./manage.sh ssh\" and \"sudo su -\""
-    output "   * You can run one specific state with \"(master)salt-call [-l all] state.sls name-of-state\""
     output " If you want to share this wm, use ./manage.sh export | import"
     output " Stop vm with './manage.sh down', connect it with './manage.sh ssh'"
 }
@@ -188,7 +187,7 @@ open_routes() {
     output " [*] allow routing of traffic coming from dev host going to docker net"
     sysctl -w net.ipv4.ip_forward=1
     sysctl -w net.ipv4.conf.all.rp_filter=0
-    sysctl -w net.ipv4.conf.all.log_martians=1
+    # sysctl -w net.ipv4.conf.all.log_martians=1
 }
 
 cleanup_restart_marker() {
@@ -305,11 +304,13 @@ set_v1() {
     output " [*] Using makina-states v1"
     bootsalt="${bootsalt_v1}"
     MS_BOOT_ARGS="${MS_BOOT_ARGS_V1}"
+    MS_V1="x"
 }
 
 run_boot_salt() {
     bootsalt_v1="/srv/salt/makina-states/_scripts/boot-salt.sh"
     bootsalt="/srv/makina-states/_scripts/boot-salt.sh"
+    MS_V1=""
     if [ ! -e ${bootsalt} ] && [ -e ${bootsalt_v1} ];then
         set_v1
     fi
@@ -322,27 +323,27 @@ run_boot_salt() {
             MS_BOOT_ARGS="${MS_BOOT_ARGS} --highstates"
         fi
     fi
-    local ret="0"
-    if [ ! -e "$bootsalt_marker" ];then
-        boot_word="Bootstrap"
-    else
-        boot_word="Refresh"
-        MS_BOOT_ARGS="-S ${MS_BOOT_ARGS}"
-    fi
     if [ ! -e "${bootsalt}" ];then
         output " [*] Running makina-states bootstrap directly from github"
         wget "http://raw.github.com/makinacorpus/makina-states/${MS_BRANCH}/_scripts/boot-salt.sh" -O "/tmp/boot-salt.sh"
         bootsalt="/tmp/boot-salt.sh"
     fi
-    bootsalt="/vagrant/vagrant/boot-salt.sh"
+    # dev
+    # bootsalt="/vagrant/vagrant/boot-salt.sh"
     chmod u+x "${bootsalt}"
     if [ ! -e "${bootsalt_marker}" ];then
         activate_debug
-        output " [*] $boot_word makina-states..."
+        output " [*] Bootstrap makina-states..."
         output " -> "${bootsalt}" ${MS_BOOT_ARGS}"
         LANG=C LC_ALL=C "${bootsalt}" ${MS_BOOT_ARGS} && touch "${bootsalt_marker}"
         ret=${?}
         deactivate_debug
+    else
+        output " [*] makinastates bootstrap done ($bootsalt_marker exists)"
+        if [ "x${MS_V1}" = "x" ];then
+            LANG=C LC_ALL=C "${bootsalt}" -C --reconfigure \
+                -m "${DEVHOST_FQDN}" -n "${DEVHOST_MS_NODETYPE}"
+        fi
     fi
     die_in_error_ ${ret} "Bootsalt failed"
     . /etc/profile
@@ -578,7 +579,8 @@ handle_export() {
 }
 
 reset_git_configs() {
-    find / -type d -name .git -not \( -path guest -prune \)|while read dotgit; do
+    find /var /etc /srv /home /opt \( \( -path guest -prune -or -path "*lxcfs*" \)\
+        -prune -o  -type d -name .git -print \)|while read dotgit; do
         cd "${dotgit}" &> /dev/null &&\
         output " [*] Resetting ${dotgit}" &&\
         for i in user.email user.name;do git config --local --unset ${i};done &&\
@@ -587,14 +589,24 @@ reset_git_configs() {
 }
 
 sync_ssh() {
-    if [ ! -e /root/.ssh ];then mkdir /root/.ssh;fi
-    if [ -e /home/vagrant ]; then
-        user=vagrant
-    else
-        user=ubuntu
+    if [ ! -e /root/.ssh ];then
+        mkdir /root/.ssh
+        chmod 700 /root/.ssh
     fi
-    rsync -a /home/$user/.ssh/authorized* /root/.ssh/
-    chown -Rf root:root /root/.ssh/
+    fics=""
+    users="ubuntu vagrant"
+    for u in ${users};do
+        for i in $(ls /home/${u}/.ssh/authorized_key* 2>/dev/null);do
+            fics="${fics} ${i}"
+        done
+    done
+    if [ "x${fics}" != "x" ];then
+        echo > /root/.ssh/authorized_keys
+        for i in ${fics};do
+            cat ${i} >> /root/.ssh/authorized_keys
+            echo >> /root/.ssh/authorized_keys
+        done
+    fi
 }
 
 get_devhost_num() {
@@ -604,6 +616,7 @@ get_devhost_num() {
 if [ "x${VAGRANT_PROVISION_AS_FUNCS}" = "x" ];then
     output " [*] STARTING MAKINA VAGRANT PROVISION SCRIPT: ${0}"
     output " [*] You can safely relaunch this script from within the vm"
+    [[ -f /etc/profile ]] && . /etc/profile
     set_vars
     reset_hostname
     sync_ssh

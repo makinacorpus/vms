@@ -92,6 +92,7 @@ cfg['UNAME'] = `uname`.strip
 # Number of machines to spawn
 cfg['MACHINES'] = 1
 # Per Machine resources quotas
+cfg['DOMAIN'] = 'local'
 cfg['MEMORY'] = 1024
 cfg['CPUS'] = 2
 cfg['MAX_CPU_USAGE_PERCENT'] = 50
@@ -110,7 +111,11 @@ cfg['MS_BRANCH'] = 'v2'
 cfg['MS_NODETYPE'] = 'vagrantvm'
 cfg['MS_BOOT_ARGS'] = "-C -b \\${MS_BRANCH} -n \\${MS_NODETYPE} -m \\${DEVHOST_FQDN}"
 cfg['MS_BOOT_ARGS_V1'] = "-MM --mastersalt localhost #{cfg['MS_BOOT_ARGS']}"
-
+cfg['SERIAL'] = ["disconnected"]
+cfg['SSH_USERNAME'] = if ['xenial'].include? cfg['OS_RELEASE']
+                      then "ubuntu"
+                      else "vagrant"
+                      end
 # load settings from a local file in case
 localcfg = Hash.new
 VSETTINGS_Y = "#{CWD}/vagrant_config.yml"
@@ -163,8 +168,8 @@ cfg.setdefault('BOX_PRIVATE_SUBNET', "#{cfg['BOX_PRIVATE_SUBNET_BASE']}#{cfg['DE
 # BOX SELECTION
 cfg.setdefault('BOX', "#{cfg['OS_RELEASE']}64")
 cfg.setdefault('BOX_URI',
-               "http://cloud-images.ubuntu.com/vagrant/"\
-               "#{cfg['OS_RELEASE']}/current/#{cfg['OS_RELEASE']}-server-cloudimg-amd64-vagrant-disk1.box")
+               "https://cloud-images.ubuntu.com/"\
+               "#{cfg['OS_RELEASE']}/current/#{cfg['OS_RELEASE']}-server-cloudimg-amd64-vagrant.box")
 
 # save back config to yaml (mainly for persiting devhost_num)
 File.open("#{VSETTINGS_Y}", 'w') {|f| f.write localcfg.to_yaml }
@@ -209,10 +214,11 @@ Vagrant.configure("2") do |config|
      machine = hostname
      config.vm.define  machine do |sub|
        box_private_ip = cfg['BOX_PRIVATE_SUBNET']+".#{machine_num + 1}"
-       fqdn = "#{machine}.local"
        virtualbox_vm_name = "#{cfg['VIRTUALBOX_BASE_VM_NAME']} #{machine_num} (#{SCWD})"
+       sub.ssh.username = cfg['SSH_USERNAME']
        sub.vm.box = cfg['BOX']
        sub.vm.box_url = cfg['BOX_URI']
+       fqdn = "#{hostname}.#{cfg['DOMAIN']}"
        # do not use vagrant hostname plugin, it's evil
        # https://github.com/mitchellh/vagrant/blob/master/plugins/guests/debian/cap/change_host_name.rb#L22-L23
        #if machine_num > 1
@@ -232,13 +238,22 @@ Vagrant.configure("2") do |config|
          # FOR NFS ENABLE JUMBO FRAMES, OTHER PART IN ON THE VAGRANTFILE
          # FOR HOST ONLY INTERFACE VBOXNET
          cfg['MTU_SET'],
+         "",
          "if [ ! -d /root/vagrant ];then mkdir /root/vagrant;fi;",
          %{cat > /root/vagrant/provision_net.sh  << EOF
 #!/usr/bin/env bash
 # be sure to have the configured ip in config rather that prior to import one
+echo '#{hostname}' > /etc/hostname
+hostname '#{hostname}'
 interface="eth1"
 hostip=\\$(ip addr show dev \\$interface 2> /dev/null|awk '/inet / {gsub("/.*", "", \\$2);print \\$2}'|head -n1)
-configured_hostip=\\$( cat /etc/network/interfaces|grep \\$interface -A3|grep address|awk '{print \\$2}')
+configured_hostip=\\$( cat /etc/network/interfaces /etc/network/interfaces.d/* 2>/dev/null|grep \\$interface -A3|grep address|awk '{print \\$2}')
+sed -i -re "/::1 .*(localhost|#{fqdn}|#{hostname}).*/d" /etc/hosts
+sed -i -re "/127.0.0.1 .*(localhost|#{fqdn}|#{hostname}).*/d" /etc/hosts
+sed -i '1i::1 #{fqdn} #{hostname}' /etc/hosts
+sed -i '1i127.0.0.1 #{fqdn} #{hostname}' /etc/hosts
+echo "::1 #{fqdn} #{hostname}" >> /etc/hosts
+echo "127.0.0.1 #{fqdn} #{hostname}" >> /etc/hosts
 if [ "x\\$hostip" != "x\\$configured_hostip" ];then
     ifdown \\$interface &> /dev/null
     ifup \\$interface
@@ -273,9 +288,11 @@ export DEVHOST_NUM="#{cfg['DEVHOST_NUM']}"
 export DEVHOST_MACHINE="#{machine}"
 export DEVHOST_BASE_NAME="#{cfg['VIRTUALBOX_BASE_VM_NAME']}"
 export DEVHOST_HOSTNAME="#{hostname}"
+export DEVHOST_DOMAIN="#{cfg['DOMAIN']}"
 export DEVHOST_FQDN="#{fqdn}"
 export DEVHOST_MACHINE_NUM="#{machine_num}"
 export DEVHOST_IP="#{box_private_ip}"
+export DEVHOST_MS_NODETYPE="#{cfg['MS_NODETYPE']}"
 export DEVHOST_VB_NAME="#{virtualbox_vm_name}"
 export DNS_SERVERS="#{cfg['DNS_SERVERS']}"
 export APT_MIRROR="#{cfg['APT_MIRROR']}"
@@ -294,7 +311,7 @@ EOF},
          "/root/vagrant/provision_nfs.sh;",
          "export WANT_SETTINGS='1' " \
          " && . /root/vagrant/provision_settings_#{machine}.sh " \
-         " && /vagrant/vagrant/provision_script.sh"]
+         " && su -l -c /vagrant/vagrant/provision_script.sh"]
        sub.vm.provision :shell, :inline => provision_scripts.join("\n")
     end
   end
@@ -307,6 +324,7 @@ Vagrant.configure("2") do |config|
     vb.customize ["modifyvm", :id, "--cpus", cfg['CPUS']]
     vb.customize ["modifyvm", :id, "--cpuexecutioncap", cfg['MAX_CPU_USAGE_PERCENT']]
     vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+    vb.customize ["modifyvm", :id, "--uartmode1"] + cfg['SERIAL']
     (1..cfg['MACHINES'].to_i).each do |machine_num|
        machine = "#{cfg['VM_HOST']}_#{machine_num}"
        uuid = get_uuid machine
