@@ -284,7 +284,7 @@ if [ ! -e "/vagrant/vagrant/provision_script.sh" ];then
     exit 1
 fi
 EOF},
-         %{cat > /root/vagrant/provision_settings_#{machine}.sh  << EOF
+         %{cat > /root/vagrant/provision_settings.sh  << EOF
 export DEVHOST_NUM="#{cfg['DEVHOST_NUM']}"
 export DEVHOST_MACHINE="#{machine}"
 export DEVHOST_BASE_NAME="#{cfg['VIRTUALBOX_BASE_VM_NAME']}"
@@ -310,9 +310,7 @@ EOF},
          "rm -f /tmp/vagrant_provision_needs_restart",
          "/root/vagrant/provision_net.sh;",
          "/root/vagrant/provision_nfs.sh;",
-         "export WANT_SETTINGS='1' " \
-         " && . /root/vagrant/provision_settings_#{machine}.sh " \
-         " && su -l -c /vagrant/vagrant/provision_script.sh"]
+         "export WANT_SETTINGS='1' && su -l -c /vagrant/vagrant/provision_script.sh"]
        sub.vm.provision :shell, :inline => provision_scripts.join("\n")
     end
   end
