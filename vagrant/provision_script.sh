@@ -90,7 +90,7 @@ set_vars() {
     export HOME="/root" # bugfix for vagrant non-shell
     NOT_EXPORTED="^(proc|sys|dev|lost+found|guest|vmlinu.*)\$"
     VM_EXPORT_MOUNTPOINT="/guest"
-    MS_BRANCH="${MS_BRANCH:-master}"
+    MS_BRANCH="${MS_BRANCH:-v2}"
     MS_NODETYPE="${MS_NODETYPE:-vagrantvm}"
     ROOT="/"
     CONF_ROOT="${CONF_ROOT:-"${ROOT}etc"}"
