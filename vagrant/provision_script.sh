@@ -96,7 +96,7 @@ set_vars() {
     CONF_ROOT="${CONF_ROOT:-"${ROOT}etc"}"
     PREFIX="${PREFIX:-"${ROOT}srv"}"
     # source a maybe existing settings file
-    SETTINGS="${SETTINGS:-"${ROOT}root/vagrant/provision_settings_${DEVHOST_MACHINE}.sh"}"
+    SETTINGS="${SETTINGS:-"${ROOT}root/vagrant/provision_settings.sh"}"
     if [ "x${WANT_SETTINGS}" != "x" ] && [ ! -f "$SETTINGS" ];then
         echo "settings not found: ${SETTINGS}"
         exit 1
@@ -105,7 +105,7 @@ set_vars() {
         output " [*] Loading custom settings in ${SETTINGS}"
         . "$SETTINGS"
     fi
-    MS_BOOT_ARGS="${MS_BOOT_ARGS:-"-C -M -MM --mastersalt localhost -b ${MS_BRANCH} -n ${MS_NODETYPE} -m devhost${DEVHOST_NUM}.local"}"
+    MS_BOOT_ARGS="${MS_BOOT_ARGS:-"-C     -b ${MS_BRANCH} -n ${MS_NODETYPE} -m devhost${DEVHOST_NUM}.local"}"
     # Markers must not be on a shared folder for a new VM to be reprovisionned correctly
     MARKERS="${MARKERS:-"${ROOT}root/vagrant/markers"}"
     DNS_SERVERS="${DNS_SERVERS:-"8.8.8.8 4.4.4.4"}"
