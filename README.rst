@@ -74,7 +74,7 @@ You could make you a supersudoer without password to avoid sudo questions when l
 
 For a Debian / Ubuntu deb-like host::
 
-    url="https://releases.hashicorp.com/vagrant/1.8.1/vagrant_1.8.1_x86_64.deb"
+    url="https://releases.hashicorp.com/vagrant/1.8.5/vagrant_1.8.5_x86_64.deb"
     wget "$url" -O $(basename $url) || curl "$url" -o $(basename url)
     sudo dpkg -i $(basename $url)
 
