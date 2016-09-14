@@ -213,11 +213,13 @@ Vagrant.configure("2") do |config|
        virtualbox_vm_name = "#{cfg['VIRTUALBOX_BASE_VM_NAME']} #{machine_num} (#{SCWD})"
        sub.vm.box = cfg['BOX']
        sub.vm.box_url = cfg['BOX_URI']
-       if machine_num > 1
-           sub.vm.host_name = fqdn
-       else
-           sub.vm.host_name = fqdn
-       end
+       # do not use vagrant hostname plugin, it's evil
+       # https://github.com/mitchellh/vagrant/blob/master/plugins/guests/debian/cap/change_host_name.rb#L22-L23
+       #if machine_num > 1
+       #    sub.vm.host_name = fqdn
+       #else
+       #    sub.vm.host_name = fqdn
+       #end
        sub.vm.provider "virtualbox" do |vb|
            vb.name = "#{virtualbox_vm_name}"
        end
@@ -290,7 +292,9 @@ EOF},
          "rm -f /tmp/vagrant_provision_needs_restart",
          "/root/vagrant/provision_net.sh;",
          "/root/vagrant/provision_nfs.sh;",
-         "export WANT_SETTINGS='1' && /vagrant/vagrant/provision_script.sh"]
+         "export WANT_SETTINGS='1' " \
+         " && . /root/vagrant/provision_settings_#{machine}.sh " \
+         " && /vagrant/vagrant/provision_script.sh"]
        sub.vm.provision :shell, :inline => provision_scripts.join("\n")
     end
   end
