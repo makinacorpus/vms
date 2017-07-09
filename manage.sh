@@ -296,12 +296,13 @@ usage() {
 }
 
 gen_uuid() {
-    python << EOF
+    $PYTHON << EOF
+from __future__ import (absolute_import, division, print_function)
 import uuid, base64
 u = uuid.uuid4().bytes
 u = base64.urlsafe_b64encode(u)
-u = u.replace('=', '').replace('_', '').replace('-', '')
-print u[:16]
+u = str(u).replace('=', '').replace('_', '').replace('-', '')
+print(u[2:18])
 EOF
 
 }
@@ -1409,7 +1410,8 @@ reset() {
 }
 
 get_abspath() {
-    python -c "import os;print os.path.abspath(os.path.expanduser('${1}'))" 2> /dev/null
+    $PYTHON -c "from __future__ import (absolute_import, division, print_function) ;\
+        import os;print(os.path.abspath(os.path.expanduser('${1}')))" 2> /dev/null
 
 }
 
