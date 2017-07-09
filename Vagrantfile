@@ -103,7 +103,7 @@ cfg['AUTO_UPDATE_VBOXGUEST_ADD'] = true
 cfg['DNS_SERVERS'] = '8.8.8.8'
 # OS
 cfg['OS'] = 'Ubuntu'
-cfg['OS_RELEASE'] = 'trusty'
+cfg['OS_RELEASE'] = 'xenial'
 cfg['APT_MIRROR'] = 'http://fr.archive.ubuntu.com/ubuntu'
 cfg['APT_PROXY'] = ''
 # MAKINA STATES CONFIGURATION
