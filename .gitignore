@@ -31,3 +31,11 @@ deboostrap/
 *~
 *-console.log
 /*.deb
+/include
+/vagrant_private_key
+*vmdk
+
+Vagrantfile.*
+Vagrantfile.restore
+/download_/
+*.tar.gz

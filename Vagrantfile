@@ -94,7 +94,7 @@ cfg['MACHINES'] = 1
 # Per Machine resources quotas
 cfg['DOMAIN'] = 'local'
 cfg['MEMORY'] = 1024
-cfg['CPUS'] = 2
+cfg['CPUS'] = 1
 cfg['MAX_CPU_USAGE_PERCENT'] = 50
 cfg['HAS_NFS'] = false
 # network & misc devhost settings
@@ -180,7 +180,9 @@ mountpoints = {"./share" => "/vagrant/share", "./packer" => "/vagrant/packer", "
 #------------ Computed variables ------------------------
 cfg['VIRTUALBOX_BASE_VM_NAME'] = "DevHost #{cfg['DEVHOST_NUM']} #{cfg['OS']} #{cfg['OS_RELEASE']}64"
 cfg['VM_HOST'] = "devhost#{cfg['DEVHOST_NUM']}"
-cfg['MTU_SET'] = if os == :macosx then "/bin/true" else "ifconfig eth1 mtu 9000" end
+# as of 2019 jumbo frames support seems flakky
+JUMBO_FRAMES = cfg.setdefault('WANT_JUMBO_FRAMES', false)
+cfg['MTU_SET'] = if os == :macosx || JUMBO_FRAMES == false then "/bin/true" else "ifconfig eth1 mtu 9000" end
 
 Vagrant.configure("2") do |config|
   if Vagrant.has_plugin?('vbguest management')
@@ -324,10 +326,11 @@ Vagrant.configure("2") do |config|
     vb.customize ["modifyvm", :id, "--cpuexecutioncap", cfg['MAX_CPU_USAGE_PERCENT']]
     vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
     vb.customize ["modifyvm", :id, "--uartmode1"] + cfg['SERIAL']
+    # as of 2019 jumbo frames support seems flakky
     (1..cfg['MACHINES'].to_i).each do |machine_num|
        machine = "#{cfg['VM_HOST']}_#{machine_num}"
        uuid = get_uuid machine
-       if uuid != nil
+       if uuid != nil and JUMBO_FRAMES != false
          interface_hostonly = `VBoxManage showvminfo #{uuid} --machinereadable|grep -i hostonlyadapter2|sed 's/.*="//'|sed 's/"//'`.strip()
          if interface_hostonly.start_with?("vboxnet")
            mtu = `sudo ifconfig #{interface_hostonly}|grep -i mtu|sed -e "s/.*MTU:*//g"|awk '{print $1}'`.strip()
@@ -345,3 +348,5 @@ Vagrant.configure("2") do |config|
     end
   end
 end
+include_vagrantfile = "include/Vagrantfile.imported"
+load include_vagrantfile if File.exist?(include_vagrantfile)

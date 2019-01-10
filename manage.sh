@@ -1070,9 +1070,10 @@ EOF
             lret=${?}
         fi
         # be sure of jumbo frames on anything else that macosx
-        if [ "x${notrunning}" != "x" ] && [ "x${UNAME}" != "xDarwin" ];then
-            sshuser="" sshhost=$i raw_internal_ssh_ sudo ifconfig eth1 mtu 9000 2>/dev/null
-        fi
+        # as of 2019, jumbo frames are broken
+        # if [ "x${notrunning}" != "x" ] && [ "x${UNAME}" != "xDarwin" ];then
+        #     sshuser="" sshhost=$i raw_internal_ssh_ sudo ifconfig eth1 mtu 9000 2>/dev/null
+        # fi
         post_up ${lret} ${i}
     done
 }
@@ -1123,6 +1124,10 @@ get_box_name() {
 
 get_vagrant_box_name() {
     echo "${1:-"$(get_box_name ${2})"}.box"
+}
+
+get_vagrant_nbox_name() {
+    echo box.ovf
 }
 
 get_devhost_archive_name() {
@@ -1283,6 +1288,7 @@ import() {
     image="${1:-$(get_release_url $(get_release_name))}"
     bname="$(echo "${bname:-${2:-$(basename "${image}")}}" | sed "s/\.tar.*//g")"
     box="$(get_vagrant_box_name ${bname})"
+    nbox="$(get_vagrant_nbox_name ${bname})"
     tar_k="$(get_tar_knob ${image})"
     tar_preopts="-x${tar_k}vpf"
     tar_postopts="--numeric-owner"
@@ -1296,10 +1302,12 @@ import() {
         image="$(basename $(echo "${image}"|sed "s/.*://g"))"
     fi
     # test if vm has already been imported
+    if [ -e "$nbox" ];then box="$nbox";fi
     if [ "x$(status)" != "xnot created" ];then
         log "VM already imported,"
         log "   - Run it with: ${THIS} up"
         log "   - Delete it with: ${THIS} destroy"
+        log "   - Delete the base vm with vagrant box remove '$bname'"
         exit 0
     fi
     if [ "x$(echo " $(get_vagrant_boxes) "|grep -q " ${bname} ";echo ${?})" = "x0" ];then
@@ -1331,7 +1339,11 @@ import() {
                 return -1
             else
                 log "Getting box name from ${image}"
-                box="$(dd if=${image} bs=1024 count=10000 2>/dev/null|tar -t${tar_k}f - 2>/dev/null)"
+                box="$(dd if=${image} bs=1024 count=10000 2>/dev/null|tar -t${tar_k}f - 2>/dev/null|egrep -i '\.(box|ovf)$')"
+                if [[ -z $box ]];then
+                    log "Getting box name from ${image} empty, fallback to read whole archive"
+                    box="$(tar -t${tar_k}f ${image} 2>/dev/null|egrep -i '\.(box|ovf)$')"
+                fi
             fi
             if [ ! -e "${box}" ];then
                 log "Unarchiving ${image}"
@@ -1344,12 +1356,19 @@ import() {
                 log "Existing ${box}, if you want to unarchive from image file again, delete it"
             fi
         fi
+        if [ -e "$nbox" ];then box="$nbox";fi
         if [ ! -e "${box}" ];then
             log "Missing ${box}"
             return -1
         fi
         log "Importing ${box} into vagrant bases boxes as '${bname}' box"
-        vagrant box add -f "${bname}" "${box}" && rm -f "${box}"
+        if [ $box = $nbox ];then
+            log "Importing box in new format: $image" &&\
+            vagrant box add -f "${bname}" "${image}"
+        else
+            log "Importing box: $box" &&\
+            vagrant box add -f "${bname}" "${box}" && rm -rf "${box}"
+        fi
         if [ "x${?}" != "x0" ];then
             log "Error while importing ${bname} (from: ${box})"
             exit ${?}
@@ -1358,14 +1377,29 @@ import() {
     # load initial box image & do initial provisionning
     log "Initialiasing from BASEBOX: ${bname}"
     export DEVHOST_BOX="${bname}"
-    if [ ! -e ./vagrant_config.yml ];then
-        echo "---">./vagrant_config.yml
-    fi &&\
-        sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.yml &&\
-        sed -i -e "/SSH_INSERT_KEY/d" ./vagrant_config.yml &&\
-        sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.yml
-    uplret=1
-    for i in $(default_to_all_hosts);do
+    if [ ! -e vagrant_config.yml ] && [ -e include/vagrant_config.yml ];then
+        cp include/vagrant_config.yml ./
+    fi \
+        && if [ ! -e ./vagrant_config.yml ];then
+            echo "---">./vagrant_config.yml
+        fi \
+        && sed -i -e "/VIRTUALBOX_VM_NAME/d" ./vagrant_config.yml \
+        && sed -i -re "/^BOX:/d" vagrant_config.yml \
+        && echo "BOX: $bname" >> vagrant_config.yml \
+        && sed -i -e "/SSH_INSERT_KEY/d" ./vagrant_config.yml \
+        && sed -i -e "/DEVHOST_NUM/d" ./vagrant_config.yml
+    if [ -e include/_Vagrantfile ] \
+        && ! ( git diff --quiet  --exit-code Vagrantfile ) \
+        && (grep -q "exists after the auto-generated" Vagrantfile);then
+        sed -i -re "/load include_vagrantfile if File.exist/d" Vagrantfile \
+          && mv -f Vagrantfile include/Vagrantfile.imported \
+          && if [ -e vagrant_private_key ];then ln -sf ../vagrant_private_key include;fi \
+          && git reset -- Vagrantfile \
+          && git checkout -- Vagrantfile \
+          && rm -rf include/_Vagrantfile "${box}" box*vmdk
+    fi \
+    && uplret=1 \
+    && for i in $(default_to_all_hosts);do
         up $i && uplret=${?}
         down $i
         if [ "x${uplret}" != "x0" ];then
