@@ -72,6 +72,7 @@ BASE_URL="${DEVHOST_BASE_URL:-"https://downloads.sourceforge.net/${PROJECT_PATH}
 SFTP_URL=frs.sourceforge.net:/home/frs/${PROJECT_PATH}
 PROVISION_WRAPPER="/vagrant/vagrant/provision_script_wrapper.sh"
 EXPORT_VAGRANTFILE="Vagrantfile-export"
+SKIP_MARK_EXPORT=${SKIP_MARK_EXPORT-}
 DEVHOST_NUM=""
 FUSERMOUNT="fusermount"
 TAR_FORMAT="${TAR_FORMAT:-bz2}"
@@ -421,10 +422,14 @@ set_wrapper_present(){
     local slug="${sshhost//-/}"
     eval local stest="\$WRAPPER_PRESENT_${slug}"
     if [ "x${stest}" = "x" ];then
-        if [ "x$(sshuser="" sshhost=$sshhost \
-                  raw_internal_ssh_ \
-                    sudo test -e "${PROVISION_WRAPPER}";echo ${?})" = "x0" ];then
+        if [[ -n "${force_present_marker-}" ]];then
             eval WRAPPER_PRESENT_${slug}="1"
+        else
+            if [ "x$(sshuser="" sshhost=$sshhost \
+                      raw_internal_ssh_ \
+                        sudo test -e "${PROVISION_WRAPPER}";echo ${?})" = "x0" ];then
+                eval WRAPPER_PRESENT_${slug}="1"
+            fi
         fi
     fi
 }
@@ -559,7 +564,6 @@ lazy_gen_ssh_config() {
     local sshhost="$(default_to_first_host ${sshhost})"
     testcfg="${VMPATH}/.vagrant/test-ssh-config-${sshhost}"
     if [ ! -e "${testcfg}" ] || [ $(stat --format=%Y $testcfg) -ge $(( `date +%s` - 60 )) ]; then
-    set -x
         forcegen=1 sshhost=$sshhost gen_internal_ssh_config && \
             forcegen=1 sshhost=$sshhost gen_hostonly_ssh_config && \
             touch "${testcfg}"
@@ -1159,6 +1163,7 @@ export_() {
     local sshhost=$(first_host)
     bname="${bname:-"$(get_box_name)"}"
     box="$(get_vagrant_box_name ${bname})"
+    force_present_marker=${SKIP_MARK_EXPORT}
     abox="$(get_devhost_archive_name ${bname})"
     nincludes=""
     includes=""
@@ -1195,9 +1200,11 @@ export_() {
     else
         log "$sshhost: Skip zerofree on export"
     fi
-    if [ ! -e "${box}" ];then
+    if [ ! -e "${box}" ] || [[ -n "${FORCE_DO_EXPORT-}" ]];then
         vagrant box remove ${bname}
-        down $sshhost && up $sshhost && gen_ssh_configs $sshhost
+        if [[ -z "${SKIP_MARK_EXPORT-}" ]];then
+            down $sshhost && up $sshhost && gen_ssh_configs $sshhost
+        fi
         if [ "x${?}" = "x" ];then
             log "Can't provision VM $sshhost"
             return -1
@@ -1207,31 +1214,35 @@ export_() {
             log "${PROVISION_WRAPPER} is not there in the VM $sshhost"
             return -1
         fi
-        if [ "x${nosed}" = "x" ];then
+        if [[ -z "${SKIP_MARK_EXPORT-}" ]] && [ "x${nosed}" = "x" ];then
             sshuser="" sshhost=$sshhost raw_internal_ssh_ \
                 "bash -c \"if sudo test -d ${netrules};then sudo rm -rf ${netrules};sudo mkdir ${netrules};fi\""
             sshuser="" sshhost=$sshhost raw_internal_ssh_ \
                 "bash -c \"if sudo test -e ${netrules};then sudo sed -re 's/^SUBSYSTEM/#SUBSYSTEM/g' -i ${netrules};fi\""
-        fi
-        sshuser="" sshhost=$sshhost raw_internal_ssh_ \
-          sudo ${PROVISION_WRAPPER} mark_export 2>/dev/null &&\
-            down $sshhost &&\
-            export DEVHOST_BOX="${bname}" &&\
-            log "Be patient, exporting now $sshhost" &&\
-            vagrant package --vagrantfile "${packaged_vagrantfile}" --output "${box}" $sshhost 2> /dev/null &&\
-            rm -f "${EXPORT_VAGRANTFILE}"*  &&\
-            if [ -e "${box}" ] && [ ! -e "${abox}" ];then
-                log "Be patient, archiving now the whole full box package for $sshhost" &&\
-                    tar ${tar_preopts} ${abox} ${box} ${includes} ${tar_postopts} &&\
-                    rm -f "${box}" &&\
-                    log "$sshhost: Export done of full box: ${VMPATH}/${abox}"
-            else
-                log "${VMPATH}/${abox}, delete it to redo"
-            fi
-            down $sshhost && up $sshhost --no-provision &&\
-                sshuser="" sshhost=$sshhost raw_internal_ssh_ \
-                sudo ${PROVISION_WRAPPER} unmark_exported 2>/dev/null && down
+        fi \
+        && if [[ -z "${SKIP_MARK_EXPORT-}" ]] ;then \
+              sshuser="" sshhost=$sshhost raw_internal_ssh_ \
+              && sudo ${PROVISION_WRAPPER} mark_export 2>/dev/null \
+              && ( down $sshhost || /bin/true );
+        fi \
+        && export DEVHOST_BOX="${bname}" &&\
+        log "Be patient, exporting now $sshhost" &&\
+        if [[ -z "${SKIP_VAGRANT_PACKAGE-}" ]];then
+            vagrant package --vagrantfile "${packaged_vagrantfile}" --output "${box}" $sshhost 2> /dev/null;
+        fi &&\
+        rm -f "${EXPORT_VAGRANTFILE}"* &&\
+        if [ -e "${box}" ] && [ ! -e "${abox}" ];then
+            log "Be patient, archiving now the whole full box package for $sshhost" &&\
+                tar ${tar_preopts} ${abox} ${box} ${includes} ${tar_postopts} &&\
+                rm -f "${box}" &&\
+                log "$sshhost: Export done of full box: ${VMPATH}/${abox}"
         else
+            log "${VMPATH}/${abox}, delete it to redo (1)"
+        fi
+        down $sshhost && up $sshhost --no-provision &&\
+            sshuser="" sshhost=$sshhost raw_internal_ssh_ \
+            sudo ${PROVISION_WRAPPER} unmark_exported 2>/dev/null && down
+    else
         log "$sshhost: ${VMPATH}/${box} exists, delete it to redo"
     fi
 }
