@@ -862,14 +862,20 @@ mount_vm() {
             if [ ! -e "${VM}/${host}" ];then mkdir -p "${VM}/${host}";fi
             if [ "x${sshhost}" != "x" ];then
                 log "Mounting devhost(${sshhost}):/ --sshfs--> ${VM}/${host}"
+                sshfshelp=$(sshfs --help)
                 sshopts="transform_symlinks,reconnect,BatchMode=yes"
+                if [[ "x$UNAME" != "xDarwin" ]];then
+                    sshopts="${sshopts},Compression=no,Cipher=aes128-cbc,kernel_cache"
+                fi
                 if [ "x$(egrep "^user_allow_other" /etc/fuse.conf 2>/dev/null|wc -l|sed -e "s/ //g")" != "0" ];then
                     sshopts="${sshopts},allow_other"
                 fi
-                if [ "x${UNAME}" != "xDarwin" ];then sshopts="${sshopts},nonempty";fi
+                if [ "x${UNAME}" != "xDarwin" ] && ( echo "$sshfshelp"|grep -q nonempty );then
+                    sshopts="${sshopts},nonempty"
+                fi
                 if [ "x${UNAME}" = "xDarwin" ];then sshopts="${sshopts},defer_permissions,Compression=no,noappledouble,no_readahead,negative_vncache,auto_cache";fi
                 mountpoint="/guest"
-                if ssh -F "${ssh_config}-${sshhost}" "${sshhost}"  test ! -e /guest;then
+                if ssh -F "${ssh_config}-${sshhost}" "${sshhost}" test ! -e /guest;then
                     if ssh -F "${ssh_config}-${sshhost}" "${sshhost}" sudo ${PROVISION_WRAPPER} create_vm_mountpoint;then
                         if ssh -F "${ssh_config}-${sshhost}" "${sshhost}" test ! -e /guest/bin;then
                             log "${sshhost}: /guest does not exists, fallback to /"
@@ -882,7 +888,7 @@ mount_vm() {
                 fi
                 sshfs -F "${ssh_config}-${sshhost}" root@${sshhost}:"${mountpoint}" -o ${sshopts} "${VM}/${host}"
             else
-                log "${sshhost}: Cant' mount sshfs, empty ssh host"
+                log "${sshhost}: Cant' mount sshfs, empty ssh /guest"
                 return -1
             fi
         fi
