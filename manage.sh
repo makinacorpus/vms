@@ -862,7 +862,7 @@ mount_vm() {
             if [ ! -e "${VM}/${host}" ];then mkdir -p "${VM}/${host}";fi
             if [ "x${sshhost}" != "x" ];then
                 log "Mounting devhost(${sshhost}):/ --sshfs--> ${VM}/${host}"
-                sshfshelp=$(sshfs --help)
+                sshfshelp=$(sshfs --help 2>&1)
                 sshopts="transform_symlinks,reconnect,BatchMode=yes"
                 if [[ "x$UNAME" != "xDarwin" ]];then
                     sshopts="${sshopts},Compression=no,Cipher=aes128-cbc,kernel_cache"
